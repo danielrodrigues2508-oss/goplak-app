@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GoPlacas - Gestão de Displays e Avaliações Google",
-  description: "Plataforma de gestão de displays e inteligência de vendas GoPlacas",
+  title: "TagPlak - Gestão de Displays e Avaliações Google",
+  description: "Plataforma de gestão de displays e inteligência de vendas TagPlak",
 };
 
 export default function RootLayout({

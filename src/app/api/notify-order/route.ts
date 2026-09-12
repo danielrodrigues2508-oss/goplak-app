@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const adminPhone = process.env.ADMIN_WHATSAPP_PHONE;
     const apiKey = process.env.CALLMEBOT_API_KEY;
 
-    let mensagem = "🔔 *GoPlacas Alerta*\nHá um novo pedido de display pendente no sistema.\n";
+    let mensagem = "🔔 *TagPlak Alerta*\nHá um novo pedido de display pendente no sistema.\n";
     if (alunoNome) mensagem += `👤 Aluno: ${alunoNome}\n`;
     if (quantidade) mensagem += `📦 Quantidade: ${quantidade} displays\n`;
     if (codigoInicio && codigoFim) mensagem += `🏷️ Intervalo: ${codigoInicio} a ${codigoFim}\n`;

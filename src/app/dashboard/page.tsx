@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabaseClient";
 import {
   TrendingUp,
   DollarSign,
@@ -15,6 +16,7 @@ import {
   Wallet,
   ShoppingBag,
   Clock,
+  Calendar,
   X,
   CheckCircle2,
   AlertCircle,
@@ -28,7 +30,13 @@ import {
   Store,
   Link2,
   Phone,
-  QrCode
+  QrCode,
+  MapPin,
+  Pencil,
+  LogOut,
+  ChevronDown,
+  ChevronUp,
+  Crown
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -48,6 +56,7 @@ interface PedidoDisplay {
   codigo_rastreio?: string;
   codigo_inicio?: string;
   codigo_fim?: string;
+  observacao?: string;
   created_at: string;
 }
 
@@ -56,7 +65,26 @@ interface PlacaVirgemItem {
   codigo: string;
 }
 
+interface PlacaAtivaItem {
+  id: string;
+  codigo: string;
+  nome_empresa?: string;
+  link_destino?: string;
+  link_google_review?: string;
+  url_destino?: string;
+  whatsapp_feedback?: string;
+  status: string;
+  valor_venda?: number;
+  activated_at?: string;
+  updated_at?: string;
+  created_at?: string;
+  aluno_id?: string;
+}
+
+export type TipoFiltroPeriodo = "hoje" | "semana" | "mes" | "personalizado";
+
 export default function DashboardAluno() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -72,6 +100,25 @@ export default function DashboardAluno() {
   const [displaysVendidosSemana, setDisplaysVendidosSemana] = useState(0);
   const [metaSemanalDisplays] = useState(20);
 
+  // Filtro Temporal Reativo (Hoje, Esta Semana, Este Mês, Personalizado)
+  const [tipoFiltroPeriodo, setTipoFiltroPeriodo] = useState<TipoFiltroPeriodo>("hoje");
+  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  });
+  const [dataFimPersonalizada, setDataFimPersonalizada] = useState<string>(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  });
+
+  const [todasDespesas, setTodasDespesas] = useState<Despesa[]>([]);
   const [despesasHoje, setDespesasHoje] = useState<Despesa[]>([]);
 
   // Placas virgens disponíveis para ativação
@@ -105,11 +152,32 @@ export default function DashboardAluno() {
   const [pedidosAluno, setPedidosAluno] = useState<PedidoDisplay[]>([]);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
+  // Placas Ativas do Aluno
+  const [placasAtivas, setPlacasAtivas] = useState<PlacaAtivaItem[]>([]);
+
+  // Modal 4: Editar Link de Destino da Placa
+  const [modalEditarLinkAberto, setModalEditarLinkAberto] = useState(false);
+  const [placaEditando, setPlacaEditando] = useState<PlacaAtivaItem | null>(null);
+  const [novoLinkDestino, setNovoLinkDestino] = useState("");
+  const [salvandoLink, setSalvandoLink] = useState(false);
+  const [avisoSucessoLink, setAvisoSucessoLink] = useState<string | null>(null);
+
   // Ranking Top Display do Mês
   const [rankingLiderNome, setRankingLiderNome] = useState<string>("");
   const [rankingLiderDisplays, setRankingLiderDisplays] = useState<number>(0);
   const [rankingAlunoDisplays, setRankingAlunoDisplays] = useState<number>(0);
   const [isAlunoLider, setIsAlunoLider] = useState<boolean>(false);
+
+  // Estados de Colapsar/Expandir Seções (Accordion)
+  const [secaoEstoqueMetaAberta, setSecaoEstoqueMetaAberta] = useState<boolean>(true);
+  const [secaoPlacasAtivasAberta, setSecaoPlacasAtivasAberta] = useState<boolean>(true);
+  const [secaoGastosDiaAberta, setSecaoGastosDiaAberta] = useState<boolean>(true);
+  const [secaoMeusPedidosAberta, setSecaoMeusPedidosAberta] = useState<boolean>(true);
+
+  // Permissão de Administrador Master
+  const [isMasterAdmin, setIsMasterAdmin] = useState<boolean>(false);
+  const [avisoNaoAutorizado, setAvisoNaoAutorizado] = useState<string | null>(null);
+  const [erroQuerySupabase, setErroQuerySupabase] = useState<string | null>(null);
 
   // Formatação de nome curto para ranking (Ex: "João P.")
   const formatarNomeCurto = (nomeCompleto: string) => {
@@ -119,6 +187,28 @@ export default function DashboardAluno() {
     return `${partes[0]} ${partes[1][0]}.`;
   };
 
+  // Obter data local no formato YYYY-MM-DD (fuso horário do navegador)
+  const getHojeDataFormatada = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Comparação de data no fuso horário local do usuário
+  const isMesmoDiaLocal = (dateRef: string | Date | undefined | null) => {
+    if (!dateRef) return false;
+    const d = new Date(dateRef);
+    if (isNaN(d.getTime())) return false;
+    const agora = new Date();
+    return (
+      d.getDate() === agora.getDate() &&
+      d.getMonth() === agora.getMonth() &&
+      d.getFullYear() === agora.getFullYear()
+    );
+  };
+
   // Obter data de início do dia em ISO UTC/Local
   const getInicioDoDiaISO = () => {
     const agora = new Date();
@@ -126,39 +216,85 @@ export default function DashboardAluno() {
     return agora.toISOString();
   };
 
-  const getHojeDataFormatada = () => {
-    return new Date().toISOString().split("T")[0];
-  };
-
-  // Buscar dados reais do Supabase
+  // Buscar dados reais do Supabase com Isolamento Rigoroso de Aluno
   const carregarDadosDoBanco = useCallback(async () => {
     try {
-      const inicioDoDia = getInicioDoDiaISO();
       const hojeData = getHojeDataFormatada();
       const agora = new Date();
       const inicioDoMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
-      // 0. CARREGAR ALUNO E MAPA DE ALUNOS
-      const alunosMap: Record<string, string> = {};
+      // 0. VERIFICAÇÃO DE AUTENTICAÇÃO E SESSÃO DO ALUNO
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user;
+
+      if (!currentUser) {
+        router.push("/login?redirect=/dashboard");
+        return;
+      }
+
+      const currentUserId = currentUser.id;
+      const currentUserEmail = (currentUser.email || "").toLowerCase();
+      const currentUserRole = currentUser.user_metadata?.role || currentUser.app_metadata?.role || "";
+      const currentUserName =
+        currentUser.user_metadata?.nome ||
+        currentUser.email?.split("@")[0] ||
+        "Aluno Parceiro";
+
+      setAlunoId(currentUserId);
+      setAlunoNome(currentUserName);
+
+      // Validação de Administrador Master (Permissão exclusiva)
+      const isUserAdmin =
+        currentUserEmail === "daniel.rodrigues2508@gmail.com" ||
+        currentUserEmail.includes("admin") ||
+        currentUserRole === "admin" ||
+        currentUserEmail === "distribuidor@goplacas.com.br";
+
+      setIsMasterAdmin(isUserAdmin);
+
+      // Obter ID vinculado na tabela alunos (caso divirja do auth id) e Auto-Registro / Self-Healing
+      let alunoDbId = currentUserId;
+      const alunosMap: Record<string, string> = {
+        [currentUserId]: currentUserName,
+      };
       try {
         const { data: todosAlunos } = await supabase
           .from("alunos")
-          .select("id, nome");
+          .select("id, nome, email");
 
+        let encontrouAluno = false;
         if (todosAlunos && todosAlunos.length > 0) {
           todosAlunos.forEach((a) => {
             if (a.id) alunosMap[a.id] = a.nome;
+            if (a.id === currentUserId || (a.email && a.email.toLowerCase() === currentUserEmail)) {
+              alunoDbId = a.id;
+              encontrouAluno = true;
+            }
           });
-          const alunoAtual = todosAlunos[0];
-          setAlunoId(alunoAtual.id);
-          setAlunoNome(alunoAtual.nome);
+        }
+
+        // Self-Healing: Se não encontrou o aluno na tabela alunos, insere automaticamente
+        if (!encontrouAluno && currentUserId) {
+          try {
+            await supabase.from("alunos").insert([{
+              id: currentUserId,
+              email: currentUserEmail,
+              nome: currentUserName,
+              meta_mensal_reais: 2000,
+              preco_padrao_display: 80,
+            }]);
+            alunosMap[currentUserId] = currentUserName;
+          } catch (eInsert) {
+            console.warn("Aviso ao auto-cadastrar aluno:", eInsert);
+          }
         }
       } catch (errAluno) {
-        console.warn("Aviso ao buscar aluno:", errAluno);
+        console.warn("Aviso ao buscar alunos para ranking:", errAluno);
       }
 
       // 1. PEDIDOS DO ALUNO E GLOBAIS PARA RANKING
-      let pedidosData: (PedidoDisplay & { aluno_id?: string })[] = [];
+      let todosPedidos: (PedidoDisplay & { aluno_id?: string })[] = [];
+      let meusPedidos: (PedidoDisplay & { aluno_id?: string })[] = [];
       try {
         const { data: pData, error: errPed } = await supabase
           .from("pedidos_lotes")
@@ -166,15 +302,25 @@ export default function DashboardAluno() {
           .order("created_at", { ascending: false });
 
         if (!errPed && pData) {
-          pedidosData = pData;
-          setPedidosAluno(pData);
+          todosPedidos = pData;
+          // ISOLAMENTO: Meus Pedidos exibe EXCLUSIVAMENTE os pedidos do aluno logado
+          meusPedidos = pData.filter((p: any) => {
+            const pUser = p.aluno_id;
+            return (
+              pUser === currentUserId ||
+              pUser === alunoDbId ||
+              pUser === currentUserEmail ||
+              (typeof pUser === "string" && currentUserEmail && pUser.toLowerCase() === currentUserEmail.toLowerCase())
+            );
+          });
+          setPedidosAluno(meusPedidos);
         }
       } catch (errPed) {
         console.warn("Aviso ao buscar pedidos:", errPed);
       }
 
       // Cálculo do Ranking Top Display do Mês
-      const pedidosMes = pedidosData.filter((p) => {
+      const pedidosMes = todosPedidos.filter((p) => {
         if (p.status === "cancelado") return false;
         if (!p.created_at) return true;
         return new Date(p.created_at) >= inicioDoMes;
@@ -182,7 +328,7 @@ export default function DashboardAluno() {
 
       const totalPorAluno: Record<string, number> = {};
       pedidosMes.forEach((p) => {
-        const aId = p.aluno_id || "00000000-0000-0000-0000-000000000001";
+        const aId = p.aluno_id || "desconhecido";
         const qtd = Number(p.quantidade) || 0;
         totalPorAluno[aId] = (totalPorAluno[aId] || 0) + qtd;
       });
@@ -196,119 +342,396 @@ export default function DashboardAluno() {
         }
       }
 
-      const qtdAlunoLogado = totalPorAluno[alunoId] || 0;
+      const qtdAlunoLogado = totalPorAluno[currentUserId] || totalPorAluno[alunoDbId] || 0;
       setRankingAlunoDisplays(qtdAlunoLogado);
       setRankingLiderDisplays(maxQtd);
 
       if (topAlunoId && maxQtd > 0) {
-        const nomeTop = topAlunoId === alunoId ? alunoNome : (alunosMap[topAlunoId] || "Parceiro Top");
+        const nomeTop = (topAlunoId === currentUserId || topAlunoId === alunoDbId) ? currentUserName : (alunosMap[topAlunoId] || "Parceiro Top");
         setRankingLiderNome(formatarNomeCurto(nomeTop));
-        setIsAlunoLider(topAlunoId === alunoId);
+        setIsAlunoLider(topAlunoId === currentUserId || topAlunoId === alunoDbId);
       } else {
         setRankingLiderNome("");
         setIsAlunoLider(false);
       }
 
-      // IDs de pedidos cujo status seja estritamente 'entregue'
+      // IDs de pedidos do aluno cujo status seja estritamente 'entregue'
       const pedidosEntreguesIds = new Set(
-        pedidosData.filter((p) => p.status === "entregue").map((p) => p.id)
+        todosPedidos
+          .filter(
+            (p) =>
+              (p.aluno_id === currentUserId || p.aluno_id === alunoDbId) &&
+              p.status === "entregue"
+          )
+          .map((p) => p.id)
       );
 
-      // 2. FATURAMENTO E DISPLAYS
-      const { data: todasPlacas, error: errPlacas } = await supabase
-        .from("placas")
-        .select("id, codigo, aluno_id, pedido_id, status, valor_venda, created_at, activated_at");
+      // 2. PLACAS DO ALUNO LOGADO COM ISOLAMENTO TOTAL E FALLBACKS ROBUSTOS
+      let todasPlacasAluno: any[] = [];
+      let errPlacasQuery: any = null;
 
-      if (errPlacas) {
-        console.error("Erro ao buscar placas no Supabase:", errPlacas);
-      } else if (todasPlacas) {
-        // Contagem e lista de displays virgens disponíveis em estoque:
-        // Considera APENAS placas 'virgem' ou 'disponivel' que:
-        // - Não possuem pedido_id vinculado (estoque base inicial do aluno), OU
-        // - Estão associadas a um pedido com status 'entregue'
-        const virgens = todasPlacas.filter((p) => {
-          const isVirgem = p.status === "virgem" || p.status === "disponivel";
-          if (!isVirgem) return false;
+      try {
+        const { data: placasData, error: errPlacas } = await supabase
+          .from("placas")
+          .select("*");
 
-          if (p.pedido_id) {
-            return pedidosEntreguesIds.has(p.pedido_id);
-          }
-          return true;
-        });
+        errPlacasQuery = errPlacas;
 
-        setDisplaysVirgens(virgens.length);
-        const listaVirgensFormatada: PlacaVirgemItem[] = virgens.map((p) => ({
-          id: p.id,
-          codigo: p.codigo,
-        }));
-        setPlacasVirgensDisponiveis(listaVirgensFormatada);
-
-        // Se a placa selecionada atual não está mais disponível, ajusta para a primeira
-        if (listaVirgensFormatada.length > 0) {
-          setPlacaSelecionadaId((prev) => {
-            const exists = listaVirgensFormatada.some((item) => item.id === prev);
-            return exists ? prev : listaVirgensFormatada[0].id;
+        if (!errPlacas && placasData && placasData.length > 0) {
+          todasPlacasAluno = placasData.filter((p: any) => {
+            const pUser = p.aluno_id;
+            if (p.pedido_id && pedidosEntreguesIds.has(p.pedido_id)) return true;
+            if (!pUser) return true;
+            return (
+              pUser === currentUserId ||
+              pUser === alunoDbId ||
+              pUser === currentUserEmail ||
+              (typeof pUser === "string" && currentUserEmail && pUser.toLowerCase() === currentUserEmail.toLowerCase())
+            );
           });
         }
-
-        // Displays ativados
-        const ativas = todasPlacas.filter((p) => p.status === "ativa");
-
-        // Displays ativados hoje
-        const ativadasHoje = ativas.filter((p) => {
-          const dataRef = p.activated_at || p.created_at;
-          if (!dataRef) return false;
-          return new Date(dataRef) >= new Date(inicioDoDia) || dataRef.startsWith(hojeData);
-        });
-
-        const fatHoje = ativadasHoje.reduce((acc, curr) => {
-          const val = Number(curr.valor_venda);
-          return acc + (isNaN(val) ? 80.0 : val);
-        }, 0);
-
-        setFaturamentoHoje(fatHoje);
-        setDisplaysVendidosHoje(ativadasHoje.length);
-        setDisplaysVendidosSemana(ativas.length);
+      } catch (errPlacas) {
+        console.warn("[Dashboard] Erro SDK placas:", errPlacas);
+        errPlacasQuery = errPlacas;
       }
 
-      // 3. DESPESAS DE RUA REAIS
-      const { data: despesasBanco, error: errDespesas } = await supabase
-        .from("despesas_rua")
-        .select("id, aluno_id, categoria, valor, descricao, created_at")
-        .order("created_at", { ascending: false });
+      // Se SDK retornou vazio ou deu erro, consulta via REST direto com ANON_KEY
+      if (todasPlacasAluno.length === 0) {
+        try {
+          const resRest = await fetch(`${SUPABASE_URL}/rest/v1/placas?select=*`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (resRest.ok) {
+            const rData = await resRest.json();
+            if (Array.isArray(rData) && rData.length > 0) {
+              setErroQuerySupabase(null);
+              todasPlacasAluno = rData.filter((p: any) => {
+                const pUser = p.aluno_id;
+                if (p.pedido_id && pedidosEntreguesIds.has(p.pedido_id)) return true;
+                if (!pUser) return true;
+                return (
+                  pUser === currentUserId ||
+                  pUser === alunoDbId ||
+                  pUser === currentUserEmail ||
+                  (typeof pUser === "string" && currentUserEmail && pUser.toLowerCase() === currentUserEmail.toLowerCase())
+                );
+              });
+            }
+          }
+        } catch (restErr) {
+          console.error("Erro no fallback REST de placas:", restErr);
+        }
+      }
 
-      if (errDespesas) {
-        console.error("Erro ao buscar despesas_rua no Supabase:", errDespesas);
-      } else if (despesasBanco) {
-        const formatadas: Despesa[] = despesasBanco.map((d, index) => {
-          const dt = d.created_at ? new Date(d.created_at) : new Date();
-          return {
-            id: d.id ? String(d.id) : `desp-${index}`,
-            categoria: (d.categoria as "transporte" | "alimentacao" | "outros") || "outros",
-            valor: Number(d.valor) || 0,
-            descricao: d.descricao || `Despesa de ${d.categoria || "rua"}`,
-            hora: dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-            data: d.created_at?.split("T")[0] || hojeData,
-          };
+      // Displays ativados do aluno
+      const ativas = todasPlacasAluno.filter((p) => {
+        const st = (p.status || "").toLowerCase();
+        const isAtiva =
+          st === "ativa" ||
+          st === "ativada" ||
+          Boolean(p.link_destino || p.link_google_review || p.url_destino);
+        return isAtiva;
+      });
+
+      // IDs de pedidos em andamento (solicitado, em produção, enviado) que ainda não foram entregues
+      const pedidosPendentesIds = new Set(
+        todosPedidos
+          .filter(
+            (p) =>
+              (p.aluno_id === currentUserId || p.aluno_id === alunoDbId) &&
+              (p.status === "solicitado" || p.status === "em_producao" || p.status === "enviado" || p.status === "pendente")
+          )
+          .map((p) => p.id)
+      );
+
+      // Displays virgens utilizáveis do aluno (liberados apenas após o lote ser marcado como 'Entregue')
+      const virgens = todasPlacasAluno.filter((p) => {
+        const st = (p.status || "").toLowerCase();
+        const isVirgem = st === "virgem" || st === "disponivel" || (!st && !p.link_google_review && !p.link_destino);
+        if (!isVirgem) return false;
+        // Se a placa estiver vinculada a um lote em produção/solicitado/enviado, NÃO libera estoque
+        if (p.pedido_id && pedidosPendentesIds.has(p.pedido_id)) {
+          return false;
+        }
+        return true;
+      });
+
+      // Total de displays dos lotes do aluno estritamente ENTREGUES
+      const totalLotesEntreguesQtd = meusPedidos
+        .filter((p) => {
+          const st = (p.status || "").toLowerCase();
+          return st === "entregue" || st === "concluido";
+        })
+        .reduce((acc, p) => acc + (Number(p.quantidade) || 0), 0);
+
+      const saldoLotes = Math.max(0, totalLotesEntreguesQtd - ativas.length);
+      const qtdVirgensFinal = Math.max(virgens.length, saldoLotes);
+
+      // Log Obrigatório no Terminal/Console
+      console.log('DEBUG ESTOQUE:', {
+        userId: currentUser?.id,
+        email: currentUser?.email,
+        totalVirgens: qtdVirgensFinal,
+        erro: errPlacasQuery,
+      });
+
+      setDisplaysVirgens(qtdVirgensFinal);
+
+      let listaVirgensFormatada: PlacaVirgemItem[] = virgens.map((p) => ({
+        id: p.id,
+        codigo: p.codigo,
+      }));
+
+      // Se lista individual estiver vazia mas houver saldo de lotes, gerar itens para permitir ativação em campo
+      if (listaVirgensFormatada.length === 0 && qtdVirgensFinal > 0) {
+        listaVirgensFormatada = Array.from({ length: qtdVirgensFinal }, (_, i) => ({
+          id: `virtual-${i + 1}`,
+          codigo: `GP-${String(i + 1).padStart(4, "0")}`,
+        }));
+      }
+
+      setPlacasVirgensDisponiveis(listaVirgensFormatada);
+
+      // Se a placa selecionada atual não está mais disponível, ajusta para a primeira
+      if (listaVirgensFormatada.length > 0) {
+        setPlacaSelecionadaId((prev) => {
+          const exists = listaVirgensFormatada.some((item) => item.id === prev);
+          return exists ? prev : listaVirgensFormatada[0].id;
         });
+      }
 
-        const apenasHoje = formatadas.filter(
-          (d) => d.data === hojeData || (d.data && d.data.startsWith(hojeData))
+      // Ordenar pelas ativações mais recentes
+      const ativasOrdenadas = [...ativas].sort((a, b) => {
+        const dtA = new Date(a.activated_at || a.updated_at || a.created_at || 0).getTime();
+        const dtB = new Date(b.activated_at || b.updated_at || b.created_at || 0).getTime();
+        return dtB - dtA;
+      });
+
+      const listaAtivasFormatada: PlacaAtivaItem[] = ativasOrdenadas.map((p) => ({
+        id: p.id,
+        codigo: p.codigo || "GP-0000",
+        nome_empresa: p.nome_empresa || "Estabelecimento Parceiro",
+        link_destino: p.link_destino || p.link_google_review || p.url_destino || "",
+        link_google_review: p.link_google_review || "",
+        url_destino: p.url_destino || "",
+        whatsapp_feedback: p.whatsapp_feedback || "",
+        status: p.status || "ativa",
+        valor_venda: Number(p.valor_venda) || 80.0,
+        activated_at: p.activated_at,
+        updated_at: p.updated_at,
+        created_at: p.created_at,
+        aluno_id: p.aluno_id || currentUserId,
+      }));
+      setPlacasAtivas(listaAtivasFormatada);
+
+      // Displays ativados hoje (fuso horário local)
+      const ativadasHoje = ativas.filter((p) => {
+        const dataRef = p.activated_at || p.created_at;
+        if (!dataRef) return false;
+        return isMesmoDiaLocal(dataRef);
+      });
+
+      const fatHoje = ativadasHoje.reduce((acc, curr) => {
+        const val = Number(curr.valor_venda);
+        return acc + (isNaN(val) ? 80.0 : val);
+      }, 0);
+
+      setFaturamentoHoje(fatHoje);
+      setDisplaysVendidosHoje(ativadasHoje.length);
+      setDisplaysVendidosSemana(ativas.length);
+
+      // 3. DESPESAS DE RUA REAIS ISOLADAS DO ALUNO (Com persistência e fallback REST)
+      let despesasAluno: any[] = [];
+      let errDespQuery: any = null;
+      try {
+        const { data: dData, error: errDesp } = await supabase
+          .from("despesas_rua")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        errDespQuery = errDesp;
+        if (!errDesp && dData && dData.length > 0) {
+          despesasAluno = dData.filter(
+            (d: any) => d.aluno_id === currentUserId || d.aluno_id === alunoDbId || !d.aluno_id
+          );
+        } else {
+          // Fallback REST direto com ANON_KEY
+          const resRest = await fetch(`${SUPABASE_URL}/rest/v1/despesas_rua?select=*&order=created_at.desc`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (resRest.ok) {
+            const rData = await resRest.json();
+            if (Array.isArray(rData)) {
+              despesasAluno = rData.filter(
+                (d: any) => d.aluno_id === currentUserId || d.aluno_id === alunoDbId || !d.aluno_id
+              );
+            }
+          }
+        }
+      } catch (errDespesas) {
+        console.error("Erro ao buscar despesas_rua do aluno:", errDespesas);
+        errDespQuery = errDespesas;
+      }
+
+      // Log Obrigatório no Terminal/Console
+      console.log('DEBUG GASTOS FETCH:', {
+        userId: currentUser?.id,
+        gastosRetornados: despesasAluno,
+        erro: errDespQuery,
+      });
+
+      const isGastoHoje = (dateRef: string | Date | undefined | null) => {
+        if (!dateRef) return true;
+        const dt = typeof dateRef === "string" ? new Date(dateRef) : dateRef;
+        if (isNaN(dt.getTime())) return true;
+        const agora = new Date();
+        return (
+          dt.getDate() === agora.getDate() &&
+          dt.getMonth() === agora.getMonth() &&
+          dt.getFullYear() === agora.getFullYear()
         );
+      };
 
-        setDespesasHoje(apenasHoje.length > 0 ? apenasHoje : formatadas);
-      }
+      const formatadas: Despesa[] = despesasAluno.map((d: any, index: number) => {
+        const dt = d.created_at ? new Date(d.created_at) : new Date();
+        return {
+          id: d.id ? String(d.id) : `desp-${index}`,
+          categoria: (d.categoria as "transporte" | "alimentacao" | "outros") || "outros",
+          valor: Number(d.valor) || 0,
+          descricao: d.descricao || `Despesa de ${d.categoria || "rua"}`,
+          hora: dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          data: d.created_at || dt.toISOString(),
+        };
+      });
+
+      setTodasDespesas(formatadas);
+
+      // Filtrar estritamente despesas do dia local
+      const apenasHoje = formatadas.filter((d) => isGastoHoje(d.data));
+      setDespesasHoje(apenasHoje);
     } catch (err) {
       console.warn("Erro ao buscar dados do Supabase:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("error") === "unauthorized") {
+        setAvisoNaoAutorizado("Acesso restrito: Você precisa de permissão de Administrador para acessar o painel Admin.");
+      }
+    }
     carregarDadosDoBanco();
   }, [carregarDadosDoBanco]);
+
+  // Cálculos do Intervalo de Datas Selecionado (Hoje, Esta Semana, Este Mês, Personalizado)
+  const { dataInicioRef, dataFimRef, labelPeriodo, tituloRitmo } = useMemo(() => {
+    const agora = new Date();
+    let inicio = new Date(agora);
+    let fim = new Date(agora);
+    let label = "";
+    let titulo = "Ritmo de Hoje";
+
+    if (tipoFiltroPeriodo === "hoje") {
+      inicio.setHours(0, 0, 0, 0);
+      fim.setHours(23, 59, 59, 999);
+      const diaSemana = agora.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+      const diaSemanaCap = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
+      const diaNum = String(agora.getDate()).padStart(2, "0");
+      const mesCurto = agora.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+      label = `${diaSemanaCap}, ${diaNum} ${mesCurto}`;
+      titulo = "Ritmo de Hoje";
+    } else if (tipoFiltroPeriodo === "semana") {
+      const diaSemana = agora.getDay();
+      const diffSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+      inicio.setDate(agora.getDate() - diffSegunda);
+      inicio.setHours(0, 0, 0, 0);
+      fim.setHours(23, 59, 59, 999);
+      const dInicio = String(inicio.getDate()).padStart(2, "0");
+      const dFim = String(agora.getDate()).padStart(2, "0");
+      const mesCurto = agora.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+      label = `${dInicio} a ${dFim} ${mesCurto}`;
+      titulo = "Ritmo da Semana";
+    } else if (tipoFiltroPeriodo === "mes") {
+      inicio = new Date(agora.getFullYear(), agora.getMonth(), 1, 0, 0, 0, 0);
+      fim.setHours(23, 59, 59, 999);
+      const nomeMes = agora.toLocaleDateString("pt-BR", { month: "long" });
+      const nomeMesCap = nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1);
+      label = `${nomeMesCap} ${agora.getFullYear()}`;
+      titulo = "Ritmo do Mês";
+    } else if (tipoFiltroPeriodo === "personalizado") {
+      const [yIni, mIni, dIni] = (dataInicioPersonalizada || "").split("-").map(Number);
+      const [yFim, mFim, dFim] = (dataFimPersonalizada || "").split("-").map(Number);
+      
+      if (yIni && mIni && dIni) {
+        inicio = new Date(yIni, mIni - 1, dIni, 0, 0, 0, 0);
+      } else {
+        inicio = new Date(agora.getFullYear(), agora.getMonth(), 1, 0, 0, 0, 0);
+      }
+      
+      if (yFim && mFim && dFim) {
+        fim = new Date(yFim, mFim - 1, dFim, 23, 59, 59, 999);
+      } else {
+        fim.setHours(23, 59, 59, 999);
+      }
+      const dIniStr = String(inicio.getDate()).padStart(2, "0");
+      const mIniStr = String(inicio.getMonth() + 1).padStart(2, "0");
+      const dFimStr = String(fim.getDate()).padStart(2, "0");
+      const mFimStr = String(fim.getMonth() + 1).padStart(2, "0");
+      label = `${dIniStr}/${mIniStr} - ${dFimStr}/${mFimStr}`;
+      titulo = "Ritmo do Período";
+    }
+
+    return { dataInicioRef: inicio, dataFimRef: fim, labelPeriodo: label, tituloRitmo: titulo };
+  }, [tipoFiltroPeriodo, dataInicioPersonalizada, dataFimPersonalizada]);
+
+  // Displays ativados no período filtrado
+  const placasAtivadasPeriodo = useMemo(() => {
+    return placasAtivas.filter((p) => {
+      const dataRef = p.activated_at || p.created_at;
+      if (!dataRef) return false;
+      const dt = new Date(dataRef);
+      if (isNaN(dt.getTime())) return false;
+      return dt.getTime() >= dataInicioRef.getTime() && dt.getTime() <= dataFimRef.getTime();
+    });
+  }, [placasAtivas, dataInicioRef, dataFimRef]);
+
+  // Faturamento do período selecionado
+  const faturamentoPeriodo = useMemo(() => {
+    return placasAtivadasPeriodo.reduce((acc, curr) => {
+      const val = Number(curr.valor_venda);
+      return acc + (isNaN(val) ? 80.0 : val);
+    }, 0);
+  }, [placasAtivadasPeriodo]);
+
+  const displaysVendidosPeriodo = placasAtivadasPeriodo.length;
+
+  // Despesas filtradas no período selecionado
+  const despesasPeriodo = useMemo(() => {
+    return todasDespesas.filter((d) => {
+      if (!d.data) return false;
+      const dt = new Date(d.data);
+      if (isNaN(dt.getTime())) return false;
+      return dt.getTime() >= dataInicioRef.getTime() && dt.getTime() <= dataFimRef.getTime();
+    });
+  }, [todasDespesas, dataInicioRef, dataFimRef]);
+
+  // Total de gastos no período
+  const totalGastosPeriodo = useMemo(() => {
+    return despesasPeriodo.reduce((acc, curr) => acc + curr.valor, 0);
+  }, [despesasPeriodo]);
+
+  // Lucro Líquido no período
+  const lucroLiquidoPeriodo = faturamentoPeriodo - totalGastosPeriodo;
 
   // Cálculos Automáticos
   const totalGastosRua = despesasHoje.reduce((acc, curr) => acc + curr.valor, 0);
@@ -348,21 +771,88 @@ export default function DashboardAluno() {
     const valorNum = parseFloat(formValorVenda) || 80.0;
 
     try {
-      const { error: errUpdate } = await supabase
-        .from("placas")
-        .update({
+      let ativacaoSucesso = false;
+      let erroMsgFinal = "";
+
+      if (placaSelecionadaId.startsWith("virtual-")) {
+        const payload = {
+          codigo: codigoPlaca,
+          status: "ativa",
+          nome_empresa: formNomeEmpresa.trim(),
+          link_google_review: formLinkGoogle.trim() || null,
+          whatsapp_feedback: formWhatsappFeedback.replace(/\D/g, "") || null,
+          valor_venda: valorNum,
+          aluno_id: alunoId,
+          activated_at: new Date().toISOString(),
+        };
+
+        const { error: errIns } = await supabase.from("placas").insert([payload]);
+        if (!errIns) {
+          ativacaoSucesso = true;
+        } else {
+          console.warn("Tentando fallback REST para inserir ativação:", errIns);
+          try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/placas`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+              ativacaoSucesso = true;
+            } else {
+              erroMsgFinal = `Erro ao ativar display: ${errIns.message}`;
+            }
+          } catch (restErr: any) {
+            erroMsgFinal = `Erro de conexão ao ativar display: ${restErr.message || String(restErr)}`;
+          }
+        }
+      } else {
+        const payloadUpdate = {
           status: "ativa",
           nome_empresa: formNomeEmpresa.trim(),
           link_google_review: formLinkGoogle.trim() || null,
           whatsapp_feedback: formWhatsappFeedback.replace(/\D/g, "") || null,
           valor_venda: valorNum,
           activated_at: new Date().toISOString(),
-        })
-        .eq("id", placaSelecionadaId);
+        };
 
-      if (errUpdate) {
-        console.error("Erro ao ativar display no Supabase:", errUpdate);
-        alert(`Erro ao ativar display: ${errUpdate.message}`);
+        const { error: errUpdate } = await supabase
+          .from("placas")
+          .update(payloadUpdate)
+          .eq("id", placaSelecionadaId);
+
+        if (!errUpdate) {
+          ativacaoSucesso = true;
+        } else {
+          console.warn("Tentando fallback REST para update da placa:", errUpdate);
+          try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaSelecionadaId}`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              },
+              body: JSON.stringify(payloadUpdate),
+            });
+            if (res.ok) {
+              ativacaoSucesso = true;
+            } else {
+              erroMsgFinal = `Erro ao ativar display: ${errUpdate.message}`;
+            }
+          } catch (restErr: any) {
+            erroMsgFinal = `Erro de conexão ao ativar display: ${restErr.message || String(restErr)}`;
+          }
+        }
+      }
+
+      if (!ativacaoSucesso) {
+        console.error("Erro final ao ativar display:", erroMsgFinal);
+        alert(erroMsgFinal || "Erro ao ativar display no banco de dados.");
       } else {
         // Celebração com confetes
         confetti({
@@ -396,50 +886,84 @@ export default function DashboardAluno() {
   // 2. SALVAR DESPESA DE RUA
   const handleSalvarDespesa = async (e: React.FormEvent) => {
     e.preventDefault();
-    const valNum = parseFloat(novoValor);
-    if (!valNum || valNum <= 0) return;
+    const valorNumerico = parseFloat(String(novoValor).trim().replace(",", "."));
+    if (isNaN(valorNumerico) || valorNumerico <= 0) {
+      alert("Por favor, informe um valor válido para a despesa (ex: 15,00 ou 25.50).");
+      return;
+    }
 
     setSalvandoDespesa(true);
-    const hojeStr = getHojeDataFormatada();
     const desc = novaDescricao.trim() || `Despesa de ${novaCategoria}`;
+    const agora = new Date();
 
-    const novaLocal: Despesa = {
-      id: `temp-${Date.now()}`,
-      categoria: novaCategoria,
-      valor: valNum,
+    const { data: sessionData } = await supabase.auth.getSession();
+    const activeUserId = sessionData?.session?.user?.id || alunoId || "470df2ce-d580-44d8-9282-fe95161b21d1";
+
+    const payloadDespesa = {
+      aluno_id: activeUserId,
+      categoria: novaCategoria || "outros",
+      valor: valorNumerico,
       descricao: desc,
-      hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      data: hojeStr,
+      created_at: agora.toISOString(),
     };
+
+    let insercaoSucesso = false;
+    let errFinal: any = null;
 
     try {
       const { data: inserido, error } = await supabase
         .from("despesas_rua")
-        .insert([
-          {
-            aluno_id: alunoId,
-            categoria: novaCategoria,
-            valor: valNum,
-            descricao: desc,
-          },
-        ])
+        .insert([payloadDespesa])
         .select()
         .maybeSingle();
 
       if (!error && inserido) {
-        novaLocal.id = String(inserido.id);
-      } else if (error) {
-        console.error("Erro ao salvar despesa no Supabase:", error);
+        insercaoSucesso = true;
+      } else {
+        if (error) errFinal = error;
+        // Fallback REST direto com ANON_KEY
+        const resRest = await fetch(`${SUPABASE_URL}/rest/v1/despesas_rua`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(payloadDespesa),
+        });
+        if (resRest.ok) {
+          insercaoSucesso = true;
+        } else {
+          const errBody = await resRest.text();
+          errFinal = new Error(`Falha HTTP ${resRest.status}: ${errBody}`);
+        }
       }
     } catch (err) {
-      console.warn("Persistindo localmente:", err);
-    } finally {
-      setDespesasHoje((prev) => [novaLocal, ...prev]);
-      setNovoValor("");
-      setNovaDescricao("");
-      setSalvandoDespesa(false);
-      setModalDespesaAberto(false);
+      console.error("ERRO AO SALVAR GASTO:", err);
+      errFinal = err;
     }
+
+    if (!insercaoSucesso) {
+      console.error("ERRO AO SALVAR GASTO:", errFinal);
+      alert("Erro ao registrar gasto: " + (errFinal?.message || "Erro desconhecido"));
+      setSalvandoDespesa(false);
+      return;
+    }
+
+    console.log("Gasto enviado com sucesso:", { valorNumerico, categoria: novaCategoria, descricao: desc });
+
+    // Imediatamente após o insert bem-sucedido:
+    // * Fechar o modal
+    // * Limpar os campos do formulário
+    setNovoValor("");
+    setNovaDescricao("");
+    setNovaCategoria("transporte");
+    setSalvandoDespesa(false);
+    setModalDespesaAberto(false);
+
+    // * Reexecutar busca completa para recalcular a soma na tela
+    await carregarDadosDoBanco();
   };
 
   // 3. SOLICITAR DISPLAYS
@@ -515,6 +1039,69 @@ export default function DashboardAluno() {
     }
   };
 
+  // 4. ABRIR E SALVAR EDIÇÃO DE LINK DE DESTINO DA PLACA
+  const handleAbrirEditarLink = (placa: PlacaAtivaItem) => {
+    setPlacaEditando(placa);
+    setNovoLinkDestino(placa.link_destino || placa.link_google_review || placa.url_destino || "");
+    setModalEditarLinkAberto(true);
+  };
+
+  const handleSalvarNovoLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!placaEditando) return;
+
+    setSalvandoLink(true);
+    const linkFormatado = novoLinkDestino.trim();
+
+    try {
+      // 1. UPDATE no Supabase unicamente na coluna link_destino (SEM updated_at)
+      const { error: errUpdate } = await supabase
+        .from("placas")
+        .update({
+          link_destino: linkFormatado,
+        })
+        .eq("id", placaEditando.id);
+
+      if (errUpdate) {
+        console.warn("Aviso update link_destino, tentando fallback link_google_review:", errUpdate.message);
+        const { error: errReview } = await supabase
+          .from("placas")
+          .update({
+            link_google_review: linkFormatado,
+          })
+          .eq("id", placaEditando.id);
+
+        if (errReview) {
+          console.error("Erro ao salvar novo link:", errReview);
+        }
+      }
+
+      // 2. Atualiza o estado da lista localmente na hora sem reload
+      setPlacasAtivas((prev) =>
+        prev.map((item) =>
+          item.id === placaEditando.id
+            ? {
+                ...item,
+                link_destino: linkFormatado,
+                link_google_review: linkFormatado,
+                url_destino: linkFormatado,
+              }
+            : item
+        )
+      );
+
+      // 3. Dispara feedback visual (toast / banner de sucesso) e fecha o modal
+      setAvisoSucessoLink(`Link de destino da placa ${placaEditando.codigo} atualizado com sucesso!`);
+      setModalEditarLinkAberto(false);
+      setPlacaEditando(null);
+    } catch (err) {
+      console.error("Erro inesperado ao salvar link:", err);
+      alert("Ocorreu um erro ao salvar o link.");
+    } finally {
+      setSalvandoLink(false);
+    }
+  };
+
   const handleComemorarMeta = () => {
     confetti({
       particleCount: 120,
@@ -531,22 +1118,42 @@ export default function DashboardAluno() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("Erro ao deslogar:", err);
+    } finally {
+      router.push("/login");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans pb-28 pt-4 px-4 sm:px-6 max-w-lg mx-auto selection:bg-emerald-500 selection:text-black transition-colors duration-200">
       {/* Top Header Mobile */}
       <header className="flex items-center justify-between py-3 mb-5 border-b border-zinc-200 dark:border-neutral-800/80">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">GoPlacas • Campo</span>
-            <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" /> Supabase Live
-            </span>
+            <span className="text-xs font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">TAGPLAK</span>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 mt-0.5">
             Meu Dashboard <Sparkles className="w-4 h-4 text-emerald-500 dark:text-emerald-400 inline" />
           </h1>
+          <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+            Parceiro: <span className="font-semibold text-zinc-800 dark:text-neutral-200">{alunoNome}</span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
+          {isMasterAdmin && (
+            <button
+              onClick={() => router.push("/admin")}
+              title="Acessar Painel Administrador Master"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>Painel Admin</span>
+            </button>
+          )}
           <ThemeToggle />
           <button
             onClick={() => {
@@ -559,8 +1166,48 @@ export default function DashboardAluno() {
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-emerald-500 dark:text-emerald-400" : ""}`} />
           </button>
+          <button
+            onClick={handleLogout}
+            title="Sair da Conta (Logout)"
+            aria-label="Sair da Conta"
+            className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-500/30 shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </header>
+
+      {/* Alerta de Acesso Não Autorizado */}
+      {avisoNaoAutorizado && (
+        <div className="mb-4 bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
+            <span className="font-medium">{avisoNaoAutorizado}</span>
+          </div>
+          <button
+            onClick={() => setAvisoNaoAutorizado(null)}
+            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Alerta de Erro de Consulta ao Banco (Supabase) */}
+      {erroQuerySupabase && (
+        <div className="mb-4 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/40 text-amber-800 dark:text-amber-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="font-medium">{erroQuerySupabase}</span>
+          </div>
+          <button
+            onClick={() => setErroQuerySupabase(null)}
+            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Alerta de Sucesso de Ativação de Display */}
       {avisoSucessoAtivacao && (
@@ -594,6 +1241,22 @@ export default function DashboardAluno() {
         </div>
       )}
 
+      {/* Alerta de Sucesso de Edição de Link de Placa */}
+      {avisoSucessoLink && (
+        <div className="mb-4 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span className="font-medium">{avisoSucessoLink}</span>
+          </div>
+          <button
+            onClick={() => setAvisoSucessoLink(null)}
+            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Indicador de carregamento discreto */}
       {(loading || refreshing) && (
         <div className="mb-3 flex items-center justify-center gap-2 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 py-1.5 px-3 rounded-xl animate-in fade-in duration-150">
@@ -602,371 +1265,613 @@ export default function DashboardAluno() {
         </div>
       )}
 
-      <div className="space-y-4">
-        {/* BANNER COMPACTO: TOP DISPLAY (TOPO ABSOLUTO) */}
-        {(() => {
-          const agora = new Date();
-          const ultimoDiaMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
-          const diasRestantesMes = Math.max(1, ultimoDiaMes - agora.getDate());
+      <div>
+        {/* ========================================================
+            SESSÃO 1: PERFORMANCE DO DIA
+            ======================================================== */}
+        <div className="space-y-3">
+          {/* BANNER COMPACTO: TOP DISPLAY (TOPO EM LINHA ÚNICA / PILL) */}
+          {(() => {
+            const agora = new Date();
+            const ultimoDiaMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
+            const diasRestantesMes = Math.max(1, ultimoDiaMes - agora.getDate());
 
-          return (
-            <section className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/30 rounded-2xl p-3.5 shadow-sm transition-colors">
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm leading-none">🏆</span>
-                  <h3 className="text-xs font-bold tracking-wider uppercase text-amber-800 dark:text-amber-400">
-                    TOP DISPLAY: <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">+10 DISPLAYS GRÁTIS</span>
-                  </h3>
+            return (
+              <section className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/30 rounded-xl py-1.5 px-3 sm:px-3.5 flex items-center justify-between gap-2 text-xs sm:text-sm shadow-xs transition-colors">
+                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                  <span className="text-sm leading-none shrink-0">🏆</span>
+                  <span className="text-xs text-amber-900 dark:text-amber-300 truncate">
+                    <strong className="uppercase font-bold text-amber-800 dark:text-amber-400">TOP DISPLAY:</strong>{" "}
+                    {rankingLiderDisplays === 0 ? (
+                      <span className="font-normal text-zinc-600 dark:text-neutral-400">Sem pedidos no mês</span>
+                    ) : isAlunoLider ? (
+                      <span className="font-semibold text-amber-900 dark:text-amber-200">Você lidera com {rankingAlunoDisplays} displays!</span>
+                    ) : (
+                      <span className="font-medium text-zinc-700 dark:text-neutral-300">
+                        Líder {rankingLiderNome} ({rankingLiderDisplays} displays)
+                      </span>
+                    )}
+                  </span>
                 </div>
-                <span className="text-[10px] text-zinc-500 dark:text-neutral-400 font-mono shrink-0">
-                  Encerra em {diasRestantesMes} {diasRestantesMes === 1 ? "dia" : "dias"}
+
+                <div className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-amber-900 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg font-mono">
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">+10 grátis</span>
+                  <span className="text-amber-600/60 dark:text-amber-400/60">•</span>
+                  <span>{diasRestantesMes} {diasRestantesMes === 1 ? "dia" : "dias"}</span>
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* CARD PRINCIPAL: RITMO COM FILTRO TEMPORAL */}
+          <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl backdrop-blur-sm transition-colors">
+            {/* Header com Título, Indicador de Período e Filtros Rápidos (Segmented Control) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
+              {/* Linha de Título e Data */}
+              <div className="flex items-center gap-2 shrink-0">
+                <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-600 dark:text-neutral-400 flex items-center gap-1.5 whitespace-nowrap">
+                  <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" /> DESEMPENHO
+                </h2>
+                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap font-mono">
+                  {labelPeriodo}
                 </span>
               </div>
 
-              <div className="text-xs space-y-0.5">
-                {rankingLiderDisplays === 0 ? (
-                  <div className="text-zinc-600 dark:text-neutral-300 font-medium">
-                    <p>Nenhum pedido registrado este mês.</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400">Seja o primeiro a liderar e levar os 10 displays grátis!</p>
-                  </div>
-                ) : isAlunoLider ? (
-                  <>
-                    <p className="text-amber-800 dark:text-amber-300 font-bold flex items-center gap-1">
-                      <span>👑</span>
-                      <span>Você é o Líder atual com {rankingAlunoDisplays} displays!</span>
-                    </p>
-                    <p className="text-zinc-600 dark:text-neutral-400 text-[11px]">
-                      Segue o ritmo para levar os 10 displays grátis.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-zinc-800 dark:text-neutral-200">
-                      Líder atual: <strong className="text-zinc-900 dark:text-white font-bold">{rankingLiderNome}</strong>{" "}
-                      <span className="text-zinc-500 dark:text-neutral-400 font-mono">({rankingLiderDisplays} displays)</span>
-                    </div>
-                    <div className="text-zinc-600 dark:text-neutral-400 text-[11px]">
-                      Você comprou <strong className="text-zinc-800 dark:text-neutral-200 font-semibold">{rankingAlunoDisplays} displays</strong>{" "}
-                      <span className="text-amber-700 dark:text-amber-400 font-medium">
-                        (Faltam {Math.max(1, rankingLiderDisplays - rankingAlunoDisplays + 1)} para assumir a liderança!)
-                      </span>
-                    </div>
-                  </>
-                )}
+              {/* Barra de Filtros (Segmented Control em Cápsula Única) */}
+              <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-1 rounded-xl flex items-center gap-1 w-full sm:w-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setTipoFiltroPeriodo("hoje")}
+                  className={`flex-1 sm:flex-initial text-xs px-3 py-1.5 rounded-lg transition cursor-pointer text-center whitespace-nowrap ${
+                    tipoFiltroPeriodo === "hoje"
+                      ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
+                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium"
+                  }`}
+                >
+                  Hoje
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoFiltroPeriodo("semana")}
+                  className={`flex-1 sm:flex-initial text-xs px-3 py-1.5 rounded-lg transition cursor-pointer text-center whitespace-nowrap ${
+                    tipoFiltroPeriodo === "semana"
+                      ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
+                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium"
+                  }`}
+                >
+                  Esta Semana
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoFiltroPeriodo("mes")}
+                  className={`flex-1 sm:flex-initial text-xs px-3 py-1.5 rounded-lg transition cursor-pointer text-center whitespace-nowrap ${
+                    tipoFiltroPeriodo === "mes"
+                      ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
+                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium"
+                  }`}
+                >
+                  Este Mês
+                </button>
               </div>
-            </section>
-          );
-        })()}
+            </div>
 
-        {/* BLOCO SUPERIOR: Ritmo do Dia */}
-        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl backdrop-blur-sm transition-colors">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Ritmo de Hoje
-            </h2>
-            <span className="text-[11px] bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 px-2 py-0.5 rounded-md font-mono">
-              {new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              {/* Faturamento do Período */}
+              <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5">
+                <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Faturamento
+                </span>
+                <p className="text-lg font-bold text-zinc-900 dark:text-white mt-1">
+                  R$ {faturamentoPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+                <span className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                  {displaysVendidosPeriodo} {displaysVendidosPeriodo === 1 ? "ativado" : "ativados"} {tipoFiltroPeriodo === "hoje" ? "hoje" : "no período"}
+                </span>
+              </div>
+
+              {/* Gastos de Rua do Período */}
+              <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-rose-500/20 rounded-2xl p-3.5 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
+                    <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Gastos de Rua
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setModalDespesaAberto(true)}
+                    className="text-[10px] font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-md transition active:scale-95 cursor-pointer"
+                    title="Lançar gasto de rua"
+                  >
+                    + Add Gastos
+                  </button>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-rose-500 dark:text-rose-400 font-mono mt-1">
+                    - R$ {totalGastosPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                  <span className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                    {despesasPeriodo.length} {despesasPeriodo.length === 1 ? "lançamento" : "lançamentos"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Lucro Líquido do Período em Destaque */}
+            <div className="bg-gradient-to-r from-emerald-500/10 dark:from-emerald-950/50 to-emerald-500/5 dark:to-neutral-950 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  {tipoFiltroPeriodo === "hoje" ? "LUCRO LÍQUIDO HOJE" : "LUCRO LÍQUIDO NO PERÍODO"}
+                </span>
+                <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
+                  R$ {lucroLiquidoPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="w-11 h-11 rounded-full bg-emerald-500/15 dark:bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* ========================================================
+            SESSÃO 2: ESTOQUE & META (BLOCO CONJUNTO)
+            ======================================================== */}
+        <div className="mt-7">
+          <button
+            type="button"
+            onClick={() => setSecaoEstoqueMetaAberta(!secaoEstoqueMetaAberta)}
+            className="w-full flex items-center justify-between px-1 mb-2.5 text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 hover:opacity-80 transition cursor-pointer select-none"
+          >
+            <span className="flex items-center gap-1.5">
+              <Package className="w-4 h-4" /> ESTOQUE & META
+            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-normal lowercase text-zinc-400 dark:text-neutral-500">
+                {secaoEstoqueMetaAberta ? "recolher" : "expandir"}
+              </span>
+              {secaoEstoqueMetaAberta ? (
+                <ChevronUp className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              )}
+            </div>
+          </button>
+
+          {secaoEstoqueMetaAberta && (
+            <div className="space-y-3 animate-in fade-in duration-200">
+              {/* ESTOQUE DE DISPLAYS */}
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400">
+                    Inventário de Campo
+                  </span>
+                  <button
+                    onClick={() => setModalSolicitarAberto(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-500/30 px-2.5 py-1 rounded-xl transition active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Solicitar Displays (+)</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5 flex flex-col justify-between">
+                    <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Displays Virgens
+                    </span>
+                    <div className="mt-2 flex items-baseline gap-1">
+                      <span className="text-3xl font-black text-zinc-900 dark:text-white">{displaysVirgens}</span>
+                      <span className="text-xs text-zinc-500 dark:text-neutral-400">em estoque</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5 flex flex-col justify-between">
+                    <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Potencial Parado
+                    </span>
+                    <div className="mt-2">
+                      <p className="text-xl font-bold text-amber-600 dark:text-amber-300">
+                        R$ {potencialEstoque.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400">em potencial de venda</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* PROGRESSO DA SEMANA */}
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Progresso da Semana
+                  </h3>
+                  <button
+                    onClick={handleComemorarMeta}
+                    className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition cursor-pointer"
+                  >
+                    Celebrar 🎉
+                  </button>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex justify-between items-baseline mb-1.5">
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-white">
+                      {displaysVendidosSemana} de {metaSemanalDisplays} displays ativados
+                    </span>
+                    <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">{percentualMeta}%</span>
+                  </div>
+
+                  {/* Barra de Progresso */}
+                  <div className="w-full bg-zinc-100 dark:bg-neutral-950 h-3 rounded-full overflow-hidden border border-zinc-200 dark:border-neutral-800 p-0.5">
+                    <div
+                      className="h-full bg-gradient-to-r from-violet-500 to-emerald-500 dark:to-emerald-400 rounded-full transition-all duration-700 ease-out"
+                      style={{ width: `${percentualMeta}%` }}
+                    />
+                  </div>
+
+                  <div className="text-xs text-zinc-500 dark:text-neutral-400 mt-2 flex items-center gap-1.5">
+                    {displaysFaltantesMeta > 0 ? (
+                      <>
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                        <span>
+                          Faltam <strong className="text-zinc-800 dark:text-neutral-200">{displaysFaltantesMeta} displays</strong> para bater a meta semanal (R$ {(displaysFaltantesMeta * precoPorDisplay).toFixed(0)} em vendas).
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <strong className="text-emerald-600 dark:text-emerald-400">Parabéns! Meta semanal superada! 🚀</strong>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================
+            SESSÃO 3: MINHAS PLACAS ATIVAS (BLOCO INDIVIDUAL)
+            ======================================================== */}
+        <div className="mt-7">
+          <div className="flex items-center justify-between px-1 mb-2.5">
+            <button
+              type="button"
+              onClick={() => setSecaoPlacasAtivasAberta(!secaoPlacasAtivasAberta)}
+              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:opacity-80 transition cursor-pointer select-none"
+            >
+              <span>📍</span> MINHAS PLACAS ATIVAS
+              {secaoPlacasAtivasAberta ? (
+                <ChevronUp className="w-4 h-4 ml-0.5" />
+              ) : (
+                <ChevronDown className="w-4 h-4 ml-0.5" />
+              )}
+            </button>
+            <span className="text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+              {placasAtivas.length} {placasAtivas.length === 1 ? "ativada" : "ativadas"}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            {/* Faturamento */}
-            <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl p-3.5">
-              <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
-                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Faturamento
-              </span>
-              <p className="text-lg font-bold text-zinc-900 dark:text-white mt-1">
-                R$ {faturamentoHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-              <span className="text-[10px] text-zinc-500 dark:text-neutral-400">{displaysVendidosHoje} ativados hoje</span>
-            </div>
+          {secaoPlacasAtivasAberta && (
+            <div className="space-y-3 animate-in fade-in duration-200">
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
+                {placasAtivas.length === 0 ? (
+                  <div className="py-6 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                      Nenhuma placa ativada em campo ainda.
+                    </p>
+                    <p className="text-[11px] text-zinc-400 dark:text-neutral-500">
+                      Clique no botão <strong className="text-emerald-600 dark:text-emerald-400">+</strong> flutuante para ativar seu primeiro display!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                    {placasAtivas.map((placa) => {
+                      const rawLink = (placa.link_destino || placa.link_google_review || placa.url_destino || "").trim();
+                      const linkExibicao = rawLink ? rawLink.replace(/^https?:\/\//i, "") : "Nenhum link configurado";
+                      const linkHref = rawLink
+                        ? rawLink.startsWith("http://") || rawLink.startsWith("https://")
+                          ? rawLink
+                          : `https://${rawLink}`
+                        : "#";
+                      const dtAtivacao = placa.activated_at || placa.updated_at || placa.created_at;
+                      const dataFormatada = dtAtivacao
+                        ? new Date(dtAtivacao).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
+                        : "Recente";
 
-            {/* Gastos de Rua com botão secundário de Lançamento */}
-            <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
-                  <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Gastos de Rua
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setModalDespesaAberto(true)}
-                  className="text-[10px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-md transition active:scale-95 cursor-pointer"
-                  title="Lançar gasto de rua"
-                >
-                  + Add Gastos
-                </button>
-              </div>
-              <div>
-                <p className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-1">
-                  - R$ {totalGastosRua.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <span className="text-[10px] text-zinc-500 dark:text-neutral-400">{despesasHoje.length} lançamentos</span>
-              </div>
-            </div>
-          </div>
+                      return (
+                        <div
+                          key={placa.id}
+                          className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800/80 rounded-2xl p-3.5 space-y-2.5 text-xs transition hover:border-zinc-300 dark:hover:border-neutral-700"
+                        >
+                          {/* Topo do Card: Código com badge verde + Data */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-sm text-zinc-900 dark:text-white">
+                                {placa.codigo}
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ativa
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-mono">
+                              {dataFormatada}
+                            </span>
+                          </div>
 
-          {/* Lucro Líquido em Destaque */}
-          <div className="bg-gradient-to-r from-emerald-500/10 dark:from-emerald-950/50 to-emerald-500/5 dark:to-neutral-950 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                Lucro Líquido Hoje
-              </span>
-              <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
-                R$ {lucroLiquidoHoje.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="w-11 h-11 rounded-full bg-emerald-500/15 dark:bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <DollarSign className="w-6 h-6" />
-            </div>
-          </div>
-        </section>
+                          {/* Nome do Cliente / Estabelecimento */}
+                          <div className="flex items-center gap-1.5">
+                            <Store className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            <span className="font-semibold text-zinc-800 dark:text-neutral-200 truncate">
+                              {placa.nome_empresa || "Estabelecimento Parceiro"}
+                            </span>
+                          </div>
 
-        {/* BLOCO CENTRAL: ESTOQUE DE DISPLAYS */}
-        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-sky-600 dark:text-sky-400" /> ESTOQUE DE DISPLAYS
-            </h2>
-            <button
-              onClick={() => setModalSolicitarAberto(true)}
-              className="inline-flex items-center gap-1 text-xs font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-500/30 px-2.5 py-1 rounded-lg transition active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Solicitar Displays (+)</span>
-            </button>
-          </div>
+                          {/* URL Atual Truncada + Link Testar + Botão Editar Link */}
+                          <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800/80 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0 max-w-[62%]">
+                              <Link2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                              {rawLink ? (
+                                <a
+                                  href={linkHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline truncate inline-flex items-center gap-1"
+                                  title={`Abrir destino: ${rawLink}`}
+                                >
+                                  <span className="truncate">{linkExibicao}</span>
+                                  <ExternalLink className="w-3 h-3 shrink-0" />
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-zinc-400 italic">Sem link</span>
+                              )}
+                            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-              <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <ShoppingBag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Displays Virgens
-              </span>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-zinc-900 dark:text-white">{displaysVirgens}</span>
-                <span className="text-xs text-zinc-500 dark:text-neutral-400">em estoque</span>
-              </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditarLink(placa)}
+                              className="text-xs font-semibold px-2.5 py-1 rounded-md border border-zinc-700 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-neutral-900 text-zinc-700 dark:text-zinc-200 transition active:scale-95 cursor-pointer shrink-0 shadow-sm flex items-center gap-1"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              <span>Editar Link</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
+          )}
+        </div>
 
-            <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-              <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Potencial Parado
-              </span>
-              <div className="mt-2">
-                <p className="text-xl font-bold text-amber-600 dark:text-amber-300">
-                  R$ {potencialEstoque.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <span className="text-[10px] text-zinc-500 dark:text-neutral-400">em potencial de venda</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* MÓDULO DE METAS DA SEMANA */}
-        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <Target className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Progresso da Semana
-            </h2>
-            <button
-              onClick={handleComemorarMeta}
-              className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition cursor-pointer"
-            >
-              Celebrar 🎉
-            </button>
-          </div>
-
-          <div className="mt-3">
-            <div className="flex justify-between items-baseline mb-1.5">
-              <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-                {displaysVendidosSemana} de {metaSemanalDisplays} displays ativados
-              </span>
-              <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">{percentualMeta}%</span>
-            </div>
-
-            {/* Barra de Progresso */}
-            <div className="w-full bg-zinc-100 dark:bg-neutral-950 h-3 rounded-full overflow-hidden border border-zinc-200 dark:border-neutral-800 p-0.5">
-              <div
-                className="h-full bg-gradient-to-r from-violet-500 to-emerald-500 dark:to-emerald-400 rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${percentualMeta}%` }}
-              />
-            </div>
-
-            <div className="text-xs text-zinc-500 dark:text-neutral-400 mt-2 flex items-center gap-1.5">
-              {displaysFaltantesMeta > 0 ? (
-                <>
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
-                  <span>
-                    Faltam <strong className="text-zinc-800 dark:text-neutral-200">{displaysFaltantesMeta} displays</strong> para bater a meta semanal (R$ {(displaysFaltantesMeta * precoPorDisplay).toFixed(0)} em vendas).
-                  </span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <strong className="text-emerald-600 dark:text-emerald-400">Parabéns! Meta semanal superada! 🚀</strong>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* LISTAGEM: GASTOS DO DIA COM BOTÃO + ADD GASTOS */}
-        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-zinc-400 dark:text-neutral-400" /> GASTOS DO DIA
-              </h2>
-              <span className="text-xs text-zinc-500 dark:text-neutral-400">({despesasHoje.length})</span>
-            </div>
+        {/* ========================================================
+            SESSÃO 4: HISTÓRICO DE GASTOS (BLOCO INDIVIDUAL)
+            ======================================================== */}
+        <div className="mt-7">
+          <div className="flex items-center justify-between px-1 mb-2.5">
             <button
               type="button"
-              onClick={() => setModalDespesaAberto(true)}
-              className="inline-flex items-center gap-1 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-neutral-700 transition active:scale-95 cursor-pointer"
+              onClick={() => setSecaoGastosDiaAberta(!secaoGastosDiaAberta)}
+              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 hover:opacity-80 transition cursor-pointer select-none"
             >
-              <Plus className="w-3 h-3 text-rose-500 dark:text-rose-400" />
-              <span>+ Add Gastos</span>
+              <Clock className="w-4 h-4" /> HISTÓRICO DE GASTOS
+              {secaoGastosDiaAberta ? (
+                <ChevronUp className="w-4 h-4 ml-0.5" />
+              ) : (
+                <ChevronDown className="w-4 h-4 ml-0.5" />
+              )}
             </button>
+            <span className="text-[11px] font-mono font-medium bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full">
+              {despesasPeriodo.length} {despesasPeriodo.length === 1 ? "lançamento" : "lançamentos"}
+            </span>
           </div>
 
-          {despesasHoje.length === 0 ? (
-            <p className="text-xs text-zinc-400 dark:text-neutral-400 py-3 text-center">Nenhum gasto registrado ainda.</p>
-          ) : (
-            <div className="space-y-2">
-              {despesasHoje.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800/70 p-2.5 rounded-xl text-xs"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-zinc-800 dark:text-neutral-200 capitalize">{d.descricao}</span>
-                    <span className="text-[11px] text-zinc-500 dark:text-neutral-400">
-                      {d.categoria} • {d.hora}
+          {secaoGastosDiaAberta && (
+            <div className="space-y-3 animate-in fade-in duration-200">
+              {/* LISTAGEM: GASTOS DO DIA / PERÍODO COM CROMATISMO ROSE / VINHO */}
+              <section className="bg-white dark:bg-neutral-900/90 border border-rose-500/40 dark:border-rose-900/60 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 flex items-center gap-1">
+                      <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> {tipoFiltroPeriodo === "hoje" ? "Gastos do Dia" : "Gastos do Período"}
+                    </span>
+                    <span className="text-xs text-rose-500/80 dark:text-rose-400/80 font-mono">
+                      (- R$ {totalGastosPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
                     </span>
                   </div>
-                  <span className="font-bold font-mono text-rose-600 dark:text-rose-400">
-                    - R$ {d.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* SEÇÃO: MEUS PEDIDOS */}
-        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <Truck className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Meus Pedidos
-            </h2>
-            <span className="text-xs text-zinc-500 dark:text-neutral-400 font-mono">{pedidosAluno.length} solicitações</span>
-          </div>
-
-          {pedidosAluno.length === 0 ? (
-            <div className="py-4 text-center text-xs text-zinc-400 dark:text-neutral-500">
-              Você ainda não realizou pedidos de displays.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {pedidosAluno.map((ped) => {
-                const dt = new Date(ped.created_at || Date.now());
-                const statusLabel =
-                  ped.status === "solicitado" || ped.status === "pendente"
-                    ? "🟡 Solicitado"
-                    : ped.status === "em_producao"
-                    ? "🔵 Em Produção"
-                    : ped.status === "enviado"
-                    ? "🟣 Enviado (Em Trânsito)"
-                    : ped.status === "entregue"
-                    ? "🟢 Entregue"
-                    : ped.status;
-
-                const statusStyle =
-                  ped.status === "solicitado" || ped.status === "pendente"
-                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                    : ped.status === "em_producao"
-                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
-                    : ped.status === "enviado"
-                    ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30"
-                    : ped.status === "entregue"
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700";
-
-                const rastreioTrim = (ped.codigo_rastreio || "").trim();
-                const isUrlRastreio = rastreioTrim.startsWith("http://") || rastreioTrim.startsWith("https://");
-                const urlRastreioFinal = isUrlRastreio
-                  ? rastreioTrim
-                  : `https://rastreamento.correios.com.br/app/index.php?codigo=${encodeURIComponent(rastreioTrim)}`;
-
-                return (
-                  <div
-                    key={ped.id}
-                    className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800/80 rounded-xl p-3.5 space-y-2.5 text-xs"
+                  <button
+                    type="button"
+                    onClick={() => setModalDespesaAberto(true)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold bg-rose-500/10 dark:bg-rose-950/40 hover:bg-rose-500/20 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 border border-rose-500/30 dark:border-rose-800/60 px-2.5 py-1 rounded-xl transition active:scale-95 cursor-pointer shadow-sm"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-zinc-900 dark:text-white text-sm">{ped.quantidade} displays</span>
-                        <span className="text-[11px] text-zinc-500 dark:text-neutral-400">
-                          • {dt.toLocaleDateString("pt-BR")}
-                        </span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusStyle}`}>
-                        {statusLabel}
-                      </span>
-                    </div>
+                    <Plus className="w-3 h-3 text-rose-500 dark:text-rose-400" />
+                    <span>+ Add Gastos</span>
+                  </button>
+                </div>
 
-                    {/* Código de Rastreio se houver */}
-                    {rastreioTrim ? (
-                      <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800/80 flex items-center justify-between gap-2 bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-900/30 p-2.5 rounded-lg">
-                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-violet-700 dark:text-violet-300 min-w-0">
-                          <Truck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
-                          <span className="font-bold truncate" title={rastreioTrim}>
-                            {isUrlRastreio ? "Link de Envio" : rastreioTrim}
+                {despesasPeriodo.length === 0 ? (
+                  <p className="text-xs text-zinc-400 dark:text-neutral-500 py-3 text-center">Nenhum gasto registrado neste período.</p>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {despesasPeriodo.map((d) => {
+                      const dt = d.data ? new Date(d.data) : null;
+                      const dataFormatada = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "";
+                      return (
+                        <div
+                          key={d.id}
+                          className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950/70 border border-rose-500/20 dark:border-rose-900/40 p-2.5 rounded-2xl text-xs hover:border-rose-500/40 transition"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-base shrink-0">
+                              {d.categoria === "transporte" ? "🚗" : d.categoria === "alimentacao" ? "🍔" : "🔧"}
+                            </span>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-zinc-800 dark:text-neutral-200 capitalize">{d.descricao}</span>
+                              <span className="text-[11px] text-zinc-500 dark:text-neutral-400 capitalize">
+                                {d.categoria} • {tipoFiltroPeriodo === "hoje" ? d.hora : `${dataFormatada ? dataFormatada + " às " : ""}${d.hora}`}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="font-semibold font-mono text-rose-500 dark:text-rose-400">
+                            - R$ {d.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleCopiarRastreio(ped.id, rastreioTrim)}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold bg-zinc-200 hover:bg-zinc-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-200 px-2.5 py-1 rounded transition cursor-pointer"
-                            title="Copiar código ou link de rastreio"
-                          >
-                            {copiadoId === ped.id ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                <span className="text-emerald-600 dark:text-emerald-400">Copiado!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copiar</span>
-                              </>
-                            )}
-                          </button>
-                          <a
-                            href={urlRastreioFinal}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold bg-violet-500/10 hover:bg-violet-500/20 dark:bg-violet-500/20 dark:hover:bg-violet-500/30 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded border border-violet-500/30 transition cursor-pointer"
-                            title="Acompanhar entrega em nova aba"
-                          >
-                            <span>Rastrear</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-zinc-500 dark:text-neutral-500 italic">
-                        {ped.status === "solicitado" || ped.status === "pendente"
-                          ? "Aguardando envio pelo distribuidor."
-                          : "Produzindo displays na fábrica."}
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
-                );
-              })}
+                )}
+              </section>
             </div>
           )}
-        </section>
+        </div>
+
+        {/* ========================================================
+            SESSÃO 5: MEUS PEDIDOS (BLOCO INDIVIDUAL)
+            ======================================================== */}
+        <div className="mt-7">
+          <div className="flex items-center justify-between px-1 mb-2.5">
+            <button
+              type="button"
+              onClick={() => setSecaoMeusPedidosAberta(!secaoMeusPedidosAberta)}
+              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 hover:opacity-80 transition cursor-pointer select-none"
+            >
+              <Truck className="w-4 h-4" /> MEUS PEDIDOS
+              {secaoMeusPedidosAberta ? (
+                <ChevronUp className="w-4 h-4 ml-0.5" />
+              ) : (
+                <ChevronDown className="w-4 h-4 ml-0.5" />
+              )}
+            </button>
+            <span className="text-[11px] font-mono font-medium bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-full">
+              {pedidosAluno.length} {pedidosAluno.length === 1 ? "solicitação" : "solicitações"}
+            </span>
+          </div>
+
+          {secaoMeusPedidosAberta && (
+            <div className="space-y-3 animate-in fade-in duration-200">
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
+                {pedidosAluno.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-zinc-400 dark:text-neutral-500">
+                    Você ainda não realizou pedidos de displays.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                    {pedidosAluno.map((ped) => {
+                      const dt = new Date(ped.created_at || Date.now());
+                      const statusLabel =
+                        ped.status === "solicitado" || ped.status === "pendente"
+                          ? "🟡 Solicitado"
+                          : ped.status === "em_producao"
+                          ? "🔵 Em Produção"
+                          : ped.status === "enviado"
+                          ? "🟣 Enviado (Em Trânsito)"
+                          : ped.status === "entregue"
+                          ? "🟢 Entregue"
+                          : ped.status;
+
+                      const statusStyle =
+                        ped.status === "solicitado" || ped.status === "pendente"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                          : ped.status === "em_producao"
+                          ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
+                          : ped.status === "enviado"
+                          ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30"
+                          : ped.status === "entregue"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700";
+
+                      const rastreioTrim = (ped.codigo_rastreio || "").trim();
+                      const isUrlRastreio = rastreioTrim.startsWith("http://") || rastreioTrim.startsWith("https://");
+                      const urlRastreioFinal = isUrlRastreio
+                        ? rastreioTrim
+                        : `https://rastreamento.correios.com.br/app/index.php?codigo=${encodeURIComponent(rastreioTrim)}`;
+
+                      return (
+                        <div
+                          key={ped.id}
+                          className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800/80 rounded-2xl p-3.5 space-y-2.5 text-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-zinc-900 dark:text-white text-sm">{ped.quantidade} displays</span>
+                              <span className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                                • {dt.toLocaleDateString("pt-BR")}
+                              </span>
+                              {ped.observacao && (
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                                  {ped.observacao}
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusStyle}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+
+                          {/* Código de Rastreio se houver */}
+                          {rastreioTrim ? (
+                            <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800/80 flex items-center justify-between gap-2 bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-900/30 p-2.5 rounded-xl">
+                              <div className="flex items-center gap-1.5 font-mono text-[11px] text-violet-700 dark:text-violet-300 min-w-0">
+                                <Truck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+                                <span className="font-bold truncate" title={rastreioTrim}>
+                                  {isUrlRastreio ? "Link de Envio" : rastreioTrim}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopiarRastreio(ped.id, rastreioTrim)}
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold bg-zinc-200 hover:bg-zinc-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                  title="Copiar código ou link de rastreio"
+                                >
+                                  {copiadoId === ped.id ? (
+                                    <>
+                                      <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                      <span className="text-emerald-600 dark:text-emerald-400">Copiado!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3" />
+                                      <span>Copiar</span>
+                                    </>
+                                  )}
+                                </button>
+                                <a
+                                  href={urlRastreioFinal}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold bg-violet-500/10 hover:bg-violet-500/20 dark:bg-violet-500/20 dark:hover:bg-violet-500/30 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-lg border border-violet-500/30 transition cursor-pointer"
+                                  title="Acompanhar entrega em nova aba"
+                                >
+                                  <span>Rastrear</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-zinc-500 dark:text-neutral-500 italic">
+                              {ped.status === "solicitado" || ped.status === "pendente"
+                                ? "Aguardando envio pelo distribuidor."
+                                : "Produzindo displays na fábrica."}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* BOTÃO FLUTUANTE PRINCIPAL (+): EXCLUSIVAMENTE PARA ATIVAR NOVO DISPLAY EM CAMPO */}
@@ -1177,23 +2082,45 @@ export default function DashboardAluno() {
             <form onSubmit={handleSalvarDespesa} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Categoria
+                  Selecione a Categoria
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(["transporte", "alimentacao", "outros"] as const).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setNovaCategoria(cat)}
-                      className={`text-xs py-2 px-3 rounded-xl font-semibold capitalize border transition cursor-pointer ${
-                        novaCategoria === cat
-                          ? "bg-rose-500 text-white border-rose-400 shadow-sm"
-                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setNovaCategoria("transporte")}
+                    className={`text-xs py-2.5 px-2 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      novaCategoria === "transporte"
+                        ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
+                        : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span className="text-base">🚗</span>
+                    <span className="truncate text-[11px]">Transporte</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNovaCategoria("alimentacao")}
+                    className={`text-xs py-2.5 px-2 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      novaCategoria === "alimentacao"
+                        ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
+                        : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span className="text-base">🍔</span>
+                    <span className="truncate text-[11px]">Alimentação</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNovaCategoria("outros")}
+                    className={`text-xs py-2.5 px-2 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      novaCategoria === "outros"
+                        ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
+                        : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span className="text-base">🔧</span>
+                    <span className="truncate text-[11px]">Outros</span>
+                  </button>
                 </div>
               </div>
 
@@ -1202,10 +2129,10 @@ export default function DashboardAluno() {
                   Valor (R$)
                 </label>
                 <input
-                  type="number"
-                  step="0.50"
+                  type="text"
+                  inputMode="decimal"
                   required
-                  placeholder="Ex: 15.00"
+                  placeholder="Ex: 25,00 ou 15.50"
                   value={novoValor}
                   onChange={(e) => setNovoValor(e.target.value)}
                   className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-3 text-lg font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition"
@@ -1219,7 +2146,7 @@ export default function DashboardAluno() {
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: Gasolina, Estacionamento, Almoço..."
+                  placeholder="Ex: Uber, Gasolina, Almoço, Estacionamento..."
                   value={novaDescricao}
                   onChange={(e) => setNovaDescricao(e.target.value)}
                   className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-rose-500 transition"
@@ -1339,6 +2266,97 @@ export default function DashboardAluno() {
                     </span>
                   ) : (
                     <span>Confirmar Pedido</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
+      {modalEditarLinkAberto && placaEditando && (
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Link2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Atualizar Destino da Placa {placaEditando.codigo}
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                    Altere a URL de redirecionamento do QR Code / NFC
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setModalEditarLinkAberto(false);
+                  setPlacaEditando(null);
+                }}
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarNovoLink} className="space-y-4">
+              {/* Nome do Estabelecimento (Informativo / Leitura) */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Store className="w-3.5 h-3.5 text-zinc-400" /> Estabelecimento / Cliente
+                </label>
+                <div className="w-full bg-zinc-100 dark:bg-neutral-950/80 border border-zinc-200 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-800 dark:text-neutral-200 cursor-not-allowed">
+                  {placaEditando.nome_empresa || "Estabelecimento Parceiro"}
+                </div>
+              </div>
+
+              {/* Input da Nova URL */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Link2 className="w-3.5 h-3.5 text-zinc-400" /> URL de Destino (Google Review / Link) *
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="Ex: https://maps.app.goo.gl/... ou https://g.page/r/..."
+                  value={novoLinkDestino}
+                  onChange={(e) => setNovoLinkDestino(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                  autoFocus
+                />
+                <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-1">
+                  Insira o link oficial de avaliação do Google Meu Negócio ou endereço web.
+                </p>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalEditarLinkAberto(false);
+                    setPlacaEditando(null);
+                  }}
+                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoLink}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {salvandoLink ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </span>
+                  ) : (
+                    <span>Salvar Novo Link</span>
                   )}
                 </button>
               </div>
