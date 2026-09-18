@@ -240,7 +240,7 @@ export default function PaginaPlacaDinamica({
         <div className="pt-2 pb-5 border-b border-zinc-200 dark:border-neutral-800/80 mb-6">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> TagPlak • Ativação em Campo
+              <Sparkles className="w-3.5 h-3.5" /> GOPLAK • Ativação em Campo
             </span>
             <div className="flex items-center gap-2">
               <ThemeToggle />
@@ -523,7 +523,7 @@ export default function PaginaPlacaDinamica({
 
       {/* Rodapé Discreto */}
       <footer className="text-center pt-8 pb-2 text-[11px] text-slate-400">
-        Tecnologia <span className="font-semibold text-slate-600">TagPlak</span> • Experiência & Reputação
+        Tecnologia <span className="font-semibold text-slate-600">GOPLAK</span> • Experiência & Reputação
       </footer>
     </main>
   );

@@ -1,4 +1,4 @@
-﻿-- ========================================================
+-- ========================================================
 -- BACKUP DE SCHEMA: TAGPLAK (SISTEMA DE DISPLAYS INTELIGENTES)
 -- Versão Homologada: v1.0.0-homologado
 -- Data: 2026-09-12
@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS public.alunos (
     meta_mensal_reais NUMERIC DEFAULT 2000.00,
     preco_padrao_display NUMERIC DEFAULT 80.00,
     telefone TEXT,
+    cep TEXT,
+    logradouro TEXT,
+    numero TEXT,
+    complemento TEXT,
+    bairro TEXT,
+    cidade TEXT,
+    estado TEXT,
+    ponto_referencia TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -37,9 +45,12 @@ CREATE TABLE IF NOT EXISTS public.pedidos_lotes (
     aluno_id UUID REFERENCES public.alunos(id) ON DELETE CASCADE,
     nome_destinatario TEXT,
     quantidade INTEGER NOT NULL,
+    valor_total NUMERIC(10,2) DEFAULT 0,
+    modelo_cor TEXT DEFAULT 'misto', -- 'misto', 'preta', 'azul'
+    endereco_entrega JSONB,
     intervalo_inicio TEXT,
     intervalo_fim TEXT,
-    status TEXT DEFAULT 'solicitado', -- 'solicitado', 'em_producao', 'enviado', 'entregue', 'cancelado'
+    status TEXT DEFAULT 'solicitado', -- 'solicitado', 'aguardando_pagamento', 'em_producao', 'enviado', 'entregue', 'cancelado'
     codigo_rastreio TEXT,
     observacao TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),

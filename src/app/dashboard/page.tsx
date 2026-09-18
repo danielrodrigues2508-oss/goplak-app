@@ -36,9 +36,80 @@ import {
   LogOut,
   ChevronDown,
   ChevronUp,
-  Crown
+  Crown,
+  ArrowRight,
+  ArrowLeft,
+  Building,
+  Navigation,
+  Paperclip,
+  Upload,
+  FileText,
+  Trash2,
+  Bell
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+export interface EnderecoEntrega {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento?: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  ponto_referencia?: string;
+}
+
+export type TipoKit = "start" | "pro" | "master";
+export type ModeloCor = "misto" | "preta" | "azul";
+
+export interface KitItem {
+  id: TipoKit;
+  nome: string;
+  qtd: number;
+  preco: number;
+  badge: string;
+  badgeCor: string;
+  desc: string;
+  permiteEscolhaCor: boolean;
+  potencialVenda: number;
+}
+
+export const KITS_CATALOGO: Record<TipoKit, KitItem> = {
+  start: {
+    id: "start",
+    nome: "Kit Start",
+    qtd: 10,
+    preco: 170.0,
+    badge: "Padrão Lançamento",
+    badgeCor: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    desc: "Padrão de Turma: 5 Pretas e 5 Azuis",
+    permiteEscolhaCor: false,
+    potencialVenda: 800.0,
+  },
+  pro: {
+    id: "pro",
+    nome: "Kit Pro",
+    qtd: 30,
+    preco: 540.0,
+    badge: "Mais Vendido",
+    badgeCor: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 font-bold shadow-xs",
+    desc: "Ideal para alta tração e velocidade em campo",
+    permiteEscolhaCor: true,
+    potencialVenda: 2400.0,
+  },
+  master: {
+    id: "master",
+    nome: "Kit Master",
+    qtd: 50,
+    preco: 850.0,
+    badge: "Escala",
+    badgeCor: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30",
+    desc: "Máximo faturamento e menor custo por unidade",
+    permiteEscolhaCor: true,
+    potencialVenda: 4000.0,
+  },
+};
 
 interface Despesa {
   id: string;
@@ -53,10 +124,18 @@ interface PedidoDisplay {
   id: string;
   quantidade: number;
   status: string;
+  valor_total?: number;
+  modelo_cor?: string;
   codigo_rastreio?: string;
+  transportadora?: string;
+  aprovado_em?: string;
+  enviado_em?: string;
+  entregue_em?: string;
   codigo_inicio?: string;
   codigo_fim?: string;
   observacao?: string;
+  motivo_recusa?: string;
+  comprovante_url?: string;
   created_at: string;
 }
 
@@ -90,7 +169,7 @@ export default function DashboardAluno() {
 
   // Informações do Aluno
   const [alunoId, setAlunoId] = useState<string>("00000000-0000-0000-0000-000000000001");
-  const [alunoNome, setAlunoNome] = useState<string>("Daniel Silva");
+  const [alunoNome, setAlunoNome] = useState<string>("GOPlak");
 
   // Métricas Principais
   const [faturamentoHoje, setFaturamentoHoje] = useState(0);
@@ -142,15 +221,59 @@ export default function DashboardAluno() {
   const [novoValor, setNovoValor] = useState("");
   const [novaDescricao, setNovaDescricao] = useState("");
 
-  // Modal 3: Solicitar Displays
+  // Modal 3: Solicitar Novo Lote (Etapa 1: Endereço, Etapa 2: Catálogo e Cores, Etapa 3: Pagamento & Comprovante)
   const [modalSolicitarAberto, setModalSolicitarAberto] = useState(false);
-  const [qtdSolicitar, setQtdSolicitar] = useState<number>(20);
+  const [etapaSolicitacao, setEtapaSolicitacao] = useState<1 | 2 | 3>(1);
+  const [enderecoSalvo, setEnderecoSalvo] = useState<EnderecoEntrega | null>(null);
+  const [editandoEndereco, setEditandoEndereco] = useState(false);
+
+  // Campos do Formulário de Endereço
+  const [cepInput, setCepInput] = useState("");
+  const [logradouroInput, setLogradouroInput] = useState("");
+  const [numeroInput, setNumeroInput] = useState("");
+  const [complementoInput, setComplementoInput] = useState("");
+  const [bairroInput, setBairroInput] = useState("");
+  const [cidadeInput, setCidadeInput] = useState("");
+  const [estadoInput, setEstadoInput] = useState("");
+  const [pontoReferenciaInput, setPontoReferenciaInput] = useState("");
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [erroEndereco, setErroEndereco] = useState<string | null>(null);
+
+  // Seleções do Catálogo de Kits e Opções de Cores
+  const [kitSelecionado, setKitSelecionado] = useState<TipoKit>("pro");
+  const [corKitPro, setCorKitPro] = useState<ModeloCor>("misto");
+  const [corKitMaster, setCorKitMaster] = useState<ModeloCor>("misto");
   const [solicitandoDisplays, setSolicitandoDisplays] = useState(false);
   const [avisoSucessoPedido, setAvisoSucessoPedido] = useState<string | null>(null);
 
+  // Etapa 3: Pagamento e Upload de Comprovante
+  const [arquivoComprovante, setArquivoComprovante] = useState<File | null>(null);
+  const [nomeArquivoComprovante, setNomeArquivoComprovante] = useState<string>("");
+  const [previewComprovante, setPreviewComprovante] = useState<string | null>(null);
+  const [copiouChavePix, setCopiouChavePix] = useState(false);
+  const [enviandoComprovante, setEnviandoComprovante] = useState(false);
+
   // Histórico de Pedidos de Displays do Aluno
   const [pedidosAluno, setPedidosAluno] = useState<PedidoDisplay[]>([]);
+  const [abaPedidos, setAbaPedidos] = useState<"andamento" | "concluidos">("andamento");
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
+  const [pedidoRecemCriadoId, setPedidoRecemCriadoId] = useState<string | null>(null);
+  const [destacarNovoPedido, setDestacarNovoPedido] = useState<boolean>(false);
+
+  // Separação reativa de pedidos em andamento vs concluídos
+  const pedidosEmAndamento = useMemo(() => {
+    return pedidosAluno.filter((p) => {
+      const st = (p.status || "").toLowerCase().trim();
+      return st !== "entregue" && st !== "concluido";
+    });
+  }, [pedidosAluno]);
+
+  const pedidosConcluidos = useMemo(() => {
+    return pedidosAluno.filter((p) => {
+      const st = (p.status || "").toLowerCase().trim();
+      return st === "entregue" || st === "concluido";
+    });
+  }, [pedidosAluno]);
 
   // Placas Ativas do Aluno
   const [placasAtivas, setPlacasAtivas] = useState<PlacaAtivaItem[]>([]);
@@ -178,6 +301,7 @@ export default function DashboardAluno() {
   const [isMasterAdmin, setIsMasterAdmin] = useState<boolean>(false);
   const [avisoNaoAutorizado, setAvisoNaoAutorizado] = useState<string | null>(null);
   const [erroQuerySupabase, setErroQuerySupabase] = useState<string | null>(null);
+  const [toastHovered, setToastHovered] = useState<boolean>(false);
 
   // Formatação de nome curto para ranking (Ex: "João P.")
   const formatarNomeCurto = (nomeCompleto: string) => {
@@ -260,17 +384,62 @@ export default function DashboardAluno() {
       try {
         const { data: todosAlunos } = await supabase
           .from("alunos")
-          .select("id, nome, email");
+          .select("*");
 
         let encontrouAluno = false;
         if (todosAlunos && todosAlunos.length > 0) {
-          todosAlunos.forEach((a) => {
+          todosAlunos.forEach((a: any) => {
             if (a.id) alunosMap[a.id] = a.nome;
             if (a.id === currentUserId || (a.email && a.email.toLowerCase() === currentUserEmail)) {
               alunoDbId = a.id;
+              if (a.nome) {
+                setAlunoNome(a.nome);
+              }
+              if (a.cep || a.logradouro || a.cidade) {
+                const endCarregado: EnderecoEntrega = {
+                  cep: a.cep || "",
+                  logradouro: a.logradouro || "",
+                  numero: a.numero || "",
+                  complemento: a.complemento || "",
+                  bairro: a.bairro || "",
+                  cidade: a.cidade || "",
+                  estado: a.estado || "",
+                  ponto_referencia: a.ponto_referencia || "",
+                };
+                setEnderecoSalvo(endCarregado);
+                setCepInput(endCarregado.cep);
+                setLogradouroInput(endCarregado.logradouro);
+                setNumeroInput(endCarregado.numero);
+                setComplementoInput(endCarregado.complemento || "");
+                setBairroInput(endCarregado.bairro);
+                setCidadeInput(endCarregado.cidade);
+                setEstadoInput(endCarregado.estado);
+                setPontoReferenciaInput(endCarregado.ponto_referencia || "");
+                setEditandoEndereco(false);
+              }
               encontrouAluno = true;
             }
           });
+        }
+
+        // Se não veio do banco, tentar recuperar do localStorage ou metadata
+        if (typeof window !== "undefined") {
+          try {
+            const cacheEnd = localStorage.getItem("goplak_aluno_endereco") || localStorage.getItem("tagplak_aluno_endereco");
+            const metaEnd = currentUser.user_metadata?.endereco;
+            const endFallback = cacheEnd ? JSON.parse(cacheEnd) : metaEnd;
+            if (endFallback && endFallback.logradouro) {
+              setEnderecoSalvo((prev) => prev || endFallback);
+              setCepInput((prev) => prev || endFallback.cep || "");
+              setLogradouroInput((prev) => prev || endFallback.logradouro || "");
+              setNumeroInput((prev) => prev || endFallback.numero || "");
+              setComplementoInput((prev) => prev || endFallback.complemento || "");
+              setBairroInput((prev) => prev || endFallback.bairro || "");
+              setCidadeInput((prev) => prev || endFallback.cidade || "");
+              setEstadoInput((prev) => prev || endFallback.estado || "");
+              setPontoReferenciaInput((prev) => prev || endFallback.ponto_referencia || "");
+            }
+          } catch (eCache) {}
         }
 
         // Self-Healing: Se não encontrou o aluno na tabela alunos, insere automaticamente
@@ -631,7 +800,125 @@ export default function DashboardAluno() {
       }
     }
     carregarDadosDoBanco();
-  }, [carregarDadosDoBanco]);
+
+    // Sincronização em Tempo Real (Supabase Realtime) para o Aluno
+    const channel = supabase
+      .channel("aluno_pedidos_realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos_lotes" },
+        (payload) => {
+          console.log("[Realtime Aluno] Pedido atualizado:", payload);
+          const pNew = payload.new;
+          if (!pNew) return;
+
+          // 1. Atualização instantânea do estado local (sem necessidade de F5)
+          setPedidosAluno((prev) =>
+            prev.map((p) => (p.id === pNew.id ? { ...p, ...pNew } : p))
+          );
+
+          const isMeuPedido =
+            pNew?.aluno_id === alunoId ||
+            pNew?.user_id === alunoId ||
+            (alunoId && pNew?.aluno_id && String(pNew.aluno_id).toLowerCase() === String(alunoId).toLowerCase());
+
+          if (isMeuPedido) {
+            const stLower = (pNew?.status || "").toLowerCase().trim();
+            // Notificação comemorativa se o pedido foi aprovado (100% silencioso)
+            if (stLower === "em_producao" || stLower === "em produção" || stLower === "aprovado") {
+              confetti({
+                particleCount: 130,
+                spread: 70,
+                origin: { y: 0.6 },
+              });
+
+              setAvisoSucessoPedido(
+                `🎉 Seu pedido de ${pNew.quantidade} displays foi aprovado e entrou em produção!`
+              );
+            } else if (stLower === "enviado") {
+              setAvisoSucessoPedido(
+                `🚚 Seu pedido de ${pNew.quantidade} displays foi enviado via ${pNew.transportadora || "Correios"}! Acompanhe o rastreio abaixo.`
+              );
+            } else if (stLower === "entregue" || stLower === "concluido") {
+              confetti({
+                particleCount: 150,
+                spread: 80,
+                origin: { y: 0.6 },
+              });
+
+              setAvisoSucessoPedido(
+                `📦 Seu lote de displays foi marcado como ENTREGUE! Seus displays virgens foram liberados no estoque para ativação.`
+              );
+            } else if (stLower === "recusado" || stLower === "rejeitado") {
+              setAvisoSucessoPedido(
+                `⚠️ Seu pedido foi marcado como Recusado. Motivo: ${pNew.motivo_recusa || "Comprovante divergente"}`
+              );
+            }
+          }
+
+          // Atualizar dados em segundo plano
+          carregarDadosDoBanco();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pedidos_lotes" },
+        (payload) => {
+          const pNew = payload.new as PedidoDisplay;
+          if (pNew && pNew.id) {
+            setPedidosAluno((prev) => [pNew, ...prev.filter((p) => p.id !== pNew.id)]);
+          }
+          carregarDadosDoBanco();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [carregarDadosDoBanco, alunoId]);
+
+  // Auto-dismiss de 60 segundos com suporte a pauseOnHover para Toasts Flutuantes
+  useEffect(() => {
+    if (avisoSucessoPedido && !toastHovered) {
+      const t = setTimeout(() => setAvisoSucessoPedido(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [avisoSucessoPedido, toastHovered]);
+
+  useEffect(() => {
+    if (avisoSucessoAtivacao && !toastHovered) {
+      const t = setTimeout(() => setAvisoSucessoAtivacao(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [avisoSucessoAtivacao, toastHovered]);
+
+  useEffect(() => {
+    if (avisoSucessoLink && !toastHovered) {
+      const t = setTimeout(() => setAvisoSucessoLink(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [avisoSucessoLink, toastHovered]);
+
+  useEffect(() => {
+    if (avisoNaoAutorizado && !toastHovered) {
+      const t = setTimeout(() => setAvisoNaoAutorizado(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [avisoNaoAutorizado, toastHovered]);
+
+  useEffect(() => {
+    if (erroQuerySupabase && !toastHovered) {
+      const t = setTimeout(() => setErroQuerySupabase(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [erroQuerySupabase, toastHovered]);
+
+  const diasRestantesMes = useMemo(() => {
+    const agora = new Date();
+    const ultimoDiaMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
+    return Math.max(1, ultimoDiaMes - agora.getDate());
+  }, []);
 
   // Cálculos do Intervalo de Datas Selecionado (Hoje, Esta Semana, Este Mês, Personalizado)
   const { dataInicioRef, dataFimRef, labelPeriodo, tituloRitmo } = useMemo(() => {
@@ -966,76 +1253,325 @@ export default function DashboardAluno() {
     await carregarDadosDoBanco();
   };
 
-  // 3. SOLICITAR DISPLAYS
-  const handleSolicitarDisplays = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (qtdSolicitar <= 0) return;
+  // 3. HANDLERS DO MODAL DE SOLICITAÇÃO DE NOVO LOTE (ETAPA 1 & ETAPA 2)
+  const handleCepChange = async (val: string) => {
+    const raw = val.replace(/\D/g, "").slice(0, 8);
+    const formatado = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5, 8)}` : raw;
+    setCepInput(formatado);
+    setErroEndereco(null);
 
-    setSolicitandoDisplays(true);
-    setAvisoSucessoPedido(null);
-    const valorCalculado = qtdSolicitar * 25.0;
+    if (raw.length === 8) {
+      setBuscandoCep(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${raw}/json/`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.erro) {
+            setErroEndereco("CEP não encontrado. Preencha o endereço manualmente.");
+          } else {
+            if (data.logradouro) setLogradouroInput(data.logradouro);
+            if (data.bairro) setBairroInput(data.bairro);
+            if (data.localidade) setCidadeInput(data.localidade);
+            if (data.uf) setEstadoInput(data.uf);
+          }
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar CEP:", e);
+      } finally {
+        setBuscandoCep(false);
+      }
+    }
+  };
+
+  const handleAvancarParaKits = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (
+      !cepInput.trim() ||
+      !logradouroInput.trim() ||
+      !numeroInput.trim() ||
+      !bairroInput.trim() ||
+      !cidadeInput.trim() ||
+      !estadoInput.trim()
+    ) {
+      setErroEndereco("Por favor, preencha todos os campos obrigatórios do endereço (CEP, Rua, Número, Bairro, Cidade, Estado).");
+      return;
+    }
+
+    const endAtual: EnderecoEntrega = {
+      cep: cepInput.trim(),
+      logradouro: logradouroInput.trim(),
+      numero: numeroInput.trim(),
+      complemento: complementoInput.trim(),
+      bairro: bairroInput.trim(),
+      cidade: cidadeInput.trim(),
+      estado: estadoInput.trim().toUpperCase(),
+      ponto_referencia: pontoReferenciaInput.trim(),
+    };
+
+    setEnderecoSalvo(endAtual);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("goplak_aluno_endereco", JSON.stringify(endAtual));
+      } catch (e) {}
+    }
+
+    setErroEndereco(null);
+    setEditandoEndereco(false);
+    setEtapaSolicitacao(2);
+  };
+
+  const handleGerarPedidoPix = async () => {
+    const endAtual: EnderecoEntrega = enderecoSalvo || {
+      cep: cepInput.trim(),
+      logradouro: logradouroInput.trim(),
+      numero: numeroInput.trim(),
+      complemento: complementoInput.trim(),
+      bairro: bairroInput.trim(),
+      cidade: cidadeInput.trim(),
+      estado: estadoInput.trim().toUpperCase(),
+      ponto_referencia: pontoReferenciaInput.trim(),
+    };
+
+    if (!endAtual.logradouro || !endAtual.numero || !endAtual.cidade) {
+      setEtapaSolicitacao(1);
+      setErroEndereco("Por favor, confirme seu endereço completo antes de gerar o pedido.");
+      return;
+    }
+
+    setEtapaSolicitacao(3);
+  };
+
+  const handleCopiarChavePix = () => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText("contato@goplak.com.br");
+      setCopiouChavePix(true);
+      setTimeout(() => setCopiouChavePix(false), 2500);
+    }
+  };
+
+  const handleSelecionarArquivoComprovante = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert("O arquivo é muito grande. O limite máximo permitido é 15MB.");
+      return;
+    }
+
+    setArquivoComprovante(file);
+    setNomeArquivoComprovante(file.name);
+
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreviewComprovante(url);
+    } else {
+      setPreviewComprovante(null);
+    }
+  };
+
+  const handleRemoverComprovante = () => {
+    setArquivoComprovante(null);
+    setNomeArquivoComprovante("");
+    if (previewComprovante) {
+      URL.revokeObjectURL(previewComprovante);
+      setPreviewComprovante(null);
+    }
+  };
+
+  const handleConcluirPedidoComprovante = async () => {
+    if (!arquivoComprovante) {
+      alert("Por favor, anexe o comprovante de pagamento antes de concluir.");
+      return;
+    }
+
+    setEnviandoComprovante(true);
+
+    const kit = KITS_CATALOGO[kitSelecionado];
+    const endAtual = enderecoSalvo || {
+      cep: cepInput.trim(),
+      logradouro: logradouroInput.trim(),
+      numero: numeroInput.trim(),
+      complemento: complementoInput.trim(),
+      bairro: bairroInput.trim(),
+      cidade: cidadeInput.trim(),
+      estado: estadoInput.trim(),
+      ponto_referencia: pontoReferenciaInput.trim(),
+    };
+
+    let corEscolhida: ModeloCor = "misto";
+    if (kitSelecionado === "pro") corEscolhida = corKitPro;
+    if (kitSelecionado === "master") corEscolhida = corKitMaster;
+
+    let corDesc =
+      kitSelecionado === "start"
+        ? "5 Pretas + 5 Azuis"
+        : corEscolhida === "misto"
+        ? kitSelecionado === "pro"
+          ? "15 Pretas + 15 Azuis"
+          : "25 Pretas + 25 Azuis"
+        : corEscolhida === "preta"
+        ? `${kit.qtd}x Placa Preta (100% Preta)`
+        : `${kit.qtd}x Placa Azul (100% Azul)`;
+
+    const enderecoTexto = `${endAtual.logradouro}, ${endAtual.numero}${
+      endAtual.complemento ? " (" + endAtual.complemento + ")" : ""
+    } - ${endAtual.bairro}, ${endAtual.cidade}/${endAtual.estado} - CEP: ${endAtual.cep}${
+      endAtual.ponto_referencia ? " [Ref: " + endAtual.ponto_referencia + "]" : ""
+    }`;
 
     try {
-      let pedidoSalvo = false;
-      const { data: resPedido, error: errPedido } = await supabase
-        .from("pedidos_lotes")
-        .insert([
-          {
-            aluno_id: alunoId,
-            quantidade: qtdSolicitar,
-            valor_total: valorCalculado,
-            status: "solicitado",
-          },
-        ])
-        .select();
+      // 1. Upload do Comprovante (Supabase Storage prioritário + Fallback API)
+      let comprovanteUrl = "";
+      const fileExt = arquivoComprovante.name.split(".").pop() || "png";
+      const sanitizedName = arquivoComprovante.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `comprovantes/${alunoId || "aluno"}_${Date.now()}_${sanitizedName}`;
 
-      if (errPedido) {
-        const { data: resFallback, error: errFallback } = await supabase
+      try {
+        const { data: stData, error: stErr } = await supabase.storage
+          .from("comprovantes")
+          .upload(filePath, arquivoComprovante, {
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (!stErr && stData) {
+          const { data: pubData } = supabase.storage
+            .from("comprovantes")
+            .getPublicUrl(filePath);
+          if (pubData?.publicUrl) {
+            comprovanteUrl = pubData.publicUrl;
+          }
+        } else if (stErr) {
+          console.warn("Aviso upload Supabase Storage:", stErr);
+        }
+      } catch (stEx) {
+        console.warn("Exceção upload Supabase Storage:", stEx);
+      }
+
+      // Fallback para API local se storage não retornou URL pública
+      if (!comprovanteUrl) {
+        try {
+          const formData = new FormData();
+          formData.append("file", arquivoComprovante);
+          const resUpload = await fetch("/api/upload-comprovante", {
+            method: "POST",
+            body: formData,
+          });
+          const uploadJson = await resUpload.json();
+          if (uploadJson.success && uploadJson.url) {
+            comprovanteUrl = uploadJson.url;
+          }
+        } catch (errUp) {
+          console.warn("Fallback upload API local falhou:", errUp);
+        }
+      }
+
+      // 2. Gravar em pedidos_lotes com status inicial obrigatório 'Aguardando' e comprovante_url
+      const payloadLote = {
+        aluno_id: alunoId,
+        quantidade: kit.qtd,
+        valor_total: kit.preco,
+        status: "Aguardando",
+        modelo_cor: corEscolhida,
+        endereco_entrega: endAtual,
+        comprovante_url: comprovanteUrl,
+        observacao: `Kit: ${kit.nome} (${kit.qtd} un) | Cor: ${corDesc} | Comprovante: ${comprovanteUrl || "Anexado"} | Endereço: ${enderecoTexto}`,
+      };
+
+      let novoPedidoId: string | null = null;
+      const { data: insertedData, error: errPed } = await supabase
+        .from("pedidos_lotes")
+        .insert([payloadLote])
+        .select("id")
+        .maybeSingle();
+
+      if (!errPed && insertedData?.id) {
+        novoPedidoId = insertedData.id;
+      } else if (errPed) {
+        console.warn("Tentando insert seguro com colunas base:", errPed);
+        const { data: fbData } = await supabase
           .from("pedidos_lotes")
           .insert([
             {
               aluno_id: alunoId,
-              quantidade: qtdSolicitar,
-              valor_total: valorCalculado,
-              status: "pendente",
+              quantidade: kit.qtd,
+              valor_total: kit.preco,
+              status: "Aguardando",
+              comprovante_url: comprovanteUrl,
             },
           ])
-          .select();
+          .select("id")
+          .maybeSingle();
 
-        if (errFallback) {
-          console.error("Erro Supabase ao solicitar displays:", errFallback);
-          alert(`Erro ao registrar pedido no banco: ${errFallback.message}`);
-        } else {
-          pedidoSalvo = true;
+        if (fbData?.id) {
+          novoPedidoId = fbData.id;
         }
-      } else {
-        pedidoSalvo = true;
       }
 
-      // Notificar WhatsApp
+      // 3. Notificar via API / WhatsApp
       try {
         await fetch("/api/notify-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            alunoNome: alunoNome || "Aluno Parceiro",
-            quantidade: qtdSolicitar,
+            alunoNome: alunoNome || "GOPlak",
+            quantidade: kit.qtd,
+            kitNome: kit.nome,
+            valorTotal: kit.preco,
+            cor: corDesc,
+            endereco: enderecoTexto,
+            comprovanteUrl: comprovanteUrl,
           }),
         });
       } catch (errNotify) {
-        console.warn("Aviso ao notificar WhatsApp:", errNotify);
+        console.warn("Aviso ao notificar pedido:", errNotify);
       }
 
-      if (pedidoSalvo) {
-        setAvisoSucessoPedido("Pedido enviado! Seus displays entrarão em produção.");
-        await carregarDadosDoBanco();
-      }
+      // 4. Celebração visual
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+      });
+
+      // 5. Toast / Feedback de sucesso no topo
+      setAvisoSucessoPedido(
+        "✅ Pedido enviado com sucesso! O comprovante já está em análise pela nossa equipe. Acompanhe o status abaixo."
+      );
+
+      // 6. Limpar formulários e fechar modal imediatamente
+      setArquivoComprovante(null);
+      setNomeArquivoComprovante("");
+      setPreviewComprovante(null);
       setModalSolicitarAberto(false);
-    } catch (err) {
-      console.error("Erro inesperado ao solicitar displays:", err);
-      alert("Ocorreu um erro ao processar sua solicitação.");
+      setEtapaSolicitacao(1);
+
+      // 7. Abrir seção Meus Pedidos, ativar pulso temporário de destaque e auto-scroll suave
+      setSecaoMeusPedidosAberta(true);
+      if (novoPedidoId) {
+        setPedidoRecemCriadoId(novoPedidoId);
+      }
+      setDestacarNovoPedido(true);
+
+      setTimeout(() => {
+        setDestacarNovoPedido(false);
+        setPedidoRecemCriadoId(null);
+      }, 4500);
+
+      await carregarDadosDoBanco();
+
+      // Rolagem suave até a seção Meus Pedidos
+      setTimeout(() => {
+        const section = document.getElementById("meus-pedidos");
+        if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 250);
+    } catch (err: any) {
+      console.error("Erro inesperado ao gerar pedido com comprovante:", err);
+      alert("Erro ao processar seu pedido: " + (err.message || String(err)));
     } finally {
-      setSolicitandoDisplays(false);
+      setEnviandoComprovante(false);
     }
   };
 
@@ -1118,6 +1654,54 @@ export default function DashboardAluno() {
     }
   };
 
+  const formatarHoraCurta = (dtStr?: string | null) => {
+    if (!dtStr) return "";
+    const d = new Date(dtStr);
+    if (isNaN(d.getTime())) return "";
+    const dia = String(d.getDate()).padStart(2, "0");
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    const hora = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dia}/${mes} ${hora}:${min}`;
+  };
+
+  const handleConfirmarRecebimentoAluno = async (pedidoId: string) => {
+    try {
+      const agoraIso = new Date().toISOString();
+      const { error } = await supabase
+        .from("pedidos_lotes")
+        .update({
+          status: "entregue",
+          entregue_em: agoraIso,
+        })
+        .eq("id", pedidoId);
+
+      if (error) {
+        console.warn("Aviso ao confirmar entrega no Supabase:", error);
+      }
+
+      setPedidosAluno((prev) =>
+        prev.map((p) =>
+          p.id === pedidoId ? { ...p, status: "entregue", entregue_em: agoraIso } : p
+        )
+      );
+
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+      });
+
+      setAvisoSucessoPedido(
+        "🎉 Entrega confirmada com sucesso! Seus displays virgens foram liberados no estoque."
+      );
+      await carregarDadosDoBanco();
+    } catch (err: any) {
+      console.error("Erro ao confirmar recebimento:", err);
+      alert("Erro ao confirmar recebimento: " + (err.message || String(err)));
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -1131,17 +1715,30 @@ export default function DashboardAluno() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans pb-28 pt-4 px-4 sm:px-6 max-w-lg mx-auto selection:bg-emerald-500 selection:text-black transition-colors duration-200">
       {/* Top Header Mobile */}
-      <header className="flex items-center justify-between py-3 mb-5 border-b border-zinc-200 dark:border-neutral-800/80">
+      <header className="flex items-center justify-between py-3 mb-4 border-b border-zinc-200 dark:border-neutral-800/80">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">TAGPLAK</span>
+            <span className="text-xs font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">GOPLAK</span>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 mt-0.5">
             Meu Dashboard <Sparkles className="w-4 h-4 text-emerald-500 dark:text-emerald-400 inline" />
           </h1>
-          <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
-            Parceiro: <span className="font-semibold text-zinc-800 dark:text-neutral-200">{alunoNome}</span>
-          </p>
+          <div className="flex items-center gap-2.5 flex-wrap mt-1">
+            <span className="text-zinc-500 dark:text-neutral-400 text-xs sm:text-sm whitespace-nowrap">
+              Parceiro: <strong className="font-semibold text-zinc-800 dark:text-neutral-200">{alunoNome}</strong>
+            </span>
+            {rankingLiderDisplays > 0 ? (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-0.5 text-xs font-medium rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs">
+                🏆 {isAlunoLider
+                  ? `Top 1 do Mês: ${rankingAlunoDisplays} displays (+10 grátis) • ${diasRestantesMes}d`
+                  : `Top 1: ${rankingLiderNome} (${rankingLiderDisplays} un) • ${diasRestantesMes}d`}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-0.5 text-xs font-medium rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:text-amber-400/80">
+                🏆 Top 1 do Mês: +10 displays grátis
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {isMasterAdmin && (
@@ -1151,9 +1748,29 @@ export default function DashboardAluno() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer"
             >
               <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>Painel Admin</span>
+              <span>Admin</span>
             </button>
           )}
+
+          {/* Sino de Notificação Rápida */}
+          <button
+            onClick={() => {
+              const sec = document.getElementById("meus-pedidos");
+              if (sec) {
+                setSecaoMeusPedidosAberta(true);
+                sec.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }}
+            title="Avisos e Pedidos em Andamento"
+            aria-label="Notificações"
+            className="relative p-2 rounded-xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            <Bell className="w-4 h-4" />
+            {pedidosAluno.some((p) => p.status === "enviado" || p.status === "Aguardando" || p.status === "em_producao") && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900 animate-pulse" />
+            )}
+          </button>
+
           <ThemeToggle />
           <button
             onClick={() => {
@@ -1177,131 +1794,93 @@ export default function DashboardAluno() {
         </div>
       </header>
 
-      {/* Alerta de Acesso Não Autorizado */}
-      {avisoNaoAutorizado && (
-        <div className="mb-4 bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
-            <span className="font-medium">{avisoNaoAutorizado}</span>
+      {/* TOASTS FLUTUANTES (FIXED TOP-RIGHT / NÃO DESLOCAM O LAYOUT) */}
+      <div
+        onMouseEnter={() => setToastHovered(true)}
+        onMouseLeave={() => setToastHovered(false)}
+        className="fixed top-4 right-4 z-[70] max-w-sm w-full pointer-events-none space-y-2 px-3 sm:px-0"
+      >
+        {avisoNaoAutorizado && (
+          <div className="pointer-events-auto bg-rose-950/95 dark:bg-neutral-900/95 border border-rose-500/40 text-rose-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+              <span className="font-medium text-rose-100 dark:text-rose-200 leading-snug">{avisoNaoAutorizado}</span>
+            </div>
+            <button
+              onClick={() => setAvisoNaoAutorizado(null)}
+              className="text-rose-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setAvisoNaoAutorizado(null)}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Alerta de Erro de Consulta ao Banco (Supabase) */}
-      {erroQuerySupabase && (
-        <div className="mb-4 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/40 text-amber-800 dark:text-amber-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span className="font-medium">{erroQuerySupabase}</span>
+        {erroQuerySupabase && (
+          <div className="pointer-events-auto bg-amber-950/95 dark:bg-neutral-900/95 border border-amber-500/40 text-amber-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              <span className="font-medium text-amber-100 dark:text-amber-200 leading-snug">{erroQuerySupabase}</span>
+            </div>
+            <button
+              onClick={() => setErroQuerySupabase(null)}
+              className="text-amber-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setErroQuerySupabase(null)}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Alerta de Sucesso de Ativação de Display */}
-      {avisoSucessoAtivacao && (
-        <div className="mb-4 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">{avisoSucessoAtivacao}</span>
+        {avisoSucessoAtivacao && (
+          <div className="pointer-events-auto bg-emerald-950/95 dark:bg-neutral-900/95 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+              <span className="font-medium text-emerald-100 dark:text-emerald-200 leading-snug">{avisoSucessoAtivacao}</span>
+            </div>
+            <button
+              onClick={() => setAvisoSucessoAtivacao(null)}
+              className="text-emerald-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setAvisoSucessoAtivacao(null)}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Alerta de Sucesso de Pedido de Displays */}
-      {avisoSucessoPedido && (
-        <div className="mb-4 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">{avisoSucessoPedido}</span>
+        {avisoSucessoPedido && (
+          <div className="pointer-events-auto bg-emerald-950/95 dark:bg-neutral-900/95 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+              <span className="font-medium text-emerald-100 dark:text-emerald-200 leading-snug">{avisoSucessoPedido}</span>
+            </div>
+            <button
+              onClick={() => setAvisoSucessoPedido(null)}
+              className="text-emerald-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setAvisoSucessoPedido(null)}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Alerta de Sucesso de Edição de Link de Placa */}
-      {avisoSucessoLink && (
-        <div className="mb-4 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">{avisoSucessoLink}</span>
+        {avisoSucessoLink && (
+          <div className="pointer-events-auto bg-emerald-950/95 dark:bg-neutral-900/95 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+              <span className="font-medium text-emerald-100 dark:text-emerald-200 leading-snug">{avisoSucessoLink}</span>
+            </div>
+            <button
+              onClick={() => setAvisoSucessoLink(null)}
+              className="text-emerald-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setAvisoSucessoLink(null)}
-            className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Indicador de carregamento discreto */}
-      {(loading || refreshing) && (
-        <div className="mb-3 flex items-center justify-center gap-2 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 py-1.5 px-3 rounded-xl animate-in fade-in duration-150">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Sincronizando métricas com o Supabase...</span>
-        </div>
-      )}
+        )}
+      </div>
 
       <div>
         {/* ========================================================
             SESSÃO 1: PERFORMANCE DO DIA
             ======================================================== */}
         <div className="space-y-3">
-          {/* BANNER COMPACTO: TOP DISPLAY (TOPO EM LINHA ÚNICA / PILL) */}
-          {(() => {
-            const agora = new Date();
-            const ultimoDiaMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
-            const diasRestantesMes = Math.max(1, ultimoDiaMes - agora.getDate());
-
-            return (
-              <section className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/30 rounded-xl py-1.5 px-3 sm:px-3.5 flex items-center justify-between gap-2 text-xs sm:text-sm shadow-xs transition-colors">
-                <div className="flex items-center gap-1.5 min-w-0 truncate">
-                  <span className="text-sm leading-none shrink-0">🏆</span>
-                  <span className="text-xs text-amber-900 dark:text-amber-300 truncate">
-                    <strong className="uppercase font-bold text-amber-800 dark:text-amber-400">TOP DISPLAY:</strong>{" "}
-                    {rankingLiderDisplays === 0 ? (
-                      <span className="font-normal text-zinc-600 dark:text-neutral-400">Sem pedidos no mês</span>
-                    ) : isAlunoLider ? (
-                      <span className="font-semibold text-amber-900 dark:text-amber-200">Você lidera com {rankingAlunoDisplays} displays!</span>
-                    ) : (
-                      <span className="font-medium text-zinc-700 dark:text-neutral-300">
-                        Líder {rankingLiderNome} ({rankingLiderDisplays} displays)
-                      </span>
-                    )}
-                  </span>
-                </div>
-
-                <div className="shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-amber-900 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg font-mono">
-                  <span className="font-bold text-emerald-700 dark:text-emerald-400">+10 grátis</span>
-                  <span className="text-amber-600/60 dark:text-amber-400/60">•</span>
-                  <span>{diasRestantesMes} {diasRestantesMes === 1 ? "dia" : "dias"}</span>
-                </div>
-              </section>
-            );
-          })()}
 
           {/* CARD PRINCIPAL: RITMO COM FILTRO TEMPORAL */}
           <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl backdrop-blur-sm transition-colors">
@@ -1736,7 +2315,7 @@ export default function DashboardAluno() {
         {/* ========================================================
             SESSÃO 5: MEUS PEDIDOS (BLOCO INDIVIDUAL)
             ======================================================== */}
-        <div className="mt-7">
+        <div className="mt-7" id="meus-pedidos">
           <div className="flex items-center justify-between px-1 mb-2.5">
             <button
               type="button"
@@ -1757,36 +2336,141 @@ export default function DashboardAluno() {
 
           {secaoMeusPedidosAberta && (
             <div className="space-y-3 animate-in fade-in duration-200">
-              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
-                {pedidosAluno.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-zinc-400 dark:text-neutral-500">
-                    Você ainda não realizou pedidos de displays.
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                    {pedidosAluno.map((ped) => {
-                      const dt = new Date(ped.created_at || Date.now());
-                      const statusLabel =
-                        ped.status === "solicitado" || ped.status === "pendente"
-                          ? "🟡 Solicitado"
-                          : ped.status === "em_producao"
-                          ? "🔵 Em Produção"
-                          : ped.status === "enviado"
-                          ? "🟣 Enviado (Em Trânsito)"
-                          : ped.status === "entregue"
-                          ? "🟢 Entregue"
-                          : ped.status;
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl transition-colors">
+                {/* Abas de Visualização: Em Andamento vs Histórico Concluído */}
+                <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-neutral-800/80 p-1 rounded-2xl mb-3.5 border border-zinc-200 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setAbaPedidos("andamento")}
+                    className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      abaPedidos === "andamento"
+                        ? "bg-white dark:bg-neutral-900 text-violet-700 dark:text-violet-300 shadow-xs border border-zinc-200/80 dark:border-neutral-700"
+                        : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <span>🚀 Em Andamento</span>
+                    <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      abaPedidos === "andamento"
+                        ? "bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                        : "bg-zinc-200 dark:bg-neutral-700 text-zinc-600 dark:text-neutral-400"
+                    }`}>
+                      {pedidosEmAndamento.length}
+                    </span>
+                  </button>
 
-                      const statusStyle =
-                        ped.status === "solicitado" || ped.status === "pendente"
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                          : ped.status === "em_producao"
-                          ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
-                          : ped.status === "enviado"
-                          ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30"
-                          : ped.status === "entregue"
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700";
+                  <button
+                    type="button"
+                    onClick={() => setAbaPedidos("concluidos")}
+                    className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      abaPedidos === "concluidos"
+                        ? "bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-300 shadow-xs border border-zinc-200/80 dark:border-neutral-700"
+                        : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <span>📦 Histórico Concluído</span>
+                    <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      abaPedidos === "concluidos"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                        : "bg-zinc-200 dark:bg-neutral-700 text-zinc-600 dark:text-neutral-400"
+                    }`}>
+                      {pedidosConcluidos.length}
+                    </span>
+                  </button>
+                </div>
+
+                {(() => {
+                  const listaExibida = abaPedidos === "andamento" ? pedidosEmAndamento : pedidosConcluidos;
+
+                  if (listaExibida.length === 0) {
+                    if (abaPedidos === "andamento") {
+                      return (
+                        <div className="py-7 text-center space-y-2 text-xs text-zinc-400 dark:text-neutral-500">
+                          <p className="font-semibold text-zinc-700 dark:text-neutral-300 text-sm">
+                            Nenhum pedido em andamento no momento.
+                          </p>
+                          <p className="text-[11px] text-zinc-500 dark:text-neutral-400 max-w-xs mx-auto">
+                            Todos os seus pedidos foram entregues ou você ainda não solicitou um novo lote de displays.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setModalSolicitarAberto(true)}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-3.5 py-2 rounded-xl transition cursor-pointer mt-2 shadow-xs active:scale-95"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Solicitar Novo Lote</span>
+                          </button>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="py-7 text-center text-xs text-zinc-400 dark:text-neutral-500 space-y-1">
+                          <p className="font-medium text-zinc-700 dark:text-neutral-300">
+                            Nenhum pedido concluído no histórico ainda.
+                          </p>
+                          <p className="text-[11px]">
+                            Quando seus lotes forem entregues e confirmados, eles aparecerão aqui.
+                          </p>
+                        </div>
+                      );
+                    }
+                  }
+
+                  return (
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                      {listaExibida.map((ped, idx) => {
+                      const dt = new Date(ped.created_at || Date.now());
+                      const isRecemCriado = destacarNovoPedido && (ped.id === pedidoRecemCriadoId || idx === 0);
+                      const stLower = (ped.status || "").toLowerCase().trim();
+                      const isAguardando =
+                        stLower === "aguardando" ||
+                        stLower === "aguardando aprovação" ||
+                        stLower === "aguardando aprovacao" ||
+                        stLower === "aguardando_aprovacao" ||
+                        stLower === "aguardando_pagamento" ||
+                        stLower === "solicitado" ||
+                        stLower === "pendente";
+                      const isProducao =
+                        stLower === "em_producao" ||
+                        stLower === "em produção" ||
+                        stLower === "em producao" ||
+                        stLower === "aprovado";
+                      const isEnviado = stLower === "enviado";
+                      const isEntregue = stLower === "entregue" || stLower === "concluido";
+                      const isRecusado = stLower === "recusado" || stLower === "rejeitado" || stLower === "cancelado";
+
+                      const statusLabel = isAguardando
+                        ? "🟡 Aguardando Aprovação"
+                        : isProducao
+                        ? "🟢 Em Produção / Aprovado"
+                        : isEnviado
+                        ? "🟣 Enviado (Em Trânsito)"
+                        : isEntregue
+                        ? "✅ Entregue"
+                        : isRecusado
+                        ? "❌ Recusado"
+                        : ped.status;
+
+                      const statusStyle = isAguardando
+                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                        : isProducao
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                        : isEnviado
+                        ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30"
+                        : isEntregue
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
+                        : isRecusado
+                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                        : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700";
+
+                      const statusLegenda = isAguardando
+                        ? "Comprovante em análise pela equipe"
+                        : isProducao
+                        ? "Produzindo displays na fábrica"
+                        : isEntregue
+                        ? "Displays entregues e disponíveis para ativação."
+                        : isRecusado
+                        ? (ped.motivo_recusa ? `Recusado: ${ped.motivo_recusa}` : "Pedido recusado pela administração.")
+                        : null;
 
                       const rastreioTrim = (ped.codigo_rastreio || "").trim();
                       const isUrlRastreio = rastreioTrim.startsWith("http://") || rastreioTrim.startsWith("https://");
@@ -1794,11 +2478,34 @@ export default function DashboardAluno() {
                         ? rastreioTrim
                         : `https://rastreamento.correios.com.br/app/index.php?codigo=${encodeURIComponent(rastreioTrim)}`;
 
+                      // Estados das 5 etapas da Timeline
+                      const s1Done = true;
+                      const s1Time = formatarHoraCurta(ped.created_at);
+
+                      const s2Done = isProducao || isEnviado || isEntregue || !!ped.aprovado_em;
+                      const s2Active = isAguardando && !isRecusado;
+                      const s2Time = formatarHoraCurta(ped.aprovado_em || (s2Done ? ped.created_at : null));
+
+                      const s3Done = isEnviado || isEntregue;
+                      const s3Active = isProducao;
+
+                      const s4Done = isEntregue;
+                      const s4Active = isEnviado;
+                      const s4Time = formatarHoraCurta(ped.enviado_em);
+
+                      const s5Done = isEntregue;
+                      const s5Time = formatarHoraCurta(ped.entregue_em);
+
                       return (
                         <div
                           key={ped.id}
-                          className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800/80 rounded-2xl p-3.5 space-y-2.5 text-xs"
+                          className={`bg-zinc-50 dark:bg-neutral-950/70 border rounded-2xl p-4 space-y-3.5 text-xs transition-all duration-500 ${
+                            isRecemCriado
+                              ? "ring-2 ring-amber-400 dark:ring-amber-500 border-amber-400/80 shadow-lg shadow-amber-500/10 animate-pulse"
+                              : "border-zinc-200 dark:border-neutral-800/80"
+                          }`}
                         >
+                          {/* Cabeçalho do Card */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-zinc-900 dark:text-white text-sm">{ped.quantidade} displays</span>
@@ -1806,7 +2513,7 @@ export default function DashboardAluno() {
                                 • {dt.toLocaleDateString("pt-BR")}
                               </span>
                               {ped.observacao && (
-                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full truncate max-w-[140px]" title={ped.observacao}>
                                   {ped.observacao}
                                 </span>
                               )}
@@ -1816,59 +2523,238 @@ export default function DashboardAluno() {
                             </span>
                           </div>
 
-                          {/* Código de Rastreio se houver */}
-                          {rastreioTrim ? (
-                            <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800/80 flex items-center justify-between gap-2 bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-900/30 p-2.5 rounded-xl">
-                              <div className="flex items-center gap-1.5 font-mono text-[11px] text-violet-700 dark:text-violet-300 min-w-0">
-                                <Truck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
-                                <span className="font-bold truncate" title={rastreioTrim}>
-                                  {isUrlRastreio ? "Link de Envio" : rastreioTrim}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopiarRastreio(ped.id, rastreioTrim)}
-                                  className="inline-flex items-center gap-1 text-[10px] font-semibold bg-zinc-200 hover:bg-zinc-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                                  title="Copiar código ou link de rastreio"
-                                >
-                                  {copiadoId === ped.id ? (
-                                    <>
-                                      <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                      <span className="text-emerald-600 dark:text-emerald-400">Copiado!</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3 h-3" />
-                                      <span>Copiar</span>
-                                    </>
-                                  )}
-                                </button>
-                                <a
-                                  href={urlRastreioFinal}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[10px] font-semibold bg-violet-500/10 hover:bg-violet-500/20 dark:bg-violet-500/20 dark:hover:bg-violet-500/30 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-lg border border-violet-500/30 transition cursor-pointer"
-                                  title="Acompanhar entrega em nova aba"
-                                >
-                                  <span>Rastrear</span>
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
+                          {/* Conteúdo Principal: Recusado ou Stepper Timeline */}
+                          {isRecusado ? (
+                            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 flex items-start gap-2.5 text-rose-700 dark:text-rose-400">
+                              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                              <div className="space-y-1">
+                                <div className="font-bold text-xs">Pedido Recusado</div>
+                                <p className="text-[11px] opacity-90">
+                                  {ped.motivo_recusa || "Comprovante divergente ou pedido cancelado pela administração."}
+                                </p>
                               </div>
                             </div>
                           ) : (
-                            <div className="text-[11px] text-zinc-500 dark:text-neutral-500 italic">
-                              {ped.status === "solicitado" || ped.status === "pendente"
-                                ? "Aguardando envio pelo distribuidor."
-                                : "Produzindo displays na fábrica."}
+                            <div className="space-y-3 pt-1">
+                              {/* Linha do Tempo de 5 Etapas */}
+                              <div className="relative flex items-start justify-between px-0.5">
+                                {/* Barra Traseira de Progresso */}
+                                <div className="absolute top-2.5 left-4 right-4 h-0.5 bg-zinc-200 dark:bg-neutral-800 -z-0" />
+
+                                {/* 1. Realizado */}
+                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                  <div className="w-5 h-5 rounded-full bg-emerald-500 text-black flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900">
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                  </div>
+                                  <span className="text-[9.5px] font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 leading-tight">
+                                    1. Realizado
+                                  </span>
+                                  {s1Time && <span className="text-[8.5px] font-mono text-zinc-500 dark:text-neutral-400 leading-tight">{s1Time}</span>}
+                                </div>
+
+                                {/* 2. Aprovado */}
+                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                  <div
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
+                                      s2Done
+                                        ? "bg-emerald-500 text-black"
+                                        : s2Active
+                                        ? "bg-amber-500 text-black animate-pulse ring-amber-400/40"
+                                        : "bg-zinc-200 dark:bg-neutral-800 text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    {s2Done ? <Check className="w-3 h-3 stroke-[3]" /> : s2Active ? <Clock className="w-3 h-3" /> : "2"}
+                                  </div>
+                                  <span
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                      s2Done
+                                        ? "text-zinc-800 dark:text-neutral-200"
+                                        : s2Active
+                                        ? "text-amber-600 dark:text-amber-400"
+                                        : "text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    2. Aprovado
+                                  </span>
+                                  {s2Done && s2Time ? (
+                                    <span className="text-[8.5px] font-mono text-zinc-500 dark:text-neutral-400 leading-tight">{s2Time}</span>
+                                  ) : s2Active ? (
+                                    <span className="text-[8.5px] text-amber-600 dark:text-amber-400 leading-tight">Análise</span>
+                                  ) : null}
+                                </div>
+
+                                {/* 3. Produção */}
+                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                  <div
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
+                                      s3Done
+                                        ? "bg-emerald-500 text-black"
+                                        : s3Active
+                                        ? "bg-emerald-500 text-black animate-pulse ring-emerald-400/40"
+                                        : "bg-zinc-200 dark:bg-neutral-800 text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    {s3Done ? <Check className="w-3 h-3 stroke-[3]" /> : s3Active ? <Package className="w-3 h-3" /> : "3"}
+                                  </div>
+                                  <span
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                      s3Done
+                                        ? "text-zinc-800 dark:text-neutral-200"
+                                        : s3Active
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    3. Produção
+                                  </span>
+                                  {s3Active && <span className="text-[8.5px] text-emerald-600 dark:text-emerald-400 leading-tight">Fábrica</span>}
+                                </div>
+
+                                {/* 4. Enviado */}
+                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                  <div
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
+                                      s4Done
+                                        ? "bg-emerald-500 text-black"
+                                        : s4Active
+                                        ? "bg-violet-500 text-white animate-pulse ring-violet-400/40"
+                                        : "bg-zinc-200 dark:bg-neutral-800 text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    {s4Done ? <Check className="w-3 h-3 stroke-[3]" /> : s4Active ? <Truck className="w-3 h-3" /> : "4"}
+                                  </div>
+                                  <span
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                      s4Done
+                                        ? "text-zinc-800 dark:text-neutral-200"
+                                        : s4Active
+                                        ? "text-violet-600 dark:text-violet-400"
+                                        : "text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    4. Enviado
+                                  </span>
+                                  {s4Time ? (
+                                    <span className="text-[8.5px] font-mono text-zinc-500 dark:text-neutral-400 leading-tight">{s4Time}</span>
+                                  ) : s4Active ? (
+                                    <span className="text-[8.5px] text-violet-600 dark:text-violet-400 leading-tight">Em trânsito</span>
+                                  ) : null}
+                                </div>
+
+                                {/* 5. Entregue */}
+                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                  <div
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
+                                      s5Done
+                                        ? "bg-emerald-500 text-black"
+                                        : "bg-zinc-200 dark:bg-neutral-800 text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    {s5Done ? <Check className="w-3 h-3 stroke-[3]" /> : "5"}
+                                  </div>
+                                  <span
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                      s5Done
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-zinc-400 dark:text-neutral-600"
+                                    }`}
+                                  >
+                                    5. Entregue
+                                  </span>
+                                  {s5Time ? (
+                                    <span className="text-[8.5px] font-mono text-zinc-500 dark:text-neutral-400 leading-tight">{s5Time}</span>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              {/* Card de Rastreio & Ações */}
+                              {(isEnviado || isEntregue || rastreioTrim) && (
+                                <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800/80 space-y-2">
+                                  {rastreioTrim && (
+                                    <div className="flex items-center justify-between gap-2 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900/30 p-2.5 rounded-xl">
+                                      <div className="flex items-center gap-1.5 font-mono text-[11px] text-violet-700 dark:text-violet-300 min-w-0">
+                                        <Truck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+                                        <div className="truncate">
+                                          {ped.transportadora && <span className="font-bold mr-1 text-[10px] uppercase text-violet-800 dark:text-violet-300">[{ped.transportadora}]</span>}
+                                          <span className="font-bold truncate" title={rastreioTrim}>
+                                            {isUrlRastreio ? "Link de Envio" : rastreioTrim}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCopiarRastreio(ped.id, rastreioTrim)}
+                                          className="inline-flex items-center gap-1 text-[10px] font-semibold bg-zinc-200 hover:bg-zinc-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-200 px-2 py-1 rounded-lg transition cursor-pointer"
+                                          title="Copiar código de rastreio"
+                                        >
+                                          {copiadoId === ped.id ? (
+                                            <>
+                                              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                              <span className="text-emerald-600 dark:text-emerald-400">Copiado</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="w-3 h-3" />
+                                              <span>Copiar</span>
+                                            </>
+                                          )}
+                                        </button>
+                                        <a
+                                          href={urlRastreioFinal}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-[10px] font-semibold bg-violet-500/10 hover:bg-violet-500/20 dark:bg-violet-500/20 dark:hover:bg-violet-500/30 text-violet-700 dark:text-violet-300 px-2 py-1 rounded-lg border border-violet-500/30 transition cursor-pointer"
+                                          title="Acompanhar entrega em nova aba"
+                                        >
+                                          <span>Rastrear</span>
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {isEnviado && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConfirmarRecebimentoAluno(ped.id)}
+                                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <span>Confirmar Recebimento do Lote</span>
+                                    </button>
+                                  )}
+
+                                  {isEntregue && (
+                                    <div className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl flex items-center gap-1.5">
+                                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                      <span>Lote entregue! Displays virgens liberados no estoque.</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Legenda de status */}
+                              {!rastreioTrim && !isEnviado && !isEntregue && statusLegenda && (
+                                <div className={`text-[11px] font-medium pt-1 ${
+                                  isAguardando
+                                    ? "text-amber-600 dark:text-amber-400/90"
+                                    : isProducao
+                                    ? "text-emerald-600 dark:text-emerald-400/90"
+                                    : "text-zinc-500 dark:text-neutral-500"
+                                }`}>
+                                  {statusLegenda}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </section>
+                );
+              })()}
+            </section>
             </div>
           )}
         </div>
@@ -2181,95 +3067,890 @@ export default function DashboardAluno() {
         </div>
       )}
 
-      {/* MODAL 3: SOLICITAR DISPLAYS */}
+      {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Header do Modal */}
             <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <Package className="w-5 h-5 text-sky-600 dark:text-sky-400" /> Solicitar Novos Displays
-              </h3>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Solicitar Novo Lote de Displays
+                  </h3>
+                  <div className="flex items-center gap-1.5 mt-1 overflow-x-auto scrollbar-none pb-0.5">
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border transition whitespace-nowrap ${
+                        etapaSolicitacao === 1
+                          ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                          : etapaSolicitacao > 1
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
+                      }`}
+                    >
+                      1. Endereço
+                    </span>
+                    <span className="text-zinc-400 text-xs shrink-0">➔</span>
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border transition whitespace-nowrap ${
+                        etapaSolicitacao === 2
+                          ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                          : etapaSolicitacao > 2
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
+                      }`}
+                    >
+                      2. Kits & Cores
+                    </span>
+                    <span className="text-zinc-400 text-xs shrink-0">➔</span>
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border transition whitespace-nowrap ${
+                        etapaSolicitacao === 3
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
+                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
+                      }`}
+                    >
+                      3. Pagamento
+                    </span>
+                  </div>
+                </div>
+              </div>
               <button
-                onClick={() => setModalSolicitarAberto(false)}
+                onClick={() => {
+                  setModalSolicitarAberto(false);
+                  setEtapaSolicitacao(1);
+                }}
                 className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSolicitarDisplays} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
-                  Escolha a Quantidade
-                </label>
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  {[20, 50, 100].map((qtd) => (
-                    <button
-                      key={qtd}
-                      type="button"
-                      onClick={() => setQtdSolicitar(qtd)}
-                      className={`text-xs py-2.5 px-3 rounded-xl font-bold border transition cursor-pointer ${
-                        qtdSolicitar === qtd
-                          ? "bg-sky-500 text-black border-sky-400 shadow-sm"
-                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      {qtd} displays
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="number"
-                  min="1"
-                  max="500"
-                  required
-                  value={qtdSolicitar}
-                  onChange={(e) => setQtdSolicitar(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-2.5 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                  placeholder="Ou digite outra quantidade..."
-                />
-              </div>
+            {/* ========================================================
+                ETAPA 1: ENDEREÇO DE ENTREGA
+                ======================================================== */}
+            {etapaSolicitacao === 1 && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {enderecoSalvo && !editandoEndereco ? (
+                  /* Resumo do Endereço Salvo */
+                  <div className="space-y-4">
+                    <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60 rounded-2xl p-4 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 flex items-center gap-1.5 text-[11px]">
+                          <MapPin className="w-4 h-4 text-sky-600 dark:text-sky-400" /> Entregar em:
+                        </span>
+                        <span className="text-[10px] font-mono bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-md">
+                          Cadastrado
+                        </span>
+                      </div>
 
-              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5 text-xs space-y-1.5 text-zinc-600 dark:text-neutral-400">
-                <div className="flex justify-between items-center text-zinc-700 dark:text-neutral-300">
-                  <span>Destinatário:</span>
-                  <span className="font-semibold text-zinc-900 dark:text-white">{alunoNome}</span>
-                </div>
-                <div className="flex justify-between items-center text-zinc-700 dark:text-neutral-300">
-                  <span>Previsão de Potencial:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    R$ {(qtdSolicitar * precoPorDisplay).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <p className="text-[11px] text-zinc-500 dark:text-neutral-500 pt-1 border-t border-zinc-200 dark:border-neutral-800">
-                  O distribuidor receberá seu pedido e colocará o lote em produção imediatamente.
-                </p>
-              </div>
+                      <div className="text-zinc-800 dark:text-neutral-200 space-y-0.5 pt-1">
+                        <p className="font-semibold text-sm text-zinc-900 dark:text-white">
+                          {enderecoSalvo.logradouro}, {enderecoSalvo.numero}
+                          {enderecoSalvo.complemento ? ` (${enderecoSalvo.complemento})` : ""}
+                        </p>
+                        <p className="text-zinc-600 dark:text-neutral-400">
+                          Bairro {enderecoSalvo.bairro} • {enderecoSalvo.cidade} / {enderecoSalvo.estado}
+                        </p>
+                        <p className="font-mono text-[11px] text-zinc-500 dark:text-neutral-500">
+                          CEP: {enderecoSalvo.cep}
+                          {enderecoSalvo.ponto_referencia ? ` • Ref: ${enderecoSalvo.ponto_referencia}` : ""}
+                        </p>
+                      </div>
 
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setModalSolicitarAberto(false)}
-                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
-                >
-                  Voltar
-                </button>
-                <button
-                  type="submit"
-                  disabled={solicitandoDisplays}
-                  className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {solicitandoDisplays ? (
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Enviando...</span>
+                      <div className="pt-2 border-t border-sky-200/80 dark:border-sky-900/50 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setEditandoEndereco(true)}
+                          className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Alterar Endereço</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setModalSolicitarAberto(false)}
+                        className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEtapaSolicitacao(2)}
+                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Avançar para Escolha do Lote</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Formulário de Endereço com Busca Automática ViaCEP */
+                  <form onSubmit={handleAvancarParaKits} className="space-y-3.5">
+                    {erroEndereco && (
+                      <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{erroEndereco}</span>
+                      </div>
+                    )}
+
+                    {/* CEP */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider">
+                          CEP *
+                        </label>
+                        {buscandoCep && (
+                          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" /> Buscando endereço...
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="00000-000"
+                        maxLength={9}
+                        value={cepInput}
+                        onChange={(e) => handleCepChange(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Logradouro (Rua / Avenida) */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                        Rua / Avenida *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Av. Paulista ou Rua das Flores"
+                        value={logradouroInput}
+                        onChange={(e) => setLogradouroInput(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                      />
+                    </div>
+
+                    {/* Número e Complemento */}
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div className="col-span-1">
+                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                          Número *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="123"
+                          value={numeroInput}
+                          onChange={(e) => setNumeroInput(e.target.value)}
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                          Complemento (Opcional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Apto 42, Sala 3, Bloco B"
+                          value={complementoInput}
+                          onChange={(e) => setComplementoInput(e.target.value)}
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bairro, Cidade e UF */}
+                    <div className="grid grid-cols-12 gap-2">
+                      <div className="col-span-5">
+                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                          Bairro *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Bairro"
+                          value={bairroInput}
+                          onChange={(e) => setBairroInput(e.target.value)}
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+                      </div>
+                      <div className="col-span-5">
+                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                          Cidade *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Cidade"
+                          value={cidadeInput}
+                          onChange={(e) => setCidadeInput(e.target.value)}
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                          UF *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={2}
+                          placeholder="SP"
+                          value={estadoInput}
+                          onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Ponto de Referência */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                        Ponto de Referência (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Próximo à padaria, portão branco..."
+                        value={pontoReferenciaInput}
+                        onChange={(e) => setPontoReferenciaInput(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                      />
+                    </div>
+
+                    {/* Botões */}
+                    <div className="pt-2 flex gap-3">
+                      {enderecoSalvo && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditandoEndereco(false);
+                            setErroEndereco(null);
+                          }}
+                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3 rounded-xl text-xs transition cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Avançar para Escolha do Lote</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* ========================================================
+                ETAPA 2: CATÁLOGO DE KITS & PREVIEW VISUAL DE CORES
+                ======================================================== */}
+            {etapaSolicitacao === 2 && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Header de Resumo de Endereço com botão voltar */}
+                <div className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800 p-2.5 rounded-xl text-xs">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                    <span className="text-zinc-600 dark:text-neutral-400 truncate">
+                      {enderecoSalvo?.logradouro}, {enderecoSalvo?.numero} • {enderecoSalvo?.cidade}/{enderecoSalvo?.estado}
                     </span>
-                  ) : (
-                    <span>Confirmar Pedido</span>
-                  )}
-                </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEtapaSolicitacao(1)}
+                    className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline shrink-0 cursor-pointer ml-2"
+                  >
+                    Alterar
+                  </button>
+                </div>
+
+                {/* 3 CARDS VERTICAIS DE KITS */}
+                <div className="space-y-3">
+                  {/* CARD 1: KIT START (10 UN | R$ 170,00) */}
+                  <div
+                    onClick={() => setKitSelecionado("start")}
+                    className={`p-4 rounded-2xl border transition cursor-pointer relative ${
+                      kitSelecionado === "start"
+                        ? "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500 ring-2 ring-amber-500/30"
+                        : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Start</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                            Padrão Lançamento
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          10 unidades • R$ 17,00/un
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-black text-zinc-900 dark:text-white">R$ 170,00</span>
+                        <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                          Venda: R$ 800,00
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mensagem Padrão de Turma + Imagens em Destaque Centralizado */}
+                    <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 flex flex-col items-center gap-2.5">
+                      <div className="flex items-center justify-center gap-4 sm:gap-6 w-full py-1">
+                        <div className="flex flex-col items-center">
+                          <img
+                            src="/placa-preta.png"
+                            alt="Placa Preta Google"
+                            className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                          />
+                          <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                            5x Preta
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <img
+                            src="/placa-azul.png"
+                            alt="Placa Azul Google"
+                            className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                          />
+                          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                            5x Azul
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-amber-700 dark:text-amber-400/90 bg-amber-500/10 border border-amber-500/20 py-1.5 px-3 rounded-md inline-block mt-2 text-center font-medium">
+                        Pacote padrão 50/50. Escolha de cor individual liberada a partir de 30 unidades.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* CARD 2: KIT PRO (30 UN | R$ 540,00 - DESTAQUE VERDE) */}
+                  <div
+                    onClick={() => setKitSelecionado("pro")}
+                    className={`p-4 rounded-2xl border transition cursor-pointer relative ${
+                      kitSelecionado === "pro"
+                        ? "bg-emerald-500/5 dark:bg-emerald-950/20 border-emerald-500 ring-2 ring-emerald-500/40 shadow-sm"
+                        : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Pro</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 shadow-xs">
+                            🔥 Mais Vendido
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          30 unidades • R$ 18,00/un
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-black text-emerald-700 dark:text-emerald-400">R$ 540,00</span>
+                        <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                          Venda: R$ 2.400,00
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botões de Cores e Preview Interativo em Alta Definição */}
+                    <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                          Escolha as Cores:
+                        </span>
+                        <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                          {corKitPro === "misto" ? "15 Pretas / 15 Azuis" : corKitPro === "preta" ? "30 Pretas" : "30 Azuis"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKitSelecionado("pro");
+                            setCorKitPro("misto");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            corKitPro === "misto" && kitSelecionado === "pro"
+                              ? "bg-emerald-500 text-black border-emerald-400 shadow-sm"
+                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                          }`}
+                        >
+                          Misto 15/15
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKitSelecionado("pro");
+                            setCorKitPro("preta");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            corKitPro === "preta" && kitSelecionado === "pro"
+                              ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
+                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                          }`}
+                        >
+                          100% Preta
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKitSelecionado("pro");
+                            setCorKitPro("azul");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            corKitPro === "azul" && kitSelecionado === "pro"
+                              ? "bg-blue-600 text-white border-blue-400 shadow-sm"
+                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                          }`}
+                        >
+                          100% Azul
+                        </button>
+                      </div>
+
+                      {/* Preview Visual das Artes em Alta Definição */}
+                      <div className="flex items-center justify-center w-full py-1.5">
+                        {corKitPro === "misto" && (
+                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
+                            <div className="flex flex-col items-center">
+                              <img
+                                src="/placa-preta.png"
+                                alt="Placa Preta Google"
+                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                              />
+                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                                15x Preta
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <img
+                                src="/placa-azul.png"
+                                alt="Placa Azul Google"
+                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                              />
+                              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                15x Azul
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {corKitPro === "preta" && (
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <img
+                              src="/placa-preta.png"
+                              alt="Placa Preta Google"
+                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                            />
+                            <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
+                              30x Placa Preta (100% Preta)
+                            </span>
+                          </div>
+                        )}
+                        {corKitPro === "azul" && (
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <img
+                              src="/placa-azul.png"
+                              alt="Placa Azul Google"
+                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                            />
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                              30x Placa Azul (100% Azul)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CARD 3: KIT MASTER (50 UN | R$ 850,00) */}
+                  <div
+                    onClick={() => setKitSelecionado("master")}
+                    className={`p-4 rounded-2xl border transition cursor-pointer relative ${
+                      kitSelecionado === "master"
+                        ? "bg-violet-500/5 dark:bg-violet-950/20 border-violet-500 ring-2 ring-violet-500/30"
+                        : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Master</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
+                            Escala
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          50 unidades • R$ 17,00/un
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-black text-zinc-900 dark:text-white">R$ 850,00</span>
+                        <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                          Venda: R$ 4.000,00
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botões de Cores e Preview */}
+                    <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                          Escolha as Cores:
+                        </span>
+                        <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                          {corKitMaster === "misto" ? "25 Pretas / 25 Azuis" : corKitMaster === "preta" ? "50 Pretas" : "50 Azuis"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKitSelecionado("master");
+                            setCorKitMaster("misto");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            corKitMaster === "misto" && kitSelecionado === "master"
+                              ? "bg-violet-600 text-white border-violet-400 shadow-sm"
+                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                          }`}
+                        >
+                          Misto 25/25
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKitSelecionado("master");
+                            setCorKitMaster("preta");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            corKitMaster === "preta" && kitSelecionado === "master"
+                              ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
+                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                          }`}
+                        >
+                          100% Preta
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKitSelecionado("master");
+                            setCorKitMaster("azul");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            corKitMaster === "azul" && kitSelecionado === "master"
+                              ? "bg-blue-600 text-white border-blue-400 shadow-sm"
+                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                          }`}
+                        >
+                          100% Azul
+                        </button>
+                      </div>
+
+                      {/* Preview das Artes em Alta Definição */}
+                      <div className="flex items-center justify-center w-full py-1.5">
+                        {corKitMaster === "misto" && (
+                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
+                            <div className="flex flex-col items-center">
+                              <img
+                                src="/placa-preta.png"
+                                alt="Placa Preta Google"
+                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                              />
+                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                                25x Preta
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <img
+                                src="/placa-azul.png"
+                                alt="Placa Azul Google"
+                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                              />
+                              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                25x Azul
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {corKitMaster === "preta" && (
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <img
+                              src="/placa-preta.png"
+                              alt="Placa Preta Google"
+                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                            />
+                            <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
+                              50x Placa Preta (100% Preta)
+                            </span>
+                          </div>
+                        )}
+                        {corKitMaster === "azul" && (
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <img
+                              src="/placa-azul.png"
+                              alt="Placa Azul Google"
+                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                            />
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                              50x Placa Azul (100% Azul)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Resumo Final & Botão PIX */}
+                {(() => {
+                  const kit = KITS_CATALOGO[kitSelecionado];
+                  return (
+                    <div className="pt-2 space-y-3">
+                      <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 text-xs space-y-1">
+                        <div className="flex justify-between items-center text-zinc-700 dark:text-neutral-300">
+                          <span>Destinatário:</span>
+                          <span className="font-semibold text-zinc-900 dark:text-white">{alunoNome}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-zinc-700 dark:text-neutral-300">
+                          <span>Potencial de Faturamento:</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                            R$ {kit.potencialVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEtapaSolicitacao(1)}
+                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3.5 rounded-xl text-xs transition cursor-pointer flex items-center gap-1"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                          <span>Voltar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEtapaSolicitacao(3)}
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-3.5 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <span>Ir para Pagamento • R$ {kit.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ⚡</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            </form>
+            )}
+
+            {/* ========================================================
+                ETAPA 3: PAGAMENTO & UPLOAD DE COMPROVANTE
+                ======================================================== */}
+            {etapaSolicitacao === 3 && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* 1. Resumo do Pedido */}
+                {(() => {
+                  const kit = KITS_CATALOGO[kitSelecionado];
+                  let corDesc = "5 Pretas + 5 Azuis";
+                  if (kitSelecionado === "pro") {
+                    corDesc = corKitPro === "misto" ? "15 Pretas + 15 Azuis" : corKitPro === "preta" ? "30x Placa Preta (100% Preta)" : "30x Placa Azul (100% Azul)";
+                  } else if (kitSelecionado === "master") {
+                    corDesc = corKitMaster === "misto" ? "25 Pretas + 25 Azuis" : corKitMaster === "preta" ? "50x Placa Preta (100% Preta)" : "50x Placa Azul (100% Azul)";
+                  }
+
+                  const endAtual = enderecoSalvo || {
+                    cep: cepInput.trim(),
+                    logradouro: logradouroInput.trim(),
+                    numero: numeroInput.trim(),
+                    complemento: complementoInput.trim(),
+                    bairro: bairroInput.trim(),
+                    cidade: cidadeInput.trim(),
+                    estado: estadoInput.trim(),
+                    ponto_referencia: pontoReferenciaInput.trim(),
+                  };
+
+                  return (
+                    <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 space-y-2.5">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                            Resumo do Pedido
+                          </span>
+                          <h4 className="text-base font-bold text-zinc-900 dark:text-white">
+                            {kit.nome} • {kit.qtd} Displays
+                          </h4>
+                          <p className="text-xs text-zinc-600 dark:text-neutral-400 font-medium mt-0.5">
+                            Cores: <span className="text-zinc-900 dark:text-white font-semibold">{corDesc}</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-400 block">
+                            Total a Pagar
+                          </span>
+                          <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">
+                            R$ {kit.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Endereço de entrega resumido */}
+                      <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 truncate text-zinc-600 dark:text-neutral-400">
+                          <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <span className="truncate">
+                            {endAtual.logradouro}, {endAtual.numero} • {endAtual.cidade}/{endAtual.estado}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEtapaSolicitacao(1)}
+                          className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline shrink-0 ml-2 cursor-pointer"
+                        >
+                          Alterar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Área da Chave PIX */}
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Chave PIX (E-mail)
+                    </span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-semibold">
+                      GOPLAK Oficial
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 border border-emerald-500/30 rounded-xl p-2.5">
+                    <span className="flex-1 font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-white truncate selection:bg-emerald-500 selection:text-black">
+                      contato@goplak.com.br
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopiarChavePix}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold text-xs shadow-sm transition cursor-pointer shrink-0"
+                    >
+                      {copiouChavePix ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copiar PIX</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-zinc-600 dark:text-neutral-400 leading-tight">
+                    💡 Transfira o valor exato pelo app do seu banco e anexe o comprovante abaixo.
+                  </p>
+                </div>
+
+                {/* 3. Área de Upload do Comprovante */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                    Comprovante de Pagamento *
+                  </label>
+
+                  {!arquivoComprovante ? (
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-neutral-700 hover:border-emerald-500 dark:hover:border-emerald-500/70 bg-zinc-50 dark:bg-neutral-950/60 rounded-2xl p-4 sm:p-5 text-center cursor-pointer transition group">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,application/pdf"
+                        onChange={handleSelecionarArquivoComprovante}
+                        className="hidden"
+                      />
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2 group-hover:scale-110 transition">
+                        <Paperclip className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                        📎 Selecionar Comprovante (PNG, JPG ou PDF)
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-500 mt-0.5">
+                        Clique para buscar ou arraste seu arquivo até aqui
+                      </span>
+                    </label>
+                  ) : (
+                    <div className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950 border border-emerald-500/40 rounded-2xl p-3.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                            {nomeArquivoComprovante}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                            {(arquivoComprovante.size / (1024 * 1024)).toFixed(2)} MB • Pronto para envio
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoverComprovante}
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 font-semibold p-1.5 rounded-lg hover:bg-rose-500/10 transition cursor-pointer flex items-center gap-1 shrink-0 ml-2"
+                        title="Remover arquivo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remover</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Ações do Rodapé */}
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEtapaSolicitacao(2)}
+                    disabled={enviandoComprovante}
+                    className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3.5 rounded-xl text-xs transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Voltar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConcluirPedidoComprovante}
+                    disabled={!arquivoComprovante || enviandoComprovante}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-3.5 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {enviandoComprovante ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enviando Comprovante...</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Concluir Pedido e Enviar Comprovante</span>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

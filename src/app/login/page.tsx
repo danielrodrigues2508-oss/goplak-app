@@ -184,12 +184,12 @@ function LoginForm() {
         </div>
         <div className="flex items-center justify-center gap-1.5">
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            TagPlak • Acesso Seguro
+            GOPLAK • Acesso Seguro
           </span>
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
         </div>
         <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white mt-1">
-          {isSignUp ? "Criar Minha Conta" : "Entrar no TagPlak"}
+          {isSignUp ? "Criar Minha Conta" : "Entrar no GOPLAK"}
         </h1>
         <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-1">
           {isSignUp

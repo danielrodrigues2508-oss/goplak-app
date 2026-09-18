@@ -100,7 +100,7 @@ export default async function DisplayRedirectPage({ params }: Props) {
               Este display ainda não foi ativado.
             </h1>
             <p className="text-sm text-zinc-600 dark:text-neutral-400 leading-relaxed max-w-sm mx-auto">
-              Fale com seu consultor TagPlak para configurar e vincular seu estabelecimento.
+              Fale com seu consultor GOPLAK para configurar e vincular seu estabelecimento.
             </p>
           </div>
 
@@ -121,7 +121,7 @@ export default async function DisplayRedirectPage({ params }: Props) {
             <div className="flex justify-between items-center text-zinc-500 dark:text-neutral-400">
               <span>Tecnologia:</span>
               <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> TagPlak Smart NFC & QR
+                <ShieldCheck className="w-3.5 h-3.5" /> GOPLAK Smart NFC & QR
               </span>
             </div>
           </div>
@@ -132,7 +132,7 @@ export default async function DisplayRedirectPage({ params }: Props) {
               href="/"
               className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl font-bold text-sm bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 transition shadow-sm"
             >
-              <span>Conhecer a TagPlak</span>
+              <span>Conhecer a GOPLAK</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -157,7 +157,7 @@ export default async function DisplayRedirectPage({ params }: Props) {
         {/* Mensagem de Não Encontrado */}
         <div className="space-y-2">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            Display TagPlak não encontrado.
+            Display GOPLAK não encontrado.
           </h1>
           <p className="text-sm text-zinc-600 dark:text-neutral-400 leading-relaxed max-w-sm mx-auto">
             O código <span className="font-mono font-bold text-zinc-800 dark:text-neutral-200">"{codigo}"</span> não foi localizado em nossa base de dados.

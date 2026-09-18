@@ -26,9 +26,48 @@ import {
   Award,
   X,
   Gift,
-  LogOut
+  LogOut,
+  Eye,
+  Check,
+  XCircle,
+  MapPin,
+  ExternalLink,
+  FileText,
+  Paperclip,
+  Filter,
+  Clock,
+  ArrowLeft,
+  AlertTriangle,
+  Bell,
+  PackagePlus,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  Receipt,
+  Boxes,
+  History,
+  Trash2
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+interface ConfigFabrica {
+  id?: string;
+  custo_unitario_display: number;
+  estoque_displays_prontos: number;
+  media_saida_diaria: number;
+}
+
+interface CaixaFabricaItem {
+  id: string;
+  pedido_id?: string | null;
+  tipo: "ENTRADA" | "SAIDA";
+  categoria: string;
+  descricao: string;
+  valor: number;
+  custo_mercadoria: number;
+  lucro_liquido: number;
+  created_at?: string;
+}
 
 
 interface Aluno {
@@ -66,20 +105,59 @@ interface LoteExport {
   id: string;
   data: string;
   alunoNome: string;
+  alunoEmail?: string;
   alunoId?: string;
   quantidade: number;
+  valorTotal?: number;
+  modeloCor?: string;
+  enderecoEntrega?: any;
+  comprovanteUrl?: string;
   codigoInicio: string;
   codigoFim: string;
   status: string;
   temLoteGerado: boolean;
   codigoRastreio?: string;
+  transportadora?: string;
+  aprovadoEm?: string;
+  enviadoEm?: string;
+  entregueEm?: string;
+  createdAt?: string;
   observacao?: string;
+  motivoRecusa?: string;
 }
 
 const extrairNumeroCodigo = (cod: string | undefined | null): number => {
   if (!cod) return 0;
   const match = cod.match(/\d+/);
   return match ? parseInt(match[0], 10) : 0;
+};
+
+const extrairQtdCores = (lote: { quantidade?: number; modeloCor?: string; observacao?: string }): { pretas: number; azuis: number } => {
+  const str = (lote.modeloCor || lote.observacao || "").toLowerCase();
+  const total = Number(lote.quantidade) || 10;
+  let pretas = 0;
+  let azuis = 0;
+
+  const matchPretas = str.match(/(\d+)\s*(?:un|x)?\s*preta/);
+  const matchAzuis = str.match(/(\d+)\s*(?:un|x)?\s*azul/);
+
+  if (matchPretas) pretas = parseInt(matchPretas[1], 10);
+  if (matchAzuis) azuis = parseInt(matchAzuis[1], 10);
+
+  if (pretas === 0 && azuis === 0) {
+    if (str.includes("100% preta") || (str.includes("preta") && !str.includes("azul"))) {
+      pretas = total;
+      azuis = 0;
+    } else if (str.includes("100% azul") || (str.includes("azul") && !str.includes("preta"))) {
+      pretas = 0;
+      azuis = total;
+    } else {
+      // Padrão Misto 50/50
+      pretas = Math.ceil(total / 2);
+      azuis = Math.floor(total / 2);
+    }
+  }
+  return { pretas, azuis };
 };
 
 export default function PainelDistribuidorAdmin() {
@@ -91,6 +169,69 @@ export default function PainelDistribuidorAdmin() {
   const [exportandoId, setExportandoId] = useState<string | null>(null);
   const [feedbackSucesso, setFeedbackSucesso] = useState<string | null>(null);
   const [erroMsg, setErroMsg] = useState<string | null>(null);
+  const [toastHovered, setToastHovered] = useState(false);
+
+  // Filtro de Pedidos (Todos, Aguardando, Aprovados, Recusados)
+  const [filtroStatus, setFiltroStatus] = useState<"todos" | "pendentes" | "aprovados" | "recusados">("todos");
+  const [popoverNotificacoesAberto, setPopoverNotificacoesAberto] = useState(false);
+  const [pedidoDestacadoId, setPedidoDestacadoId] = useState<string | null>(null);
+
+  // Modal de Comprovante Bancário
+  const [pedidoSelecionadoComprovante, setPedidoSelecionadoComprovante] = useState<LoteExport | null>(null);
+  const [modalComprovanteAberto, setModalComprovanteAberto] = useState(false);
+
+  // Modal de Recusa de Pedido
+  const [pedidoRecusando, setPedidoRecusando] = useState<LoteExport | null>(null);
+  const [modalRecusarAberto, setModalRecusarAberto] = useState(false);
+  const [motivoRecusaInput, setMotivoRecusaInput] = useState("");
+  const [processandoAcaoId, setProcessandoAcaoId] = useState<string | null>(null);
+
+  // Modal de Endereço Completo
+  const [enderecoVisualizando, setEnderecoVisualizando] = useState<{ alunoNome: string; endereco: any } | null>(null);
+  const [modalEnderecoAberto, setModalEnderecoAberto] = useState(false);
+
+  // Modal de Exclusão de Pedido & Estorno
+  const [pedidoExcluindo, setPedidoExcluindo] = useState<LoteExport | null>(null);
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
+  const [excluindoPedido, setExcluindoPedido] = useState(false);
+
+  // Modal de Emissão Manual de Lotes & Seletor de Cores
+  const [modalEmissaoManualAberto, setModalEmissaoManualAberto] = useState(false);
+  const [tipoEmissaoManual, setTipoEmissaoManual] = useState<"venda_aluno" | "reposicao_propria">("reposicao_propria");
+  const [opcaoCorManual, setOpcaoCorManual] = useState<"misto" | "preta" | "azul" | "personalizado">("misto");
+  const [qtdPretaManual, setQtdPretaManual] = useState<number>(10);
+  const [qtdAzulManual, setQtdAzulManual] = useState<number>(10);
+
+  // Modal de Despacho e Rastreio
+  const [modalDespachoAberto, setModalDespachoAberto] = useState(false);
+  const [pedidoDespachando, setPedidoDespachando] = useState<LoteExport | null>(null);
+  const [transportadoraInput, setTransportadoraInput] = useState("Correios");
+  const [rastreioInput, setRastreioInput] = useState("");
+  const [salvandoDespacho, setSalvandoDespacho] = useState(false);
+
+  // Gestão de Caixa Real & Estoque Físico da Fábrica
+  const [configFabricaId, setConfigFabricaId] = useState<string | null>(null);
+  const [custoUnitarioDisplay, setCustoUnitarioDisplay] = useState<number>(12.30);
+  const [estoqueDisplaysProntos, setEstoqueDisplaysProntos] = useState<number>(45);
+  const [mediaSaidaDiaria, setMediaSaidaDiaria] = useState<number>(2.5);
+  const [itensCaixa, setItensCaixa] = useState<CaixaFabricaItem[]>([]);
+
+  // Modal de Lançamento de Despesa / Frete
+  const [modalDespesaAberto, setModalDespesaAberto] = useState(false);
+  const [despesaCategoria, setDespesaCategoria] = useState<"Frete" | "Embalagem" | "Reposição Fornecedor" | "Outros">("Frete");
+  const [despesaDescricao, setDespesaDescricao] = useState("");
+  const [despesaValor, setDespesaValor] = useState("");
+  const [salvandoDespesa, setSalvandoDespesa] = useState(false);
+
+  // Modal de Reposição de Estoque de Fornecedor
+  const [modalReposicaoAberto, setModalReposicaoAberto] = useState(false);
+  const [reposicaoQtd, setReposicaoQtd] = useState<number>(100);
+  const [reposicaoCustoUnitario, setReposicaoCustoUnitario] = useState<string>("12.30");
+  const [reposicaoLancarDespesa, setReposicaoLancarDespesa] = useState<boolean>(true);
+  const [salvandoReposicao, setSalvandoReposicao] = useState(false);
+
+  // Modal de Extrato do Caixa
+  const [modalExtratoCaixaAberto, setModalExtratoCaixaAberto] = useState(false);
 
   // Métricas Consolidadas
   const [totalProduzidas, setTotalProduzidas] = useState(0);
@@ -201,19 +342,19 @@ export default function PainelDistribuidorAdmin() {
         console.warn("Aviso ao buscar alunos:", err);
       }
 
-      // Garantir que o usuário Daniel Rodrigues esteja na lista
+      // Garantir que o usuário GOPlak esteja na lista
       const danielId = "403183b5-02f6-46a7-b448-7658c5087ec4";
       const danielEmail = "daniel.rodrigues2508@gmail.com";
       const existsDaniel = listaAlunos.some((a) => a.id === danielId || (a.email && a.email.toLowerCase() === danielEmail));
       if (!existsDaniel) {
         listaAlunos.unshift({
           id: danielId,
-          nome: "Daniel Rodrigues",
+          nome: "GOPlak",
           email: danielEmail,
         });
       }
 
-      // Priorizar Daniel Rodrigues no topo da lista
+      // Priorizar GOPlak no topo da lista
       listaAlunos.sort((a, b) => {
         if (a.id === danielId || a.email?.toLowerCase() === danielEmail) return -1;
         if (b.id === danielId || b.email?.toLowerCase() === danielEmail) return 1;
@@ -403,23 +544,88 @@ export default function PainelDistribuidorAdmin() {
             const temLote = Boolean(temPlacas || (codIni && codFim));
 
             let st = ped.status || "solicitado";
-            if (st === "Em Produção" || st === "em produção") st = "em_producao";
-            if (st === "pendente") st = "solicitado";
+            const stLower = String(st).toLowerCase().trim();
+            if (
+              stLower === "aguardando" ||
+              stLower === "aguardando aprovação" ||
+              stLower === "aguardando aprovacao" ||
+              stLower === "aguardando_aprovacao" ||
+              stLower === "aguardando_pagamento" ||
+              stLower === "pendente" ||
+              stLower === "solicitado"
+            ) {
+              st = "solicitado";
+            } else if (
+              stLower === "em produção" ||
+              stLower === "em producao" ||
+              stLower === "em_producao" ||
+              stLower === "aprovado"
+            ) {
+              st = "em_producao";
+            } else if (stLower === "enviado") {
+              st = "enviado";
+            } else if (stLower === "entregue") {
+              st = "entregue";
+            } else if (
+              stLower === "recusado" ||
+              stLower === "rejeitado" ||
+              stLower === "cancelado"
+            ) {
+              st = "recusado";
+            }
 
-            const nomeFinal = alunoObj ? alunoObj.nome : (ped.destinatario || ped.aluno_nome || (ped.aluno_id ? "Aluno Parceiro" : "Distribuidor"));
+            const isReposicao = (ped.observacao || "").includes("[REPOSIÇÃO PRÓPRIA");
+            const nomeFinal = isReposicao
+              ? "Fábrica GOPLAK (Estoque Central)"
+              : alunoObj
+              ? alunoObj.nome
+              : (ped.destinatario || ped.aluno_nome || (ped.aluno_id ? "Aluno Parceiro" : "Distribuidor"));
+            const emailFinal = isReposicao ? "fabrica@goplak.com" : (alunoObj?.email || ped.email || "");
+
+            let compUrl = ped.comprovante_url || "";
+            let modCor = ped.modelo_cor || "";
+            let valTotal = Number(ped.valor_total) || 0;
+            let endEntrega = ped.endereco_entrega || null;
+
+            if (ped.observacao) {
+              if (!compUrl && ped.observacao.includes("Comprovante: ")) {
+                const matchC = ped.observacao.match(/Comprovante:\s*([^\s|]+)/);
+                if (matchC && matchC[1] && matchC[1] !== "Anexado") compUrl = matchC[1];
+              }
+              if (!modCor && ped.observacao.includes("Cor: ")) {
+                const matchK = ped.observacao.match(/Cor:\s*([^|]+)/);
+                if (matchK) modCor = matchK[1].trim();
+              }
+            }
+
+            const qtdFinal = ped.quantidade || (temPlacas ? placasDoPedido.length : 10);
+            if (!valTotal) {
+              valTotal = qtdFinal === 10 ? 170 : qtdFinal === 30 ? 540 : qtdFinal === 50 ? 850 : qtdFinal * 18;
+            }
 
             return {
               id: ped.id,
               data: dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
               alunoNome: nomeFinal,
+              alunoEmail: emailFinal,
               alunoId: ped.aluno_id || ped.user_id,
-              quantidade: ped.quantidade || (temPlacas ? placasDoPedido.length : 10),
+              quantidade: qtdFinal,
+              valorTotal: valTotal,
+              modeloCor: modCor || (qtdFinal === 10 ? "5 Pretas / 5 Azuis" : "Misto"),
+              enderecoEntrega: endEntrega,
+              comprovanteUrl: compUrl,
               codigoInicio: codIni || "Não gerado",
               codigoFim: codFim || "Não gerado",
               status: st,
               temLoteGerado: temLote,
               codigoRastreio: ped.codigo_rastreio || "",
+              transportadora: ped.transportadora || "Correios",
+              aprovadoEm: ped.aprovado_em || "",
+              enviadoEm: ped.enviado_em || "",
+              entregueEm: ped.entregue_em || "",
+              createdAt: ped.created_at || "",
               observacao: ped.observacao || ped.tipo || "",
+              motivoRecusa: ped.motivo_recusa || "",
             };
           });
           setLotes(formatados);
@@ -436,7 +642,7 @@ export default function PainelDistribuidorAdmin() {
             {
               id: "lote-registrado",
               data: new Date().toLocaleDateString("pt-BR") + " 10:00",
-              alunoNome: listaAlunos[0]?.nome || "Daniel Rodrigues",
+              alunoNome: listaAlunos[0]?.nome || "GOPlak",
               quantidade: listaPlacas.length,
               codigoInicio: `GP-${String(minCod).padStart(4, "0")}`,
               codigoFim: `GP-${String(maxCod).padStart(4, "0")}`,
@@ -450,6 +656,66 @@ export default function PainelDistribuidorAdmin() {
       } catch (errPed) {
         console.warn("Aviso ao buscar lotes:", errPed);
       }
+
+      // 6. Puxar Configuração da Fábrica (Estoque Físico & Custo Unitário)
+      try {
+        const { data: cfgData, error: cfgErr } = await supabase
+          .from("config_fabrica")
+          .select("*")
+          .limit(1);
+
+        if (!cfgErr && cfgData && cfgData.length > 0) {
+          const cfg = cfgData[0];
+          setConfigFabricaId(cfg.id);
+          if (cfg.custo_unitario_display !== undefined && cfg.custo_unitario_display !== null) {
+            setCustoUnitarioDisplay(Number(cfg.custo_unitario_display));
+          }
+          if (cfg.estoque_displays_prontos !== undefined && cfg.estoque_displays_prontos !== null) {
+            setEstoqueDisplaysProntos(Number(cfg.estoque_displays_prontos));
+          }
+          if (cfg.media_saida_diaria !== undefined && cfg.media_saida_diaria !== null) {
+            setMediaSaidaDiaria(Number(cfg.media_saida_diaria));
+          }
+        } else {
+          // Inserir registro inicial padrão caso a tabela esteja vazia
+          try {
+            const { data: insertedCfg } = await supabase
+              .from("config_fabrica")
+              .insert({
+                custo_unitario_display: 12.30,
+                estoque_displays_prontos: 45,
+                media_saida_diaria: 2.5,
+              })
+              .select()
+              .single();
+
+            if (insertedCfg) {
+              setConfigFabricaId(insertedCfg.id);
+              setCustoUnitarioDisplay(Number(insertedCfg.custo_unitario_display));
+              setEstoqueDisplaysProntos(Number(insertedCfg.estoque_displays_prontos));
+              setMediaSaidaDiaria(Number(insertedCfg.media_saida_diaria));
+            }
+          } catch (initErr) {
+            console.warn("Aviso ao inicializar config_fabrica padrão:", initErr);
+          }
+        }
+      } catch (errCfg) {
+        console.warn("Aviso ao consultar config_fabrica:", errCfg);
+      }
+
+      // 7. Puxar Movimentações do Caixa da Fábrica
+      try {
+        const { data: cxData, error: cxErr } = await supabase
+          .from("caixa_fabrica")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (!cxErr && cxData) {
+          setItensCaixa(cxData);
+        }
+      } catch (errCx) {
+        console.warn("Aviso ao consultar caixa_fabrica:", errCx);
+      }
     } catch (err) {
       console.error("Erro geral no fetchAdminData:", err);
     } finally {
@@ -460,7 +726,201 @@ export default function PainelDistribuidorAdmin() {
 
   useEffect(() => {
     fetchAdminData();
+
+    // Sincronização em Tempo Real (Supabase Realtime) para o Administrador
+    const channel = supabase
+      .channel("admin_pedidos_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pedidos_lotes" },
+        (payload) => {
+          console.log("[Realtime Admin] Novo pedido recebido:", payload);
+          // 1. Toca SOMENTE quando um novo pedido é registrado no banco pelo aluno
+          try {
+            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2867/2867-preview.mp3");
+            audio.volume = 0.45;
+            audio.play().catch((err) => {
+              console.log("Audio autoplay bloqueado ou erro:", err);
+            });
+          } catch (err) {
+            console.log("Audio autoplay bloqueado ou erro:", err);
+          }
+
+          // 2. Alerta visual de novo pedido
+          const qtd = payload.new?.quantidade || "";
+          setFeedbackSucesso(`🔔 Novo pedido recebido! Lote de ${qtd} displays aguardando aprovação.`);
+
+          // 3. Atualizar dados do painel imediatamente
+          fetchAdminData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos_lotes" },
+        (payload) => {
+          console.log("[Realtime Admin] Pedido atualizado:", payload);
+          fetchAdminData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "pedidos_lotes" },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAdminData]);
+
+  // Auto-dismiss de 60 segundos com suporte a pauseOnHover para Toasts Flutuantes
+  useEffect(() => {
+    if (feedbackSucesso && !toastHovered) {
+      const t = setTimeout(() => setFeedbackSucesso(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [feedbackSucesso, toastHovered]);
+
+  useEffect(() => {
+    if (erroMsg && !toastHovered) {
+      const t = setTimeout(() => setErroMsg(null), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [erroMsg, toastHovered]);
+
+  const diasRestantesMes = React.useMemo(() => {
+    const agora = new Date();
+    const ultimoDiaMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
+    return Math.max(1, ultimoDiaMes - agora.getDate());
+  }, []);
+
+  const pedidosAguardandoCount = React.useMemo(() => {
+    return lotes.filter((l) => {
+      const st = (l.status || "").toLowerCase().trim();
+      return (
+        st === "aguardando" ||
+        st === "aguardando aprovação" ||
+        st === "aguardando aprovacao" ||
+        st === "solicitado" ||
+        st === "pendente" ||
+        st === "comprovante enviado"
+      );
+    }).length;
+  }, [lotes]);
+
+  const pedidosPendentes = React.useMemo(() => {
+    return lotes.filter((l) => {
+      const st = (l.status || "").toLowerCase().trim();
+      return (
+        st === "aguardando" ||
+        st === "aguardando aprovação" ||
+        st === "aguardando aprovacao" ||
+        st === "solicitado" ||
+        st === "pendente" ||
+        st === "comprovante enviado"
+      );
+    });
+  }, [lotes]);
+
+  // Cálculos Financeiros Consolidados (Caixa Real & Estoque da Fábrica)
+  const metricasFinanceiras = React.useMemo(() => {
+    const entradasCaixa = itensCaixa.filter((item) => item.tipo === "ENTRADA");
+    const saidasCaixa = itensCaixa.filter((item) => item.tipo === "SAIDA");
+
+    let faturamentoBruto = entradasCaixa.reduce((acc, item) => acc + (Number(item.valor) || 0), 0);
+    
+    // Fallback: se caixa_fabrica não tiver entradas registradas, calcula a partir dos pedidos aprovados
+    if (faturamentoBruto === 0 && lotes.length > 0) {
+      const lotesAprovados = lotes.filter((l) => l.status === "em_producao" || l.status === "enviado" || l.status === "entregue");
+      faturamentoBruto = lotesAprovados.reduce((acc, l) => acc + (Number(l.valorTotal) || 0), 0);
+    }
+
+    let custoMercadoriasVendidas = entradasCaixa.reduce((acc, item) => acc + (Number(item.custo_mercadoria) || 0), 0);
+    if (custoMercadoriasVendidas === 0 && faturamentoBruto > 0) {
+      const lotesAprovados = lotes.filter((l) => l.status === "em_producao" || l.status === "enviado" || l.status === "entregue");
+      const totalDisplaysVendidos = lotesAprovados.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
+      custoMercadoriasVendidas = totalDisplaysVendidos * custoUnitarioDisplay;
+    }
+
+    const despesasOperacionais = saidasCaixa.reduce((acc, item) => acc + (Number(item.valor) || 0), 0);
+    const custosTotais = custoMercadoriasVendidas + despesasOperacionais;
+    const lucroLiquidoReal = faturamentoBruto - custosTotais;
+
+    const taxaSaida = mediaSaidaDiaria > 0 ? mediaSaidaDiaria : 2.5;
+    const diasRestantesEstoque = estoqueDisplaysProntos / taxaSaida;
+    const alertaEstoqueCritico = diasRestantesEstoque <= 20 || estoqueDisplaysProntos <= 50;
+
+    return {
+      faturamentoBruto,
+      custoMercadoriasVendidas,
+      despesasOperacionais,
+      custosTotais,
+      lucroLiquidoReal,
+      diasRestantesEstoque,
+      alertaEstoqueCritico,
+    };
+  }, [itensCaixa, lotes, custoUnitarioDisplay, estoqueDisplaysProntos, mediaSaidaDiaria]);
+
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setPopoverNotificacoesAberto(false);
+      }
+    };
+    if (popoverNotificacoesAberto) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [popoverNotificacoesAberto]);
+
+  const handleVerPedidoNotificacao = (loteId: string) => {
+    setFiltroStatus("pendentes");
+    setPedidoDestacadoId(loteId);
+    setPopoverNotificacoesAberto(false);
+
+    setTimeout(() => {
+      const el = document.getElementById(`pedido-row-${loteId}`) || document.getElementById("tabela-pedidos");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 150);
+
+    setTimeout(() => {
+      setPedidoDestacadoId(null);
+    }, 4500);
+  };
+
+  const handleVerTodosPendentes = () => {
+    setFiltroStatus("pendentes");
+    setPopoverNotificacoesAberto(false);
+    setTimeout(() => {
+      const el = document.getElementById("tabela-pedidos");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 150);
+  };
+
+  // Sincronizar quantidades de cores ao alterar a quantidade do lote ou a opção rápida
+  useEffect(() => {
+    if (opcaoCorManual === "misto") {
+      setQtdPretaManual(Math.ceil(quantidadeLote / 2));
+      setQtdAzulManual(Math.floor(quantidadeLote / 2));
+    } else if (opcaoCorManual === "preta") {
+      setQtdPretaManual(quantidadeLote);
+      setQtdAzulManual(0);
+    } else if (opcaoCorManual === "azul") {
+      setQtdPretaManual(0);
+      setQtdAzulManual(quantidadeLote);
+    }
+  }, [quantidadeLote, opcaoCorManual]);
 
   // Cálculos da Prévia Dinâmica
   const proximoInicio = maiorCodigoNumero + 1;
@@ -472,6 +932,11 @@ export default function PainelDistribuidorAdmin() {
   const handleGerarLote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (quantidadeLote <= 0) return;
+
+    if (opcaoCorManual === "personalizado" && qtdPretaManual + qtdAzulManual !== quantidadeLote) {
+      setErroMsg(`A soma das placas (${qtdPretaManual} Pretas + ${qtdAzulManual} Azuis = ${qtdPretaManual + qtdAzulManual}) deve ser exatamente igual ao total de ${quantidadeLote} displays.`);
+      return;
+    }
 
     setGerandoLote(true);
     setFeedbackSucesso(null);
@@ -500,13 +965,21 @@ export default function PainelDistribuidorAdmin() {
       const alunoAlvo = alunos.find((a) => a.id === alunoSelecionado) || alunos[0];
       const alunoUuid = alunoAlvo?.id || "403183b5-02f6-46a7-b448-7658c5087ec4";
 
-      // 1. Criar novo registro independente na tabela pedidos_lotes (INSERT estrito)
+      const modeloCorTexto = `${qtdPretaManual} Pretas / ${qtdAzulManual} Azuis`;
+
+      const isReposicao = tipoEmissaoManual === "reposicao_propria";
+      const unitCusto = custoUnitarioDisplay || 12.30;
+      const valorTotalFinal = isReposicao
+        ? Number((quantidadeLote * unitCusto).toFixed(2))
+        : (quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 350 : quantidadeLote === 30 ? 540 : quantidadeLote === 50 ? 850 : quantidadeLote === 100 ? 1700 : quantidadeLote * 35.0);
+
+      // 1. Criar novo registro independente na tabela pedidos_lotes
       let pedidoId: string | undefined = undefined;
       const payloadPedido = {
         aluno_id: alunoUuid,
         quantidade: quantidadeLote,
-        valor_total: quantidadeLote * 35.0,
-        status: "solicitado",
+        valor_total: valorTotalFinal,
+        status: isReposicao ? "em_producao" : "solicitado",
       };
 
       try {
@@ -574,8 +1047,65 @@ export default function PainelDistribuidorAdmin() {
         });
       }
 
-      const msg = `Lote de ${quantidadeLote} placas criado com sucesso! Intervalo: ${codInicioStr} → ${codFimStr}`;
+      // 3. Se for Reposição Própria (ADM):
+      // - Impacto no Caixa: Registra como Saída/Custo Operacional de estoque (ex: R$ 615,00 para 50 un), SEM faturamento de revenda
+      // - Impacto no Estoque: Abastece o Estoque Central da Fábrica (+quantidadeLote)
+      if (isReposicao) {
+        try {
+          await supabase.from("caixa_fabrica").insert({
+            pedido_id: pedidoId || null,
+            tipo: "SAIDA",
+            categoria: "Reposição Fornecedor",
+            descricao: `Reposição Fábrica (ADM) - ${quantidadeLote} un Displays`,
+            valor: valorTotalFinal,
+            custo_mercadoria: valorTotalFinal,
+            lucro_liquido: -valorTotalFinal,
+          });
+        } catch (eCx) {
+          console.warn("Aviso ao registrar saída no caixa para reposição:", eCx);
+        }
+
+        try {
+          let estoqueDb = estoqueDisplaysProntos;
+          const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
+          if (cfgLive && cfgLive.length > 0 && cfgLive[0].estoque_displays_prontos !== undefined) {
+            estoqueDb = Number(cfgLive[0].estoque_displays_prontos);
+          }
+          const novoEstoque = estoqueDb + quantidadeLote;
+          if (configFabricaId) {
+            await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", configFabricaId);
+          } else if (cfgLive && cfgLive[0]?.id) {
+            await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", cfgLive[0].id);
+          } else {
+            const { data: nCfg } = await supabase.from("config_fabrica").insert({
+              estoque_displays_prontos: novoEstoque,
+              custo_unitario_display: unitCusto,
+              media_saida_diaria: mediaSaidaDiaria || 2.5,
+            }).select().maybeSingle();
+            if (nCfg?.id) setConfigFabricaId(nCfg.id);
+          }
+          setEstoqueDisplaysProntos(novoEstoque);
+        } catch (eEst) {
+          console.warn("Aviso ao abastecer estoque físico em config_fabrica:", eEst);
+        }
+      }
+
+      const msg = isReposicao
+        ? `Reposição de ${quantidadeLote} displays registrada a preço de custo (R$ ${valorTotalFinal.toFixed(2)})! Estoque central abastecido (+${quantidadeLote} un). Intervalo: ${codInicioStr} → ${codFimStr}`
+        : `Lote de ${quantidadeLote} placas (${qtdPretaManual} Pretas / ${qtdAzulManual} Azuis) criado com sucesso! Intervalo: ${codInicioStr} → ${codFimStr}`;
+
       setFeedbackSucesso(msg);
+      setModalEmissaoManualAberto(false);
+
+      if (typeof window !== "undefined") {
+        try {
+          confetti({
+            particleCount: 120,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        } catch (cErr) {}
+      }
 
       await fetchAdminData();
     } catch (err: unknown) {
@@ -638,7 +1168,7 @@ export default function PainelDistribuidorAdmin() {
       const codIniLabel = placasDoLote[0]?.codigo || `GP-${String(numInicio).padStart(4, "0")}`;
       const codFimLabel = placasDoLote[placasDoLote.length - 1]?.codigo || `GP-${String(numFim).padStart(4, "0")}`;
       
-      // Resolução Dinâmica e Confiável do Destinatário (Coluna E)
+      // Resolução Dinâmica e Confiável do Destinatário
       let destinatarioNome = "";
       if (lote.alunoId) {
         const alunoObj = alunos.find((a) => a.id === lote.alunoId);
@@ -663,20 +1193,23 @@ export default function PainelDistribuidorAdmin() {
         destinatarioNome = lote.alunoNome;
       }
       if (!destinatarioNome) {
-        destinatarioNome = "Daniel Rodrigues";
+        destinatarioNome = "GOPlak";
       }
 
+      const { pretas, azuis } = extrairQtdCores(lote);
+
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "TagPlak";
+      workbook.creator = "GOPLAK";
       workbook.created = new Date();
 
       const worksheet = workbook.addWorksheet("Produção Gráfica", {
         views: [{ showGridLines: true }],
       });
 
-      // Definição das 5 Colunas obrigatórias
+      // Definição das 6 Colunas da Planilha com a Cor do Display explícita
       worksheet.columns = [
         { header: "Código da Placa", key: "codigo", width: 18 },
+        { header: "Cor / Modelo", key: "cor", width: 18 },
         { header: "Link Dinâmico", key: "link", width: 45 },
         { header: "QR Code Gráfica", key: "qrcode", width: 50 },
         { header: "Status de Fábrica", key: "status", width: 20 },
@@ -694,16 +1227,19 @@ export default function PainelDistribuidorAdmin() {
       };
       headerRow.alignment = { vertical: "middle", horizontal: "center" };
 
-      // Preenchimento de Cada Linha do Arquivo Excel (garantindo todas as linhas preenchidas)
+      // Preenchimento de Cada Linha do Arquivo Excel (com divisão correta de cores)
       let currentRowIndex = 2;
-      for (const placa of placasDoLote) {
+      for (let i = 0; i < placasDoLote.length; i++) {
+        const placa = placasDoLote[i];
         const cod = placa.codigo;
+        const corPlaca = i < pretas ? "Preta" : "Azul";
         const linkDinamico = `${appBaseUrl}/r/${cod}`;
         const qrCodeGraficaUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(linkDinamico)}`;
 
         // Linha com altura para QR Code e dados legíveis
         const row = worksheet.addRow({
           codigo: cod,
+          cor: corPlaca,
           link: linkDinamico,
           qrcode: qrCodeGraficaUrl,
           status: "Virgem",
@@ -717,6 +1253,14 @@ export default function PainelDistribuidorAdmin() {
         const cellCod = row.getCell("codigo");
         cellCod.font = { name: "Arial", size: 12, bold: true };
         
+        const cellCor = row.getCell("cor");
+        cellCor.font = {
+          name: "Arial",
+          size: 11,
+          bold: true,
+          color: { argb: corPlaca === "Azul" ? "FF1D4ED8" : "FF111827" },
+        };
+
         const cellLink = row.getCell("link");
         cellLink.font = { name: "Arial", size: 10, color: { argb: "FF0044CC" }, underline: true };
 
@@ -747,7 +1291,7 @@ export default function PainelDistribuidorAdmin() {
           });
 
           worksheet.addImage(imageId, {
-            tl: { col: 2.15, row: currentRowIndex - 1 + 0.05 },
+            tl: { col: 3.15, row: currentRowIndex - 1 + 0.05 },
             ext: { width: 95, height: 95 },
           });
         } catch (eQr) {
@@ -962,6 +1506,629 @@ export default function PainelDistribuidorAdmin() {
     }
   };
 
+  // Aprovar Pedido e liberar Displays Virgens automaticamente
+  const handleAprovarPedido = async (lote: LoteExport) => {
+    setProcessandoAcaoId(lote.id);
+    setFeedbackSucesso(null);
+    setErroMsg(null);
+
+    try {
+      // 1. Obter maior código numérico atual no banco
+      let maxAtual = 0;
+      const { data: checkPlacas, error: errPlacas } = await supabase
+        .from("placas")
+        .select("codigo");
+
+      if (!errPlacas && checkPlacas) {
+        checkPlacas.forEach((p) => {
+          if (p.codigo) {
+            const numeros = p.codigo.match(/\d+/g);
+            if (numeros && numeros.length > 0) {
+              const num = parseInt(numeros.join(""), 10);
+              if (!isNaN(num) && num > maxAtual) maxAtual = num;
+            }
+          }
+        });
+      }
+
+      const qtd = lote.quantidade > 0 ? lote.quantidade : 10;
+      const inicio = maxAtual + 1;
+      const fim = maxAtual + qtd;
+      const codInicioStr = `GP-${String(inicio).padStart(4, "0")}`;
+      const codFimStr = `GP-${String(fim).padStart(4, "0")}`;
+
+      // 2. Montar array de novas placas virgens vinculadas ao aluno
+      const novasPlacas: PlacaRecord[] = [];
+      for (let i = inicio; i <= fim; i++) {
+        const codigoFormatado = `GP-${String(i).padStart(4, "0")}`;
+        novasPlacas.push({
+          codigo: codigoFormatado,
+          aluno_id: lote.alunoId || "403183b5-02f6-46a7-b448-7658c5087ec4",
+          pedido_id: lote.id.startsWith("lote-") ? undefined : lote.id,
+          status: "virgem",
+          valor_venda: 80.0,
+          escudo_ativo: true,
+        });
+      }
+
+      // 3. Inserir placas no banco
+      const { error: errInsertPlacas } = await supabase
+        .from("placas")
+        .insert(novasPlacas);
+
+      if (errInsertPlacas) {
+        console.error("Erro ao inserir placas do pedido aprovado:", errInsertPlacas);
+        throw new Error(errInsertPlacas.message);
+      }
+
+      // 4. Atualizar pedido para status 'em_producao' e salvar aprovado_em
+      const agoraIso = new Date().toISOString();
+      if (!lote.id.startsWith("lote-")) {
+        const { error: errUpPed } = await supabase
+          .from("pedidos_lotes")
+          .update({
+            status: "em_producao",
+            aprovado_em: agoraIso,
+            codigo_inicio: codInicioStr,
+            codigo_fim: codFimStr,
+          })
+          .eq("id", lote.id);
+
+        if (errUpPed) {
+          console.warn("Fallback update status pedido:", errUpPed);
+          await supabase
+            .from("pedidos_lotes")
+            .update({ status: "em_producao", aprovado_em: agoraIso })
+            .eq("id", lote.id);
+        }
+      }
+
+      // 5. Integração Automática com Caixa Real & Estoque Físico da Fábrica (Apenas para Venda Comercial de Alunos)
+      const isReposicaoPropria = (lote.observacao || "").includes("[REPOSIÇÃO PRÓPRIA") || (lote.alunoNome || "").includes("Fábrica");
+      if (!isReposicaoPropria) {
+        let custoUnit = custoUnitarioDisplay || 12.30;
+        let estoqueAtual = estoqueDisplaysProntos;
+        try {
+          const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
+          if (cfgLive && cfgLive.length > 0) {
+            if (cfgLive[0].custo_unitario_display !== undefined) custoUnit = Number(cfgLive[0].custo_unitario_display);
+            if (cfgLive[0].estoque_displays_prontos !== undefined) estoqueAtual = Number(cfgLive[0].estoque_displays_prontos);
+          }
+        } catch (errCfgLive) {
+          console.warn("Aviso ao consultar config_fabrica ao vivo:", errCfgLive);
+        }
+
+        const valPedido = Number(lote.valorTotal) || (qtd === 10 ? 170 : qtd === 30 ? 540 : qtd === 50 ? 850 : qtd * 18);
+        const custoTotalDisplays = qtd * custoUnit;
+        const lucroBruto = valPedido - custoTotalDisplays;
+
+        // Inserir registro de ENTRADA no caixa da fábrica
+        try {
+          await supabase.from("caixa_fabrica").insert({
+            pedido_id: lote.id.startsWith("lote-") ? null : lote.id,
+            tipo: "ENTRADA",
+            categoria: "Venda Lote",
+            descricao: `Lote ${qtd} un - ${lote.alunoNome || "Aluno Parceiro"}`,
+            valor: valPedido,
+            custo_mercadoria: custoTotalDisplays,
+            lucro_liquido: lucroBruto,
+          });
+        } catch (errCaixa) {
+          console.warn("Aviso ao registrar entrada em caixa_fabrica:", errCaixa);
+        }
+
+        // Abater estoque físico em config_fabrica
+        const novoEstoque = Math.max(0, estoqueAtual - qtd);
+        try {
+          if (configFabricaId) {
+            await supabase
+              .from("config_fabrica")
+              .update({ estoque_displays_prontos: novoEstoque })
+              .eq("id", configFabricaId);
+          } else {
+            const { data: newCfg } = await supabase
+              .from("config_fabrica")
+              .insert({
+                custo_unitario_display: custoUnit,
+                estoque_displays_prontos: novoEstoque,
+                media_saida_diaria: mediaSaidaDiaria,
+              })
+              .select()
+              .single();
+            if (newCfg) setConfigFabricaId(newCfg.id);
+          }
+          setEstoqueDisplaysProntos(novoEstoque);
+        } catch (errEstoque) {
+          console.warn("Aviso ao abater estoque físico em config_fabrica:", errEstoque);
+        }
+      }
+
+      // Celebração e feedback
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+
+      setFeedbackSucesso(`🎉 Pedido aprovado! Lote ${codInicioStr} a ${codFimStr} (${qtd} displays) liberado para ${lote.alunoNome}. Caixa e Estoque atualizados!`);
+      setModalComprovanteAberto(false);
+      await fetchAdminData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Erro ao aprovar pedido:", err);
+      setErroMsg(`Falha ao aprovar pedido: ${msg}`);
+    } finally {
+      setProcessandoAcaoId(null);
+    }
+  };
+
+  // Lançar Despesa / Frete no Caixa da Fábrica
+  const handleSalvarDespesa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(despesaValor.replace(",", "."));
+    if (isNaN(val) || val <= 0) {
+      setErroMsg("Informe um valor válido em reais (R$) para a despesa.");
+      return;
+    }
+
+    setSalvandoDespesa(true);
+    try {
+      const { error: errInsert } = await supabase.from("caixa_fabrica").insert({
+        tipo: "SAIDA",
+        categoria: despesaCategoria,
+        descricao: despesaDescricao.trim() || `Despesa com ${despesaCategoria}`,
+        valor: val,
+        custo_mercadoria: val,
+        lucro_liquido: -val,
+      });
+
+      if (errInsert) throw new Error(errInsert.message);
+
+      setFeedbackSucesso(`💸 Despesa de R$ ${val.toFixed(2)} (${despesaCategoria}) lançada no caixa com sucesso!`);
+      setModalDespesaAberto(false);
+      setDespesaDescricao("");
+      setDespesaValor("");
+      await fetchAdminData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Erro ao lançar despesa:", err);
+      setErroMsg(`Falha ao lançar despesa: ${msg}`);
+    } finally {
+      setSalvandoDespesa(false);
+    }
+  };
+
+  // Repor Estoque Físico com Fornecedor
+  const handleSalvarReposicao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const qtdAdd = Number(reposicaoQtd);
+    if (isNaN(qtdAdd) || qtdAdd <= 0) {
+      setErroMsg("Informe uma quantidade válida de displays recebidos.");
+      return;
+    }
+
+    const custoUnit = parseFloat(reposicaoCustoUnitario.replace(",", ".")) || 12.30;
+    const custoTotal = qtdAdd * custoUnit;
+
+    setSalvandoReposicao(true);
+    try {
+      // 1. Atualizar estoque_displays_prontos em config_fabrica
+      const novoEstoque = estoqueDisplaysProntos + qtdAdd;
+      if (configFabricaId) {
+        await supabase
+          .from("config_fabrica")
+          .update({
+            estoque_displays_prontos: novoEstoque,
+            custo_unitario_display: custoUnit,
+          })
+          .eq("id", configFabricaId);
+      } else {
+        const { data: newCfg } = await supabase
+          .from("config_fabrica")
+          .insert({
+            custo_unitario_display: custoUnit,
+            estoque_displays_prontos: novoEstoque,
+            media_saida_diaria: mediaSaidaDiaria,
+          })
+          .select()
+          .single();
+        if (newCfg) setConfigFabricaId(newCfg.id);
+      }
+      setEstoqueDisplaysProntos(novoEstoque);
+      setCustoUnitarioDisplay(custoUnit);
+
+      // 2. Se marcado para registrar despesa no caixa, inserir SAÍDA
+      if (reposicaoLancarDespesa && custoTotal > 0) {
+        await supabase.from("caixa_fabrica").insert({
+          tipo: "SAIDA",
+          categoria: "Reposição Fornecedor",
+          descricao: `Compra de ${qtdAdd} displays prontos (${qtdAdd} un x R$ ${custoUnit.toFixed(2)})`,
+          valor: custoTotal,
+          custo_mercadoria: custoTotal,
+          lucro_liquido: -custoTotal,
+        });
+      }
+
+      setFeedbackSucesso(`📦 Estoque reposto com sucesso! +${qtdAdd} displays adicionados (Estoque Atual: ${novoEstoque} un).`);
+      setModalReposicaoAberto(false);
+      await fetchAdminData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Erro ao repor estoque:", err);
+      setErroMsg(`Falha ao repor estoque: ${msg}`);
+    } finally {
+      setSalvandoReposicao(false);
+    }
+  };
+
+  // Abrir Modal de Despacho / Informar Rastreio
+  const handleAbrirDespacho = (lote: LoteExport) => {
+    setPedidoDespachando(lote);
+    setTransportadoraInput(lote.transportadora || "Correios");
+    setRastreioInput(lote.codigoRastreio || "");
+    setModalDespachoAberto(true);
+  };
+
+  // Confirmar Despacho do Pedido
+  const handleConfirmarDespacho = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pedidoDespachando) return;
+
+    setSalvandoDespacho(true);
+    const agoraIso = new Date().toISOString();
+    const rastreioLimpo = rastreioInput.trim();
+    const transpLimpa = transportadoraInput.trim() || "Correios";
+
+    try {
+      const updatePayload = {
+        status: "enviado",
+        codigo_rastreio: rastreioLimpo,
+        transportadora: transpLimpa,
+        enviado_em: agoraIso,
+      };
+
+      if (!pedidoDespachando.id.startsWith("lote-")) {
+        const { error } = await supabase
+          .from("pedidos_lotes")
+          .update(updatePayload)
+          .eq("id", pedidoDespachando.id);
+
+        if (error) {
+          console.error("Erro ao salvar despacho:", error);
+          throw new Error(error.message);
+        }
+      }
+
+      setLotes((prev) =>
+        prev.map((l) =>
+          l.id === pedidoDespachando.id
+            ? {
+                ...l,
+                status: "enviado",
+                codigoRastreio: rastreioLimpo,
+                transportadora: transpLimpa,
+                enviadoEm: agoraIso,
+              }
+            : l
+        )
+      );
+
+      confetti({
+        particleCount: 100,
+        spread: 60,
+        origin: { y: 0.6 },
+      });
+
+      setFeedbackSucesso(`📦 Pedido de ${pedidoDespachando.alunoNome} despachado via ${transpLimpa}! Rastreio: ${rastreioLimpo || "Sem código"}`);
+      setModalDespachoAberto(false);
+      setPedidoDespachando(null);
+      await fetchAdminData();
+    } catch (err: any) {
+      console.error("Erro ao despachar pedido:", err);
+      setErroMsg(`Erro ao despachar pedido: ${err.message || String(err)}`);
+    } finally {
+      setSalvandoDespacho(false);
+    }
+  };
+
+  // Confirmar Entrega do Pedido pelo Admin
+  const handleMarcarEntregue = async (lote: LoteExport) => {
+    setProcessandoAcaoId(lote.id);
+    const agoraIso = new Date().toISOString();
+
+    try {
+      if (!lote.id.startsWith("lote-")) {
+        const { error } = await supabase
+          .from("pedidos_lotes")
+          .update({
+            status: "entregue",
+            entregue_em: agoraIso,
+          })
+          .eq("id", lote.id);
+
+        if (error) throw new Error(error.message);
+
+        // Sincronizar placas virgens vinculadas ao aluno
+        if (lote.alunoId) {
+          try {
+            await supabase
+              .from("placas")
+              .update({ aluno_id: lote.alunoId })
+              .eq("pedido_id", lote.id);
+          } catch (eSync) {
+            console.warn("Aviso sync placas entregues:", eSync);
+          }
+        }
+      }
+
+      setLotes((prev) =>
+        prev.map((l) =>
+          l.id === lote.id
+            ? {
+                ...l,
+                status: "entregue",
+                entregueEm: agoraIso,
+              }
+            : l
+        )
+      );
+
+      confetti({
+        particleCount: 140,
+        spread: 80,
+        origin: { y: 0.6 },
+      });
+
+      setFeedbackSucesso(`✅ Pedido de ${lote.alunoNome} marcado como ENTREGUE! Displays virgens liberados no estoque.`);
+      await fetchAdminData();
+    } catch (err: any) {
+      console.error("Erro ao marcar entregue:", err);
+      setErroMsg(`Erro ao marcar pedido como entregue: ${err.message || String(err)}`);
+    } finally {
+      setProcessandoAcaoId(null);
+    }
+  };
+
+  // Abrir Modal de Visualização do Comprovante
+  const handleAbrirComprovante = (lote: LoteExport) => {
+    setPedidoSelecionadoComprovante(lote);
+    setModalComprovanteAberto(true);
+  };
+
+  // Abrir Modal de Recusa de Pedido
+  const handleAbrirModalRecusa = (lote: LoteExport) => {
+    setPedidoRecusando(lote);
+    setMotivoRecusaInput("");
+    setModalRecusarAberto(true);
+  };
+
+  // Confirmar Recusa do Pedido
+  const handleConfirmarRecusaPedido = async () => {
+    if (!pedidoRecusando) return;
+
+    setProcessandoAcaoId(pedidoRecusando.id);
+    const motivo = motivoRecusaInput.trim() || "Comprovante ilegível ou divergente";
+
+    try {
+      if (!pedidoRecusando.id.startsWith("lote-")) {
+        const { error } = await supabase
+          .from("pedidos_lotes")
+          .update({
+            status: "recusado",
+            observacao: pedidoRecusando.observacao
+              ? `${pedidoRecusando.observacao} | Motivo Recusa: ${motivo}`
+              : `Motivo Recusa: ${motivo}`,
+          })
+          .eq("id", pedidoRecusando.id);
+
+        if (error) {
+          console.error("Erro ao recusar pedido:", error);
+          throw new Error(error.message);
+        }
+      }
+
+      setFeedbackSucesso(`Pedido de ${pedidoRecusando.alunoNome} foi marcado como Recusado.`);
+      setModalRecusarAberto(false);
+      setModalComprovanteAberto(false);
+      setPedidoRecusando(null);
+      await fetchAdminData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErroMsg(`Erro ao recusar pedido: ${msg}`);
+    } finally {
+      setProcessandoAcaoId(null);
+    }
+  };
+
+  // Abrir Modal de Exclusão de Pedido
+  const handleAbrirModalExcluir = (lote: LoteExport) => {
+    setPedidoExcluindo(lote);
+    setModalExcluirAberto(true);
+  };
+
+  // Confirmar Exclusão e Estorno do Pedido (Atualização Otimista Instantânea com API Route)
+  const handleConfirmarExclusaoPedido = async () => {
+    if (!pedidoExcluindo) return;
+
+    const pedidoParaExcluir = pedidoExcluindo;
+    const pedidoId = pedidoParaExcluir.id;
+    const qtd = Number(pedidoParaExcluir.quantidade) || 0;
+    const st = (pedidoParaExcluir.status || "").toLowerCase().trim();
+    const isAprovado = st === "em_producao" || st === "enviado" || st === "entregue" || pedidoParaExcluir.temLoteGerado;
+    const isReposicaoPropria = (pedidoParaExcluir.observacao || "").includes("[REPOSIÇÃO PRÓPRIA") || (pedidoParaExcluir.alunoNome || "").includes("Fábrica");
+
+    // 1. Salvar snapshots de backup para caso de rollback
+    const previousLotes = [...lotes];
+    const previousItensCaixa = [...itensCaixa];
+    const previousEstoque = estoqueDisplaysProntos;
+
+    // 2. ATUALIZAÇÃO OTIMISTA IMEDIATA DA INTERFACE
+    setModalExcluirAberto(false);
+    setPedidoExcluindo(null);
+    setLotes((prev) => prev.filter((p) => p.id !== pedidoId));
+    setItensCaixa((prev) => prev.filter((item) => item.pedido_id !== pedidoId));
+    if (isAprovado && qtd > 0) {
+      setEstoqueDisplaysProntos((prev) => isReposicaoPropria ? Math.max(0, prev - qtd) : prev + qtd);
+    }
+    setFeedbackSucesso("Pedido excluído com sucesso!");
+
+    try {
+      // 3. Obter token de autenticação da sessão do Administrador
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || SUPABASE_ANON_KEY;
+      const authHeaders = {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      };
+
+      if (pedidoId && !pedidoId.startsWith("lote-demo-")) {
+        // A. DELETE em 'caixa_fabrica' WHERE pedido_id = [id_do_pedido]
+        try {
+          await supabase.from("caixa_fabrica").delete().eq("pedido_id", pedidoId);
+          await fetch(`${SUPABASE_URL}/rest/v1/caixa_fabrica?pedido_id=eq.${pedidoId}`, {
+            method: "DELETE",
+            headers: authHeaders,
+          });
+        } catch (eCx) {
+          console.warn("Aviso ao deletar caixa_fabrica:", eCx);
+        }
+
+        // B. DELETE em 'placas' WHERE pedido_id = [id_do_pedido] OU lote_id = [id_do_pedido]
+        try {
+          await supabase.from("placas").delete().eq("pedido_id", pedidoId);
+          await supabase.from("placas").delete().eq("lote_id", pedidoId);
+          await fetch(`${SUPABASE_URL}/rest/v1/placas?pedido_id=eq.${pedidoId}`, {
+            method: "DELETE",
+            headers: authHeaders,
+          });
+          await fetch(`${SUPABASE_URL}/rest/v1/placas?lote_id=eq.${pedidoId}`, {
+            method: "DELETE",
+            headers: authHeaders,
+          });
+        } catch (ePlacas) {
+          console.warn("Aviso ao deletar placas:", ePlacas);
+        }
+
+        // C. Estornar estoque físico em config_fabrica
+        if (isAprovado && qtd > 0) {
+          try {
+            let estoqueDb = previousEstoque;
+            const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
+            if (cfgLive && cfgLive.length > 0 && cfgLive[0].estoque_displays_prontos !== undefined) {
+              estoqueDb = Number(cfgLive[0].estoque_displays_prontos);
+            }
+            const novoEstoque = isReposicaoPropria ? Math.max(0, estoqueDb - qtd) : estoqueDb + qtd;
+            if (configFabricaId) {
+              await supabase
+                .from("config_fabrica")
+                .update({ estoque_displays_prontos: novoEstoque })
+                .eq("id", configFabricaId);
+            } else if (cfgLive && cfgLive[0]?.id) {
+              await supabase
+                .from("config_fabrica")
+                .update({ estoque_displays_prontos: novoEstoque })
+                .eq("id", cfgLive[0].id);
+            }
+          } catch (eEst) {
+            console.warn("Aviso ao estornar estoque em config_fabrica:", eEst);
+          }
+        }
+
+        // D. Excluir comprovante no storage se existir
+        if (pedidoParaExcluir.comprovanteUrl && pedidoParaExcluir.comprovanteUrl.includes("/comprovantes/")) {
+          try {
+            const fileName = pedidoParaExcluir.comprovanteUrl.split("/").pop()?.split("?")[0];
+            if (fileName) {
+              await supabase.storage.from("comprovantes").remove([fileName]);
+            }
+          } catch (eStg) {
+            console.warn("Aviso ao excluir arquivo de comprovante:", eStg);
+          }
+        }
+
+        // E. Deletar registro do pedido em 'pedidos_lotes' via API Route do servidor (ignora bloqueios de RLS)
+        let deleteOk = false;
+        let errMsg = "";
+
+        try {
+          const resApi = await fetch("/api/admin/delete-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pedidoId,
+              isAprovado,
+              quantidade: qtd,
+              isReposicaoPropria,
+              comprovanteUrl: pedidoParaExcluir.comprovanteUrl,
+            }),
+          });
+          if (resApi.ok) {
+            deleteOk = true;
+          }
+        } catch (eApi) {
+          console.warn("API de exclusão local:", eApi);
+        }
+
+        // F. DELETE direto em 'pedidos_lotes' WHERE id = [id_do_pedido]
+        const { error: errDelSdk } = await supabase
+          .from("pedidos_lotes")
+          .delete()
+          .eq("id", pedidoId);
+
+        if (!errDelSdk) {
+          deleteOk = true;
+        } else {
+          console.warn("Tentando DELETE REST direto:", errDelSdk);
+          const resDel = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_lotes?id=eq.${pedidoId}`, {
+            method: "DELETE",
+            headers: authHeaders,
+          });
+          if (resDel.ok) {
+            deleteOk = true;
+          } else {
+            const textErr = await resDel.text().catch(() => "");
+            errMsg = textErr || errDelSdk.message || "Erro ao deletar pedido_lote no Supabase";
+          }
+        }
+
+        if (!deleteOk && !pedidoId.startsWith("lote-")) {
+          throw new Error(errMsg || "Falha ao excluir pedido no banco de dados.");
+        }
+      }
+    } catch (err: unknown) {
+      // 4. ROLLBACK EM CASO DE ERRO & EXIBIÇÃO EXPLÍCITA
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Falha ao excluir pedido no banco:", err);
+      setLotes(previousLotes);
+      setItensCaixa(previousItensCaixa);
+      setEstoqueDisplaysProntos(previousEstoque);
+      setFeedbackSucesso(null);
+      setErroMsg(`Falha ao excluir: ${msg}`);
+      alert(`Falha ao excluir: ${msg}`);
+    }
+  };
+
+  // Abrir modal de Endereço Completo
+  const handleAbrirEndereco = (lote: LoteExport) => {
+    setEnderecoVisualizando({
+      alunoNome: lote.alunoNome,
+      endereco: lote.enderecoEntrega,
+    });
+    setModalEnderecoAberto(true);
+  };
+
+  // Exportar Planilha Consolidada de todos os pedidos Aprovados
+  const handleExportarTodosAprovados = async () => {
+    const aprovados = lotes.filter((l) => l.temLoteGerado || l.status === "em_producao" || l.status === "enviado" || l.status === "entregue");
+    if (aprovados.length === 0) {
+      alert("Nenhum pedido aprovado com lote gerado para exportar no momento.");
+      return;
+    }
+    // Baixar o primeiro da lista
+    await handleBaixarPlanilhaGrafica(aprovados[0]);
+  };
+
   // Confirmar encerramento do mês e entregar 10 displays grátis ao Top 1
   const handleConfirmarPremio = async () => {
     if (!podioAlunos || podioAlunos.length === 0 || podioAlunos[0].quantidade <= 0) {
@@ -1112,25 +2279,138 @@ export default function PainelDistribuidorAdmin() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans p-6 lg:p-10 selection:bg-emerald-500 selection:text-black transition-colors duration-200">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* HEADER SUPERIOR */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-neutral-800">
+    <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans p-3 sm:p-4 selection:bg-emerald-500 selection:text-black transition-colors duration-200">
+      <div className="max-w-7xl mx-auto space-y-3">
+        {/* HEADER SUPERIOR (COMPACTO COM BADGE INTEGRADA) */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> TagPlak Admin
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> GOPLAK ADMIN
               </span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
-              Gestão do Distribuidor
-            </h1>
-            <p className="text-xs lg:text-sm text-zinc-500 dark:text-neutral-400 mt-1">
+            <div className="flex items-center gap-2.5 flex-wrap mt-0.5">
+              <h1 className="text-lg lg:text-xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
+                Gestão do Distribuidor
+              </h1>
+              {topLider ? (
+                <button
+                  type="button"
+                  onClick={() => setModalPodioAberto(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 transition cursor-pointer shadow-xs active:scale-95"
+                  title="Ver Pódio do Mês e Bonificação"
+                >
+                  <span>🏆</span>
+                  <span className="font-semibold">Top 1: {topLider.nome}</span>
+                  <span className="font-mono text-[11px] text-amber-700 dark:text-amber-400">({topLider.quantidade} un)</span>
+                  <span className="text-[9px] bg-amber-500/20 border border-amber-500/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 rounded-full font-mono">{diasRestantesMes}d</span>
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:text-amber-400/80">
+                  <span>🏆</span> Top 1 do Mês (+10 grátis)
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
               Painel central de emissão de lotes, estoque de fábrica e exportação para gráficas parceiras.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sino de Notificação Interativo com Popover / Dropdown */}
+            <div className="relative" ref={popoverRef}>
+              <button
+                type="button"
+                onClick={() => setPopoverNotificacoesAberto(!popoverNotificacoesAberto)}
+                title="Notificações de pedidos pendentes"
+                aria-label="Notificações"
+                className={`relative p-2 rounded-xl border text-xs font-semibold shadow-xs transition active:scale-95 cursor-pointer ${
+                  popoverNotificacoesAberto
+                    ? "bg-amber-500/20 border-amber-500 text-amber-900 dark:text-amber-300 ring-2 ring-amber-400/40"
+                    : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {pedidosAguardandoCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-zinc-950 font-black text-[9px] flex items-center justify-center ring-2 ring-white dark:ring-neutral-900 animate-pulse">
+                    {pedidosAguardandoCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Menu Suspenso / Popover de Notificações */}
+              {popoverNotificacoesAberto && (
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl shadow-2xl z-50 p-3.5 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Cabeçalho */}
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-500" />
+                      <h3 className="text-xs font-bold text-zinc-900 dark:text-white">
+                        Notificações Pendentes
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      {pedidosPendentes.length} {pedidosPendentes.length === 1 ? "pedido" : "pedidos"}
+                    </span>
+                  </div>
+
+                  {/* Lista de Pedidos Pendentes */}
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1 divide-y divide-zinc-100 dark:divide-neutral-800/60">
+                    {pedidosPendentes.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-zinc-400 dark:text-neutral-500">
+                        🎉 Nenhum pedido aguardando aprovação no momento.
+                      </div>
+                    ) : (
+                      pedidosPendentes.map((ped) => (
+                        <div
+                          key={ped.id}
+                          className="pt-2 first:pt-0 flex items-center justify-between gap-2.5 hover:bg-zinc-50 dark:hover:bg-neutral-800/40 p-1.5 rounded-xl transition"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-zinc-900 dark:text-white truncate">
+                                {ped.alunoNome}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300">
+                                {ped.quantidade} un
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-zinc-500 dark:text-neutral-400 mt-0.5">
+                              <span>{ped.data.split(" ")[0]}</span>
+                              <span>•</span>
+                              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                                R$ {(ped.valorTotal || (ped.quantidade * 18)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleVerPedidoNotificacao(ped.id)}
+                            className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-bold text-[11px] px-2.5 py-1 rounded-lg transition shadow-xs cursor-pointer shrink-0"
+                          >
+                            Ver Pedido
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Rodapé */}
+                  <div className="border-t border-zinc-200 dark:border-neutral-800 pt-2.5">
+                    <button
+                      type="button"
+                      onClick={handleVerTodosPendentes}
+                      className="w-full py-1.5 px-3 rounded-xl bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-800 dark:text-neutral-200 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <span>Ver Todos os Pedidos Pendentes</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <ThemeToggle />
             <button
               onClick={() => {
@@ -1139,7 +2419,7 @@ export default function PainelDistribuidorAdmin() {
               }}
               title="Atualizar dados do Supabase"
               aria-label="Atualizar dados"
-              className="inline-flex items-center gap-2 bg-white dark:bg-neutral-900 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-white dark:bg-neutral-900 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-neutral-800 text-xs font-semibold shadow-xs transition active:scale-95 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-emerald-500 dark:text-emerald-400" : ""}`} />
               <span>Sincronizar</span>
@@ -1148,421 +2428,1548 @@ export default function PainelDistribuidorAdmin() {
               onClick={handleLogout}
               title="Sair da Conta (Logout)"
               aria-label="Sair da Conta"
-              className="inline-flex items-center gap-2 bg-white dark:bg-neutral-900 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-rose-400 px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:border-rose-500/30 text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-white dark:bg-neutral-900 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-rose-400 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:border-rose-500/30 text-xs font-semibold shadow-xs transition active:scale-95 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Sair</span>
             </button>
             <a
               href="/dashboard"
-              className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-md active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-black px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer"
             >
               <span>Visão Aluno</span>
-              <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </a>
           </div>
         </header>
 
-        {/* FEEDBACKS VISUAIS */}
-        {feedbackSucesso && (
-          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <span>{feedbackSucesso}</span>
+        {/* TOASTS FLUTUANTES (FIXED TOP-RIGHT / NÃO DESLOCAM O LAYOUT) */}
+        <div
+          onMouseEnter={() => setToastHovered(true)}
+          onMouseLeave={() => setToastHovered(false)}
+          className="fixed top-4 right-4 z-[70] max-w-sm w-full pointer-events-none space-y-2 px-3 sm:px-0"
+        >
+          {feedbackSucesso && (
+            <div className="pointer-events-auto bg-emerald-950/95 dark:bg-neutral-900/95 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                <span className="font-medium text-emerald-100 dark:text-emerald-200 leading-snug">{feedbackSucesso}</span>
+              </div>
+              <button
+                onClick={() => setFeedbackSucesso(null)}
+                className="text-emerald-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <button onClick={() => setFeedbackSucesso(null)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer">
-              ✕
-            </button>
+          )}
+
+          {erroMsg && (
+            <div className="pointer-events-auto bg-rose-950/95 dark:bg-neutral-900/95 border border-rose-500/40 text-rose-300 p-3.5 rounded-2xl text-xs flex items-start justify-between shadow-2xl backdrop-blur-md animate-in slide-in-from-top-3 fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="font-medium text-rose-100 dark:text-rose-200 leading-snug">{erroMsg}</span>
+              </div>
+              <button
+                onClick={() => setErroMsg(null)}
+                className="text-rose-400/70 hover:text-white p-1 ml-2 cursor-pointer transition"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ALERTA CRÍTICO INAMOVÍVEL DE ESTOQUE FÍSICO (PROJEÇÃO <= 20 DIAS OU <= 50 DISPLAYS) */}
+        {metricasFinanceiras.alertaEstoqueCritico && (
+          <div
+            onClick={() => setModalReposicaoAberto(true)}
+            className="w-full cursor-pointer bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/15 border-2 border-amber-500/80 hover:border-amber-400 p-3 sm:p-4 rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-[1.003] group animate-in fade-in"
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-500 border border-amber-500/40 animate-pulse shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30">
+                      Alerta de Reposição de Fábrica
+                    </span>
+                    <span className="text-[11px] text-amber-700 dark:text-amber-300/80 font-mono font-bold">
+                      Projeção: ~{Math.max(0, Math.round(metricasFinanceiras.diasRestantesEstoque))} dias
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-100 mt-1 leading-snug">
+                    ⚠️ ATENÇÃO: Estoque para apenas {Math.max(0, Math.round(metricasFinanceiras.diasRestantesEstoque))} dias ({estoqueDisplaysProntos} displays restantes). Faça o pedido com o fornecedor agora!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setModalReposicaoAberto(true);
+                }}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs shadow-md transition active:scale-95 whitespace-nowrap flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <PackagePlus className="w-4 h-4 stroke-[2.5]" />
+                <span>+ Adicionar Displays Recebidos do Fornecedor</span>
+              </button>
+            </div>
           </div>
         )}
 
-        {erroMsg && (
-          <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300 p-4 rounded-2xl text-xs flex items-center justify-between shadow-sm animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-              <span>{erroMsg}</span>
+        {/* 1. CARDS DE MÉTRICAS FINANCEIRAS & ESTOQUE DA FÁBRICA */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {/* Faturamento Bruto (Entradas) */}
+          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3 shadow-xs transition-colors">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider">Faturamento Bruto</span>
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <button onClick={() => setErroMsg(null)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer">
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* 1. CARDS DE MÉTRICAS CONSOLIDADAS */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Produzidas */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-3">
-              <span className="text-xs uppercase font-bold tracking-wider">Total Produzidas</span>
-              <Layers className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-zinc-900 dark:text-white">{totalProduzidas}</span>
-              <span className="text-xs text-zinc-500 dark:text-neutral-400">displays</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 dark:text-neutral-500 mt-2">Emissão total registrada</p>
-          </div>
-
-          {/* Ativas no Mercado */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-3">
-              <span className="text-xs uppercase font-bold tracking-wider">Ativas no Mercado</span>
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{totalAtivas}</span>
-              <span className="text-xs text-zinc-500 dark:text-neutral-400">em lojas</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 dark:text-neutral-500 mt-2">Displays gerando avaliações</p>
-          </div>
-
-          {/* Estoque Virgem */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-3">
-              <span className="text-xs uppercase font-bold tracking-wider">Estoque Virgem</span>
-              <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-amber-600 dark:text-amber-300">{totalVirgens}</span>
-              <span className="text-xs text-zinc-500 dark:text-neutral-400">prontas</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 dark:text-neutral-500 mt-2">Disponíveis para ativação</p>
-          </div>
-
-          {/* Volume Transacionado */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-emerald-500/30 rounded-2xl p-5 shadow-sm dark:shadow-xl transition-colors">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-3">
-              <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">Volume de Vendas</span>
-              <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-zinc-900 dark:text-white">
-                R$ {volumeTransacionado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl lg:text-2xl font-black text-zinc-900 dark:text-white">
+                R$ {metricasFinanceiras.faturamentoBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-400 dark:text-neutral-500 mt-2">Faturado pelos alunos em campo</p>
+            <p className="text-[9px] text-zinc-400 dark:text-neutral-500 mt-0.5">Soma de entradas de lotes aprovados</p>
+          </div>
+
+          {/* Custos de Mercadorias / Despesas */}
+          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3 shadow-xs transition-colors">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider">Custo & Despesas</span>
+              <TrendingDown className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl lg:text-2xl font-black text-rose-600 dark:text-rose-400">
+                R$ {metricasFinanceiras.custosTotais.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 dark:text-neutral-500 mt-0.5">CMV (R$ {custoUnitarioDisplay.toFixed(2)}/un) + Fretes/Saídas</p>
+          </div>
+
+          {/* Lucro Líquido Real */}
+          <div className="bg-white dark:bg-neutral-900/90 border border-emerald-500/40 rounded-2xl p-3 shadow-xs transition-colors bg-gradient-to-b from-transparent to-emerald-500/5">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">Lucro Líquido Real</span>
+              <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className={`text-xl lg:text-2xl font-black ${metricasFinanceiras.lucroLiquidoReal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
+                R$ {metricasFinanceiras.lucroLiquidoReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 dark:text-neutral-500 mt-0.5">Entradas líquidas abatidos custos e fretes</p>
+          </div>
+
+          {/* Estoque de Displays Prontos na Fábrica */}
+          <div
+            onClick={() => setModalReposicaoAberto(true)}
+            className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 hover:border-amber-500/50 rounded-2xl p-3 shadow-xs transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider">Estoque na Fábrica</span>
+              <Package className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl lg:text-3xl font-black text-amber-600 dark:text-amber-300">{estoqueDisplaysProntos}</span>
+              <span className="text-xs text-zinc-500 dark:text-neutral-400">un prontos</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className={`text-[9px] font-bold font-mono px-1.5 py-0.2 rounded-md ${metricasFinanceiras.alertaEstoqueCritico ? "bg-rose-500/20 text-rose-700 dark:text-rose-300" : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"}`}>
+                ~{Math.max(0, Math.round(metricasFinanceiras.diasRestantesEstoque))} dias
+              </span>
+              <span className="text-[9px] text-zinc-400 dark:text-neutral-500">cobertura (saída {mediaSaidaDiaria}/d)</span>
+            </div>
           </div>
         </section>
 
-        {/* CARD DE DESTAQUE: TOP DISPLAY (ULTRA COMPACTO) */}
-        {(() => {
-          const agora = new Date();
-          const ultimoDiaMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate();
-          const diasRestantesMes = Math.max(1, ultimoDiaMes - agora.getDate());
+        {/* BARRA COMPACTA DE MÉTRICAS OPERACIONAIS */}
+        <section className="bg-white/60 dark:bg-neutral-900/60 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl px-3.5 py-2 flex items-center justify-between gap-3 text-xs flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-neutral-500">Operação em Campo:</span>
+          </div>
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap text-zinc-600 dark:text-neutral-300">
+            <div className="flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-sky-500" />
+              <span className="text-[11px]">Total Emitidas: <strong className="text-zinc-900 dark:text-white font-mono">{totalProduzidas}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-[11px]">Ativas em Lojas: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{totalAtivas}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-[11px]">Estoque Alunos: <strong className="text-amber-600 dark:text-amber-400 font-mono">{totalVirgens}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-[11px]">Faturamento Alunos: <strong className="text-zinc-900 dark:text-white font-mono">R$ {volumeTransacionado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+            </div>
+          </div>
+        </section>
 
-          return (
-            <section className="bg-amber-50/70 dark:bg-amber-950/10 border border-amber-300/80 dark:border-amber-500/30 rounded-2xl py-2.5 px-4 shadow-sm transition-colors flex items-center justify-between gap-4">
-              {/* Lado Esquerdo */}
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wide shrink-0 flex items-center gap-1">
-                  <span>🏆</span> TOP 1 DO MÊS
-                </span>
-                <span className="hidden sm:inline text-zinc-300 dark:text-neutral-700">•</span>
-                {topLider ? (
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-200 truncate">
-                    <span className="font-semibold">{topLider.nome}</span>
-                    {topLider.email && (
-                      <span className="text-xs text-zinc-500 dark:text-neutral-400 ml-1.5 font-normal">
-                        ({topLider.email})
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-xs text-zinc-500 dark:text-neutral-400 italic">
-                    Nenhum pedido registrado no mês atual
-                  </span>
-                )}
-              </div>
-
-              {/* Lado Direito */}
-              <div className="flex items-center gap-3 shrink-0">
-                {topLider && (
-                  <span className="text-sm sm:text-base font-bold text-amber-700 dark:text-amber-400 font-mono">
-                    {topLider.quantidade} displays
-                  </span>
-                )}
-                <span className="text-xs text-amber-800 dark:text-amber-400/80 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full font-mono font-medium">
-                  Encerra em {diasRestantesMes} {diasRestantesMes === 1 ? "dia" : "dias"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setModalPodioAberto(true)}
-                  className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
-                  title="Finalizar ciclo mensal e entregar bonificação do Top Display"
-                >
-                  <Trophy className="w-3.5 h-3.5" />
-                  <span>Finalizar Mês & Entregar Prêmio</span>
-                </button>
-              </div>
-            </section>
-          );
-        })()}
-
-        {/* 2. GRID PRINCIPAL: GERAÇÃO DE LOTE & HISTÓRICO */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* SEÇÃO: GERAR NOVO LOTE */}
-          <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-6 shadow-sm dark:shadow-xl lg:col-span-1 transition-colors">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-              <PlusCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <h2 className="text-base font-bold text-zinc-900 dark:text-white">Gerar Novo Lote de Displays</h2>
+        {/* 2. GESTÃO DE PEDIDOS & EXPORTAÇÃO GRÁFICA (LARGURA TOTAL / COMPACTA) */}
+        <section id="tabela-pedidos" className="w-full bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 sm:p-4 shadow-xs transition-colors">
+          {/* Header & Ações Rápidas */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5 pb-2 border-b border-zinc-200 dark:border-neutral-800">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Gestão de Pedidos & Lotes</h2>
             </div>
 
-            <form onSubmit={handleGerarLote} className="space-y-5">
-              {/* Quantidade */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-2">
-                  Quantidade de Displays
-                </label>
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  {[20, 50, 100].map((qtd) => (
-                    <button
-                      key={qtd}
-                      type="button"
-                      onClick={() => setQuantidadeLote(qtd)}
-                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                        quantidadeLote === qtd
-                          ? "bg-emerald-500 text-black border-emerald-400 shadow-sm"
-                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      {qtd} displays
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  required
-                  value={quantidadeLote}
-                  onChange={(e) => setQuantidadeLote(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-3 text-base font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
-                />
-              </div>
-
-              {/* Aluno Destinatário */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" /> Aluno / Parceiro Destinatário
-                </label>
-                <select
-                  value={alunoSelecionado}
-                  onChange={(e) => setAlunoSelecionado(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-3 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition cursor-pointer"
-                >
-                  {alunos.map((a) => (
-                    <option key={a.id} value={a.id} className="bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white">
-                      {a.nome} ({a.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Prévia Dinâmica do Próximo Lote */}
-              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-4 text-xs space-y-2 text-zinc-600 dark:text-neutral-400">
-                <div className="flex justify-between items-center">
-                  <span>Maior código cadastrado:</span>
-                  <span className="text-zinc-800 dark:text-neutral-200 font-mono font-semibold">
-                    {maiorCodigoNumero > 0 ? `GP-${String(maiorCodigoNumero).padStart(4, "0")}` : "Nenhum"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pt-1 border-t border-zinc-200 dark:border-neutral-800">
-                  <span>Próximo Lote Previsto:</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-                    {previewCodigoInicio} → {previewCodigoFim}
-                  </span>
-                </div>
-                <div className="text-[11px] text-zinc-500 dark:text-neutral-500">
-                  Total de <strong>{quantidadeLote}</strong> novos displays virgens sequenciais.
-                </div>
-              </div>
-
-              {/* Botão de Criação */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Botão Lançar Despesa / Frete */}
               <button
-                type="submit"
-                disabled={gerandoLote}
-                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black font-extrabold py-3.5 px-4 rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                type="button"
+                onClick={() => setModalDespesaAberto(true)}
+                className="bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-bold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="Registrar frete, embalagem ou despesa no caixa da fábrica"
               >
-                {gerandoLote ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Gerando Lote no Banco...</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-2">
-                    <PlusCircle className="w-4 h-4 stroke-[2.5]" />
-                    <span>Gerar Lote no Banco</span>
-                  </span>
-                )}
+                <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>- Lançar Despesa / Frete</span>
               </button>
-            </form>
-          </section>
 
-          {/* SEÇÃO: EXPORTAÇÃO GRÁFICA & TABELA DE LOTES */}
-          <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-6 shadow-sm dark:shadow-xl lg:col-span-2 transition-colors">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <h2 className="text-base font-bold text-zinc-900 dark:text-white">Exportação Gráfica</h2>
-              </div>
-              <span className="text-xs text-zinc-500 dark:text-neutral-400 font-mono">{lotes.length} lotes emitidos</span>
+              {/* Botão Repor Estoque */}
+              <button
+                type="button"
+                onClick={() => setModalReposicaoAberto(true)}
+                className="bg-sky-500/10 hover:bg-sky-500/20 active:scale-95 text-sky-700 dark:text-sky-300 border border-sky-500/30 font-bold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="Registrar recebimento de lote virgem do fornecedor"
+              >
+                <PackagePlus className="w-3.5 h-3.5" />
+                <span>+ Repor Estoque</span>
+              </button>
+
+              {/* Botão Extrato do Caixa */}
+              <button
+                type="button"
+                onClick={() => setModalExtratoCaixaAberto(true)}
+                className="bg-zinc-100 hover:bg-zinc-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 active:scale-95 text-zinc-800 dark:text-neutral-200 font-bold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer border border-zinc-200 dark:border-neutral-700"
+                title="Visualizar extrato completo de entradas e saídas do caixa da fábrica"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>Extrato Caixa</span>
+              </button>
+
+              {/* Botão Emissão Manual de Lote */}
+              <button
+                type="button"
+                onClick={() => setModalEmissaoManualAberto(true)}
+                className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="Abrir formulário de emissão manual de lote de displays"
+              >
+                <PlusCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>⚡ Emissão Manual de Lote</span>
+              </button>
+
+              {/* Botão Exportar Planilha Gráfica Geral */}
+              <button
+                type="button"
+                onClick={handleExportarTodosAprovados}
+                className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="Baixar planilha gráfica consolidada dos lotes aprovados"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Exportar Planilha Gráfica</span>
+              </button>
             </div>
+          </div>
 
-            {loading ? (
-              <div className="py-12 flex flex-col items-center justify-center text-zinc-500 dark:text-neutral-400 gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs">Carregando lotes do Supabase...</span>
-              </div>
-            ) : lotes.length === 0 ? (
-              <div className="py-12 text-center text-zinc-400 dark:text-neutral-500 text-xs">
-                Nenhum lote registrado. Gere seu primeiro lote ao lado!
-              </div>
-            ) : (
-              <div className="w-full">
-                <table className="w-full table-fixed text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-neutral-800 text-zinc-500 dark:text-neutral-400 uppercase tracking-wider">
-                      <th className="px-2 pb-3 font-semibold w-[85px] text-[11px] text-zinc-500 dark:text-zinc-400">Data / Lote</th>
-                      <th className="px-2 pb-3 font-semibold w-[110px] text-xs">Destinatário</th>
-                      <th className="px-2 pb-3 font-semibold w-[48px] text-center text-xs">Qtd</th>
-                      <th className="px-2 pb-3 font-semibold w-[130px] text-[11px] font-mono text-zinc-600 dark:text-zinc-300">Intervalo</th>
-                      <th className="px-2 pb-3 font-semibold w-[125px] text-center">Status</th>
-                      <th className="px-2 pb-3 font-semibold w-[135px] text-center">Rastreio</th>
-                      <th className="px-2 pb-3 font-semibold w-[75px] text-center">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200/80 dark:divide-neutral-800/60">
-                    {lotes.map((lote) => (
-                      <tr key={lote.id} className="hover:bg-zinc-100/60 dark:hover:bg-neutral-950/40 transition">
-                        <td className="px-2 py-2.5 w-[85px] text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
-                          <div className="font-medium text-zinc-800 dark:text-neutral-200 truncate">{lote.data.split(" ")[0]}</div>
-                          <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{lote.data.split(" ")[1] || ""}</div>
-                        </td>
-                        <td className="px-2 py-2.5 w-[110px] text-xs text-zinc-800 dark:text-neutral-300 font-medium" title={lote.alunoNome}>
-                          <span className="truncate block" title={lote.alunoNome}>
-                            {lote.alunoNome}
-                          </span>
-                          {lote.observacao && (
-                            <span className="inline-block text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded mt-0.5 truncate max-w-full" title={lote.observacao}>
-                              {lote.observacao}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2.5 w-[48px] text-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                          {lote.quantidade}
-                        </td>
-                        <td className="px-2 py-2.5 w-[130px] text-[11px] font-mono text-zinc-700 dark:text-zinc-300 truncate">
-                          {lote.temLoteGerado ? (
-                            <span
-                              className="bg-zinc-100 dark:bg-neutral-950 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-neutral-800 text-zinc-800 dark:text-neutral-200 truncate inline-block max-w-full"
-                              title={`${lote.codigoInicio} → ${lote.codigoFim}`}
-                            >
-                              {lote.codigoInicio} → {lote.codigoFim}
-                            </span>
-                          ) : (
-                            <span className="text-zinc-400 dark:text-neutral-500 italic text-[10px] bg-zinc-100/60 dark:bg-neutral-950/60 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-neutral-800/80">
-                              Aguardando
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2.5 w-[125px] text-center">
-                          {lote.temLoteGerado ? (
-                            <select
-                              value={lote.status || "solicitado"}
-                              onChange={(e) => handleUpdateStatusLote(lote.id, e.target.value)}
-                              className={`w-full text-[11px] font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none transition ${
-                                lote.status === "solicitado"
-                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                                  : lote.status === "em_producao"
-                                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
-                                  : lote.status === "enviado"
-                                  ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30"
-                                  : lote.status === "entregue"
-                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                                  : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+          {/* Barra de Filtros por Status */}
+          <div className="flex items-center gap-1.5 mb-3 overflow-x-auto scrollbar-none pb-0.5">
+            <button
+              type="button"
+              onClick={() => setFiltroStatus("todos")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap ${
+                filtroStatus === "todos"
+                  ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-xs"
+                  : "bg-zinc-100 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700 hover:bg-zinc-200 dark:hover:bg-neutral-700"
+              }`}
+            >
+              Todos ({lotes.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroStatus("pendentes")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                filtroStatus === "pendentes"
+                  ? "bg-amber-500 text-black border-amber-400 shadow-xs"
+                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+              }`}
+            >
+              <span>⏳ Aguardando Aprovação</span>
+              <span className="font-mono bg-black/10 dark:bg-white/10 px-1.5 py-0.2 rounded-full text-[10px]">
+                {lotes.filter((l) => l.status === "solicitado").length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroStatus("aprovados")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                filtroStatus === "aprovados"
+                  ? "bg-emerald-500 text-black border-emerald-400 shadow-xs"
+                  : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+              }`}
+            >
+              <span>✅ Aprovados / Em Produção</span>
+              <span className="font-mono bg-black/10 dark:bg-white/10 px-1.5 py-0.2 rounded-full text-[10px]">
+                {lotes.filter((l) => l.status === "em_producao" || l.status === "enviado" || l.status === "entregue").length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroStatus("recusados")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                filtroStatus === "recusados"
+                  ? "bg-rose-600 text-white border-rose-500 shadow-xs"
+                  : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20"
+              }`}
+            >
+              <span>❌ Recusados</span>
+              <span className="font-mono bg-black/10 dark:bg-white/10 px-1.5 py-0.2 rounded-full text-[10px]">
+                {lotes.filter((l) => l.status === "recusado").length}
+              </span>
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="py-10 flex flex-col items-center justify-center text-zinc-500 dark:text-neutral-400 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs">Carregando pedidos do Supabase...</span>
+            </div>
+          ) : lotes.length === 0 ? (
+            <div className="py-10 text-center text-zinc-400 dark:text-neutral-500 text-xs">
+              Nenhum pedido registrado.
+            </div>
+          ) : (
+            <div className="w-full">
+              {(() => {
+                const lotesFiltrados = lotes.filter((lote) => {
+                  if (filtroStatus === "pendentes") return lote.status === "solicitado";
+                  if (filtroStatus === "aprovados") return lote.status === "em_producao" || lote.status === "enviado" || lote.status === "entregue";
+                  if (filtroStatus === "recusados") return lote.status === "recusado";
+                  return true;
+                });
+
+                if (lotesFiltrados.length === 0) {
+                  return (
+                    <div className="py-8 text-center text-zinc-400 dark:text-neutral-500 text-xs">
+                      Nenhum pedido correspondente ao filtro selecionado.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="w-full max-h-[380px] overflow-y-auto overflow-x-auto pr-1 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl">
+                    <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-white dark:bg-neutral-900 z-10 shadow-xs">
+                        <tr className="border-b border-zinc-200 dark:border-neutral-800 text-zinc-500 dark:text-neutral-400 uppercase tracking-wider text-[11px] bg-zinc-50 dark:bg-neutral-950">
+                          <th className="py-2.5 px-2.5 font-semibold">DATA</th>
+                          <th className="py-2.5 px-2.5 font-semibold">ALUNO</th>
+                          <th className="py-2.5 px-2.5 font-semibold text-center">QTD</th>
+                          <th className="py-2.5 px-2.5 font-semibold">CORES</th>
+                          <th className="py-2.5 px-2.5 font-semibold text-right">VALOR</th>
+                          <th className="py-2.5 px-2.5 font-semibold text-center">ENDEREÇO</th>
+                          <th className="py-2.5 px-2.5 font-semibold text-center">COMPROVANTE</th>
+                          <th className="py-2.5 px-2.5 font-semibold text-center">STATUS</th>
+                          <th className="py-2.5 px-2.5 font-semibold text-center">AÇÕES</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200/80 dark:divide-neutral-800/60">
+                        {lotesFiltrados.map((lote) => {
+                          const stLower = (lote.status || "").toLowerCase().trim();
+                          const isPendente =
+                            stLower === "solicitado" ||
+                            stLower === "aguardando" ||
+                            stLower === "aguardando aprovação" ||
+                            stLower === "aguardando aprovacao" ||
+                            stLower === "aguardando_aprovacao" ||
+                            stLower === "pendente";
+                          const isRecusado = stLower === "recusado";
+                          const isAprovado = stLower === "em_producao" || stLower === "enviado" || stLower === "entregue";
+                          
+                          const enderecoTooltip = lote.enderecoEntrega
+                            ? `${lote.enderecoEntrega.logradouro}, ${lote.enderecoEntrega.numero}${
+                                lote.enderecoEntrega.complemento ? " (" + lote.enderecoEntrega.complemento + ")" : ""
+                              } - ${lote.enderecoEntrega.bairro}, ${lote.enderecoEntrega.cidade}/${lote.enderecoEntrega.estado} - CEP: ${lote.enderecoEntrega.cep}${
+                                lote.enderecoEntrega.ponto_referencia ? " [Ref: " + lote.enderecoEntrega.ponto_referencia + "]" : ""
+                              }`
+                            : "Endereço não informado";
+
+                          return (
+                            <tr
+                              key={lote.id}
+                              id={`pedido-row-${lote.id}`}
+                              className={`transition-all duration-500 ${
+                                pedidoDestacadoId === lote.id
+                                  ? "bg-amber-500/20 dark:bg-amber-500/20 ring-2 ring-amber-400 dark:ring-amber-500"
+                                  : "hover:bg-zinc-100/60 dark:hover:bg-neutral-950/40"
                               }`}
                             >
-                              <option value="solicitado" className="bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-400">
-                                Solicitado
-                              </option>
-                              <option value="em_producao" className="bg-white dark:bg-neutral-900 text-sky-600 dark:text-sky-400">
-                                Em Produção
-                              </option>
-                              <option value="enviado" className="bg-white dark:bg-neutral-900 text-violet-600 dark:text-violet-400">
-                                Enviado
-                              </option>
-                              <option value="entregue" className="bg-white dark:bg-neutral-900 text-emerald-600 dark:text-emerald-400">
-                                Entregue
-                              </option>
-                            </select>
-                          ) : (
-                            <span className="inline-flex items-center justify-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 w-full">
-                              🟡 Solicitado
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2.5 w-[135px] text-center">
-                          <input
-                            type="text"
-                            placeholder="Código ou Link"
-                            defaultValue={lote.codigoRastreio || ""}
-                            onBlur={(e) => {
-                              if (e.target.value !== (lote.codigoRastreio || "")) {
-                                handleSalvarRastreio(lote.id, e.target.value);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleSalvarRastreio(lote.id, (e.target as HTMLInputElement).value);
-                              }
-                            }}
-                            className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 focus:border-violet-500 rounded-lg px-2 py-1 text-xs text-zinc-900 dark:text-white focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-neutral-600 transition truncate"
-                            title={lote.codigoRastreio || "Digite código ou link e pressione Enter"}
-                          />
-                        </td>
-                        <td className="px-2 py-2.5 w-[75px] text-center">
-                          {!lote.temLoteGerado ? (
-                            <button
-                              onClick={() => handleGerarLoteDePedido(lote)}
-                              disabled={gerandoPedidoId === lote.id}
-                              title="Gerar códigos e displays virgens para este pedido"
-                              className="w-full inline-flex items-center justify-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-black px-2 py-1 rounded-lg font-bold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow text-xs"
-                            >
-                              {gerandoPedidoId === lote.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <>
-                                  <PlusCircle className="w-3 h-3 stroke-[2.5]" />
-                                  <span>Gerar</span>
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleBaixarPlanilhaGrafica(lote)}
-                              disabled={exportandoId === lote.id}
-                              title="Baixar planilha com QR Codes físicos embutidos"
-                              className="w-full inline-flex items-center justify-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-1 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-sm text-xs"
-                            >
-                              {exportandoId === lote.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <>
-                                  <Download className="w-3 h-3" />
-                                  <span>XLSX</span>
-                                </>
-                              )}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                              {/* DATA */}
+                              <td className="py-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                                <span className="font-medium text-zinc-800 dark:text-neutral-200">{lote.data.split(" ")[0]}</span>{" "}
+                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{lote.data.split(" ")[1] || ""}</span>
+                              </td>
+
+                              {/* ALUNO */}
+                              <td className="py-2 px-2">
+                                <span className="font-bold text-zinc-900 dark:text-white block truncate max-w-[150px]" title={`${lote.alunoNome} ${lote.alunoEmail ? `(${lote.alunoEmail})` : ""}`}>
+                                  {lote.alunoNome}
+                                </span>
+                                {lote.alunoEmail && (
+                                  <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block truncate max-w-[150px]" title={lote.alunoEmail}>
+                                    {lote.alunoEmail}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* QTD */}
+                              <td className="py-2 px-2 text-center whitespace-nowrap">
+                                <span className="inline-block px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-neutral-800 text-zinc-900 dark:text-white font-bold font-mono text-xs">
+                                  {lote.quantidade} un
+                                </span>
+                              </td>
+
+                              {/* CORES */}
+                              <td className="py-2 px-2 text-[11px] whitespace-nowrap">
+                                {(() => {
+                                  const { pretas, azuis } = extrairQtdCores(lote);
+                                  return (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {pretas > 0 && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900 text-white dark:bg-neutral-800 dark:text-zinc-200 border border-zinc-700">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 inline-block"></span>
+                                          {pretas} {pretas === 1 ? "Preta" : "Pretas"}
+                                        </span>
+                                      )}
+                                      {azuis > 0 && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>
+                                          {azuis} {azuis === 1 ? "Azul" : "Azuis"}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+
+                              {/* VALOR */}
+                              <td className="py-2 px-2 text-right whitespace-nowrap">
+                                <span className="font-black text-emerald-700 dark:text-emerald-400 font-mono text-xs">
+                                  R$ {(lote.valorTotal || (lote.quantidade * 18)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                </span>
+                              </td>
+
+                              {/* ENDEREÇO */}
+                              <td className="py-2 px-2 text-center whitespace-nowrap">
+                                {lote.enderecoEntrega ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbrirEndereco(lote)}
+                                    className="inline-flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400 hover:underline font-semibold cursor-pointer"
+                                    title={enderecoTooltip}
+                                  >
+                                    <MapPin className="w-3 h-3 shrink-0" />
+                                    <span>
+                                      {lote.enderecoEntrega.cidade}/{lote.enderecoEntrega.estado}
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-400 dark:text-neutral-500" title="Endereço padrão de cadastro">Padrão</span>
+                                )}
+                              </td>
+
+                              {/* COMPROVANTE */}
+                              <td className="py-2 px-2 text-center whitespace-nowrap">
+                                {lote.comprovanteUrl ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbrirComprovante(lote)}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] transition active:scale-95 cursor-pointer shadow-xs ${
+                                      isPendente
+                                        ? "bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-500/40 font-bold"
+                                        : "border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 font-semibold"
+                                    }`}
+                                    title={isPendente ? "Visualizar comprovante bancário (Pendente de Aprovação)" : "Visualizar comprovante bancário (Auditoria)"}
+                                  >
+                                    <Eye className={`w-3 h-3 ${isPendente ? "text-sky-600 dark:text-sky-400" : "text-zinc-400 dark:text-zinc-500"}`} />
+                                    <span>Ver Anexo</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-400 dark:text-neutral-500 bg-zinc-100 dark:bg-neutral-800/60 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-neutral-800">
+                                    Sem anexo
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* STATUS */}
+                              <td className="py-2 px-2 text-center whitespace-nowrap">
+                                {isPendente && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                                    <Clock className="w-3 h-3" />
+                                    <span>Aguardando</span>
+                                  </span>
+                                )}
+                                {isAprovado && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>{lote.status === "entregue" ? "Entregue" : lote.status === "enviado" ? "Enviado" : "Em Produção"}</span>
+                                  </span>
+                                )}
+                                {isRecusado && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                                    <XCircle className="w-3 h-3" />
+                                    <span>Recusado</span>
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* AÇÕES */}
+                              <td className="py-2 px-2 text-center whitespace-nowrap">
+                                {isPendente ? (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAprovarPedido(lote)}
+                                      disabled={processandoAcaoId === lote.id}
+                                      className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold px-2 py-0.5 rounded-lg text-xs transition cursor-pointer disabled:opacity-50 shadow-xs"
+                                      title="Aprovar pedido e liberar produção"
+                                    >
+                                      {processandoAcaoId === lote.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Check className="w-3 h-3 stroke-[2.5]" />
+                                          <span>Aprovar</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirModalRecusa(lote)}
+                                      disabled={processandoAcaoId === lote.id}
+                                      className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition cursor-pointer"
+                                      title="Recusar pedido"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirModalExcluir(lote)}
+                                      className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition cursor-pointer"
+                                      title="Excluir Pedido"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : lote.status === "em_producao" ? (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirDespacho(lote)}
+                                      className="inline-flex items-center gap-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold px-2.5 py-0.5 rounded-lg text-xs transition cursor-pointer shadow-xs"
+                                      title="Informar envio e código de rastreio"
+                                    >
+                                      <Package className="w-3 h-3" />
+                                      <span>Despachar</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBaixarPlanilhaGrafica(lote)}
+                                      disabled={exportandoId === lote.id}
+                                      title="Baixar planilha com QR Codes físicos embutidos"
+                                      className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs text-xs"
+                                    >
+                                      {exportandoId === lote.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Download className="w-3 h-3" />
+                                          <span>XLSX</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirModalExcluir(lote)}
+                                      className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition cursor-pointer"
+                                      title="Excluir Pedido"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : lote.status === "enviado" ? (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMarcarEntregue(lote)}
+                                      disabled={processandoAcaoId === lote.id}
+                                      className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold px-2 py-0.5 rounded-lg text-xs transition cursor-pointer disabled:opacity-50 shadow-xs"
+                                      title="Marcar pedido como entregue e creditar estoque"
+                                    >
+                                      {processandoAcaoId === lote.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Check className="w-3 h-3 stroke-[2.5]" />
+                                          <span>Entregue</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirDespacho(lote)}
+                                      className="p-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 border border-zinc-300 dark:border-neutral-700 transition cursor-pointer text-xs"
+                                      title="Editar código de rastreio"
+                                    >
+                                      <Package className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBaixarPlanilhaGrafica(lote)}
+                                      disabled={exportandoId === lote.id}
+                                      title="Baixar planilha com QR Codes físicos embutidos"
+                                      className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs text-xs"
+                                    >
+                                      {exportandoId === lote.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Download className="w-3 h-3" />
+                                          <span>XLSX</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirModalExcluir(lote)}
+                                      className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition cursor-pointer"
+                                      title="Excluir Pedido"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBaixarPlanilhaGrafica(lote)}
+                                      disabled={exportandoId === lote.id}
+                                      title="Baixar planilha com QR Codes físicos embutidos"
+                                      className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs text-xs"
+                                    >
+                                      {exportandoId === lote.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Download className="w-3 h-3" />
+                                          <span>XLSX</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirModalExcluir(lote)}
+                                      className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition cursor-pointer"
+                                      title="Excluir Pedido"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </section>
+
+        {/* MODAL DE DESPACHO E RASTREIO */}
+        {modalDespachoAberto && pedidoDespachando && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setModalDespachoAberto(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Despachar Pedido & Rastreio
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    {pedidoDespachando.alunoNome} ({pedidoDespachando.quantidade} displays)
+                  </p>
+                </div>
               </div>
-            )}
-          </section>
-        </div>
+
+              <form onSubmit={handleConfirmarDespacho} className="space-y-4">
+                {/* Transportadora */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
+                    Transportadora / Forma de Envio
+                  </label>
+                  <select
+                    value={transportadoraInput}
+                    onChange={(e) => setTransportadoraInput(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition cursor-pointer"
+                  >
+                    <option value="Correios">Correios (Sedex / PAC)</option>
+                    <option value="Loggi">Loggi Express</option>
+                    <option value="Jadlog">Jadlog</option>
+                    <option value="Azul Cargo">Azul Cargo Express</option>
+                    <option value="Flash Courier">Flash Courier</option>
+                    <option value="Motoboy / Próprio">Entrega Própria / Motoboy</option>
+                    <option value="Retirada em Fábrica">Retirada em Fábrica</option>
+                  </select>
+                </div>
+
+                {/* Código de Rastreio */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
+                    Código de Rastreio ou Link de Envio
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: NL123456789BR ou https://rastreamento..."
+                    value={rastreioInput}
+                    onChange={(e) => setRastreioInput(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                  />
+                  <p className="text-[10px] text-zinc-400 dark:text-neutral-500 mt-1">
+                    O aluno receberá uma notificação em tempo real na tela com o link direto de rastreamento.
+                  </p>
+                </div>
+
+                {/* Endereço de Destino Resumido */}
+                {pedidoDespachando.enderecoEntrega && (
+                  <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3 text-[11px] text-zinc-600 dark:text-neutral-400">
+                    <span className="font-bold text-zinc-800 dark:text-neutral-200 block mb-0.5">Endereço de Entrega:</span>
+                    <span>
+                      {pedidoDespachando.enderecoEntrega.logradouro}, {pedidoDespachando.enderecoEntrega.numero} - {pedidoDespachando.enderecoEntrega.bairro}, {pedidoDespachando.enderecoEntrega.cidade}/{pedidoDespachando.enderecoEntrega.estado}
+                    </span>
+                  </div>
+                )}
+
+                {/* Botões */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalDespachoAberto(false)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoDespacho}
+                    className="bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold py-2 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-xs"
+                  >
+                    {salvandoDespacho ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Salvando Despacho...</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5" />
+                        <span>Confirmar Despacho</span>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE EMISSÃO MANUAL DE LOTES COM SELETOR VISUAL DE CORES */}
+        {modalEmissaoManualAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+              {/* Botão Fechar */}
+              <button
+                type="button"
+                onClick={() => setModalEmissaoManualAberto(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Cabeçalho */}
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <PlusCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Emissão Manual de Lote
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Gere displays virgens sequenciais e credite no estoque do parceiro.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleGerarLote} className="space-y-4">
+                {/* 1. TIPO DE EMISSÃO (SELEÇÃO PRINCIPAL) */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-2">
+                    Tipo de Emissão do Lote
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Opção Venda para Aluno */}
+                    <button
+                      type="button"
+                      onClick={() => setTipoEmissaoManual("venda_aluno")}
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-start gap-2.5 ${
+                        tipoEmissaoManual === "venda_aluno"
+                          ? "bg-sky-500/10 border-sky-500 text-sky-950 dark:text-sky-100 ring-2 ring-sky-500/30 shadow-xs"
+                          : "bg-zinc-50 dark:bg-neutral-950 border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-900"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0 ${
+                        tipoEmissaoManual === "venda_aluno"
+                          ? "border-sky-500 bg-sky-500"
+                          : "border-zinc-400 dark:border-neutral-600"
+                      }`}>
+                        {tipoEmissaoManual === "venda_aluno" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-sky-500" />
+                          <span>Venda para Aluno / Parceiro</span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          Tabela comercial • Credita estoque do aluno
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Opção Reposição Própria (ADM) */}
+                    <button
+                      type="button"
+                      onClick={() => setTipoEmissaoManual("reposicao_propria")}
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-start gap-2.5 ${
+                        tipoEmissaoManual === "reposicao_propria"
+                          ? "bg-amber-500/10 border-amber-500 text-amber-950 dark:text-amber-100 ring-2 ring-amber-500/30 shadow-xs"
+                          : "bg-zinc-50 dark:bg-neutral-950 border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-900"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0 ${
+                        tipoEmissaoManual === "reposicao_propria"
+                          ? "border-amber-500 bg-amber-500"
+                          : "border-zinc-400 dark:border-neutral-600"
+                      }`}>
+                        {tipoEmissaoManual === "reposicao_propria" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                          <PackagePlus className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Reposição Própria (ADM)</span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          Preço de custo (R$ {(custoUnitarioDisplay || 12.30).toFixed(2).replace(".", ",")}/un) • Fábrica
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quantidade */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                      Quantidade Total de Displays
+                    </label>
+                    <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                      {tipoEmissaoManual === "reposicao_propria" ? `R$ ${(custoUnitarioDisplay || 12.30).toFixed(2).replace(".", ",")}/un (Custo Fábrica)` : "Preço de Tabela Comercial"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    {[20, 50, 100].map((qtd) => (
+                      <button
+                        key={qtd}
+                        type="button"
+                        onClick={() => setQuantidadeLote(qtd)}
+                        className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          quantidadeLote === qtd
+                            ? tipoEmissaoManual === "reposicao_propria"
+                              ? "bg-amber-500 text-black border-amber-400 shadow-xs"
+                              : "bg-emerald-500 text-black border-emerald-400 shadow-xs"
+                            : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        {qtd} displays
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    required
+                    value={quantidadeLote}
+                    onChange={(e) => setQuantidadeLote(parseInt(e.target.value, 10) || 1)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition font-mono"
+                  />
+                </div>
+
+                {/* SELETOR VISUAL DE CORES (AZUL / PRETO) */}
+                <div className="space-y-3 bg-zinc-50/60 dark:bg-neutral-950/60 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-neutral-200 uppercase tracking-wider">
+                      Composição de Cores dos Displays
+                    </label>
+                    <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      {qtdPretaManual} Pretas / {qtdAzulManual} Azuis
+                    </span>
+                  </div>
+
+                  {/* 4 Botões de Seleção Rápida */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setOpcaoCorManual("misto")}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        opcaoCorManual === "misto"
+                          ? "bg-emerald-500 text-black border-emerald-400 shadow-sm"
+                          : "bg-white dark:bg-neutral-900 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300"
+                      }`}
+                    >
+                      Misto 50/50
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOpcaoCorManual("preta")}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        opcaoCorManual === "preta"
+                          ? "bg-zinc-900 text-white dark:bg-white dark:text-black border-zinc-700 dark:border-white shadow-sm"
+                          : "bg-white dark:bg-neutral-900 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300"
+                      }`}
+                    >
+                      100% Preta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOpcaoCorManual("azul")}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        opcaoCorManual === "azul"
+                          ? "bg-blue-600 text-white border-blue-500 shadow-sm"
+                          : "bg-white dark:bg-neutral-900 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300"
+                      }`}
+                    >
+                      100% Azul
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOpcaoCorManual("personalizado")}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        opcaoCorManual === "personalizado"
+                          ? "bg-amber-500 text-black border-amber-400 shadow-sm"
+                          : "bg-white dark:bg-neutral-900 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300"
+                      }`}
+                    >
+                      Personalizado
+                    </button>
+                  </div>
+
+                  {/* Campos Numéricos para Modo Personalizado */}
+                  {opcaoCorManual === "personalizado" && (
+                    <div className="grid grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-150">
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 mb-1">
+                          Qtd Pretas (un):
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={quantidadeLote}
+                          value={qtdPretaManual}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            setQtdPretaManual(val);
+                          }}
+                          className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-700 rounded-xl px-3 py-1.5 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 mb-1">
+                          Qtd Azuis (un):
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={quantidadeLote}
+                          value={qtdAzulManual}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            setQtdAzulManual(val);
+                          }}
+                          className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-700 rounded-xl px-3 py-1.5 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Validação de Soma para Modo Personalizado */}
+                  {opcaoCorManual === "personalizado" && qtdPretaManual + qtdAzulManual !== quantidadeLote && (
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>
+                        A soma atual ({qtdPretaManual + qtdAzulManual} un) difere do total do lote ({quantidadeLote} un). Ajuste os valores.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Cards Visuais com Fotos dos Displays */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    {/* Card Placa Preta */}
+                    <div className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition ${
+                      qtdPretaManual > 0
+                        ? "bg-zinc-900/5 dark:bg-neutral-900 border-zinc-800/80 dark:border-neutral-700 shadow-xs"
+                        : "bg-zinc-100/40 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800/40 opacity-40"
+                    }`}>
+                      <img
+                        src="/placa-preta.png"
+                        alt="Display Preto Google Review"
+                        className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg shadow-sm"
+                      />
+                      <div className="mt-2 text-center">
+                        <span className="block text-xs font-bold text-zinc-900 dark:text-white">
+                          Display Preto
+                        </span>
+                        <span className="inline-block mt-0.5 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-zinc-900 text-white dark:bg-white dark:text-black">
+                          {qtdPretaManual} un ({quantidadeLote > 0 ? Math.round((qtdPretaManual / quantidadeLote) * 100) : 0}%)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Placa Azul */}
+                    <div className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition ${
+                      qtdAzulManual > 0
+                        ? "bg-blue-500/5 dark:bg-blue-950/20 border-blue-500/40 dark:border-blue-500/40 shadow-xs"
+                        : "bg-zinc-100/40 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800/40 opacity-40"
+                    }`}>
+                      <img
+                        src="/placa-azul.png"
+                        alt="Display Azul Google Review"
+                        className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg shadow-sm"
+                      />
+                      <div className="mt-2 text-center">
+                        <span className="block text-xs font-bold text-blue-600 dark:text-blue-400">
+                          Display Azul
+                        </span>
+                        <span className="inline-block mt-0.5 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-blue-600 text-white">
+                          {qtdAzulManual} un ({quantidadeLote > 0 ? Math.round((qtdAzulManual / quantidadeLote) * 100) : 0}%)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Destinatário */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                    <span>{tipoEmissaoManual === "reposicao_propria" ? "Titular / Unidade Produtora" : "Aluno / Parceiro Destinatário"}</span>
+                  </label>
+                  {tipoEmissaoManual === "reposicao_propria" ? (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-2 text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PackagePlus className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>Fábrica GOPLAK • Estoque Central (ADM)</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-900 dark:text-amber-200 uppercase font-extrabold">
+                        Reposição Interna
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      value={alunoSelecionado}
+                      onChange={(e) => setAlunoSelecionado(e.target.value)}
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition cursor-pointer"
+                    >
+                      {alunos.map((a) => (
+                        <option key={a.id} value={a.id} className="bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white">
+                          {a.nome} ({a.email})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Painel Informativo de Impacto Caixa & Estoque */}
+                {tipoEmissaoManual === "reposicao_propria" ? (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs space-y-2 text-amber-900 dark:text-amber-200">
+                    <div className="flex items-center justify-between font-bold border-b border-amber-500/20 pb-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <span>Valor Total da Reposição:</span>
+                      </span>
+                      <span className="font-mono text-sm text-amber-800 dark:text-amber-300 font-extrabold">
+                        R$ {(quantidadeLote * (custoUnitarioDisplay || 12.30)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                      <div className="flex items-start gap-1.5">
+                        <TrendingDown className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                        <span><strong>Caixa Real:</strong> Registrado como Saída / Custo Operacional (sem faturamento de revenda).</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span><strong>Estoque Central:</strong> Abastece <strong>+{quantidadeLote} un</strong> displays físicos prontos na fábrica.</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-2xl text-xs space-y-2 text-sky-950 dark:text-sky-100">
+                    <div className="flex items-center justify-between font-bold border-b border-sky-500/20 pb-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <DollarSign className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                        <span>Valor Total do Pedido:</span>
+                      </span>
+                      <span className="font-mono text-sm text-sky-800 dark:text-sky-300 font-extrabold">
+                        R$ {(quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 350 : quantidadeLote === 30 ? 540 : quantidadeLote === 50 ? 850 : quantidadeLote === 100 ? 1700 : quantidadeLote * 35.0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                      <div className="flex items-start gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span><strong>Caixa Real:</strong> Registra Entrada comercial e apura margem de lucro líquido.</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <TrendingDown className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                        <span><strong>Estoque Aluno:</strong> Displays atribuídos à conta do aluno parceiro.</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Prévia Dinâmica */}
+                <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3 text-xs space-y-1.5 text-zinc-600 dark:text-neutral-400">
+                  <div className="flex justify-between items-center">
+                    <span>Maior código cadastrado:</span>
+                    <span className="text-zinc-800 dark:text-neutral-200 font-mono font-semibold">
+                      {maiorCodigoNumero > 0 ? `GP-${String(maiorCodigoNumero).padStart(4, "0")}` : "Nenhum"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-1 border-t border-zinc-200 dark:border-neutral-800">
+                    <span>Próximo Lote Previsto:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                      {previewCodigoInicio} → {previewCodigoFim}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-1 border-t border-zinc-200 dark:border-neutral-800 text-[11px]">
+                    <span>Composição:</span>
+                    <span className="font-bold text-zinc-900 dark:text-white font-mono">
+                      {qtdPretaManual} Pretas + {qtdAzulManual} Azuis ({quantidadeLote} un)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Botões de Ação */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalEmissaoManualAberto(false)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={gerandoLote || (opcaoCorManual === "personalizado" && qtdPretaManual + qtdAzulManual !== quantidadeLote)}
+                    className={`font-extrabold py-2 px-4 rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs ${
+                      tipoEmissaoManual === "reposicao_propria"
+                        ? "bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black"
+                        : "bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black"
+                    }`}
+                  >
+                    {gerandoLote ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Gerando Lote...</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <PlusCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>
+                          {tipoEmissaoManual === "reposicao_propria"
+                            ? `Gerar Reposição (R$ ${(quantidadeLote * (custoUnitarioDisplay || 12.30)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`
+                            : "Gerar Lote no Banco"}
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE VISUALIZAÇÃO DO COMPROVANTE BANCÁRIO */}
+        {modalComprovanteAberto && pedidoSelecionadoComprovante && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+              {/* Botão Fechar */}
+              <button
+                type="button"
+                onClick={() => setModalComprovanteAberto(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Cabeçalho */}
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Conferência de Comprovante PIX
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Pedido de <span className="font-semibold text-zinc-800 dark:text-zinc-200">{pedidoSelecionadoComprovante.alunoNome}</span> ({pedidoSelecionadoComprovante.quantidade} displays)
+                  </p>
+                </div>
+              </div>
+
+              {/* Grid de Resumo do Pedido */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 bg-zinc-50 dark:bg-neutral-950 p-3 rounded-2xl border border-zinc-200 dark:border-neutral-800 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Aluno</span>
+                  <span className="font-bold text-zinc-900 dark:text-white truncate block">{pedidoSelecionadoComprovante.alunoNome}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Quantidade</span>
+                  <span className="font-bold text-zinc-900 dark:text-white">{pedidoSelecionadoComprovante.quantidade} Displays</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Composição</span>
+                  <span className="font-medium text-zinc-800 dark:text-neutral-200">{pedidoSelecionadoComprovante.modeloCor || "Misto"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Valor Total</span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                    R$ {(pedidoSelecionadoComprovante.valorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Visualizador de Imagem / PDF */}
+              <div className="bg-zinc-950 rounded-2xl p-2 sm:p-3 border border-zinc-800 flex flex-col items-center justify-center min-h-[260px] max-h-[480px] overflow-hidden relative">
+                {pedidoSelecionadoComprovante.comprovanteUrl?.toLowerCase().endsWith(".pdf") ? (
+                  <div className="text-center p-6 space-y-3">
+                    <FileText className="w-12 h-12 text-sky-400 mx-auto" />
+                    <p className="text-xs text-zinc-300 font-medium">Documento em Formato PDF</p>
+                    <a
+                      href={pedidoSelecionadoComprovante.comprovanteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs shadow transition"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Abrir Documento PDF</span>
+                    </a>
+                  </div>
+                ) : (
+                  <div className="w-full flex flex-col items-center">
+                    <img
+                      src={pedidoSelecionadoComprovante.comprovanteUrl}
+                      alt="Comprovante de Pagamento"
+                      className="max-h-[420px] max-w-full object-contain rounded-xl shadow-lg"
+                    />
+                    <a
+                      href={pedidoSelecionadoComprovante.comprovanteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 text-[11px] text-sky-400 hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Abrir imagem original em nova aba</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Ações de Aprovação / Recusa no Rodapé do Modal */}
+              <div className="pt-4 mt-4 border-t border-zinc-200 dark:border-neutral-800 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalComprovanteAberto(false)}
+                  className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAbrirModalRecusa(pedidoSelecionadoComprovante)}
+                    disabled={processandoAcaoId === pedidoSelecionadoComprovante.id}
+                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-bold px-4 py-3 rounded-xl text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Recusar Pedido</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAprovarPedido(pedidoSelecionadoComprovante)}
+                    disabled={processandoAcaoId === pedidoSelecionadoComprovante.id}
+                    className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold px-5 py-3 rounded-xl text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {processandoAcaoId === pedidoSelecionadoComprovante.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                        <span>Aprovar Pedido & Liberar Displays</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE RECUSA DE PEDIDO */}
+        {modalRecusarAberto && pedidoRecusando && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Recusar Pedido
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Aluno: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{pedidoRecusando.alunoNome}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                  Motivo da Recusa (Opcional)
+                </label>
+                <textarea
+                  value={motivoRecusaInput}
+                  onChange={(e) => setMotivoRecusaInput(e.target.value)}
+                  placeholder="Ex: Comprovante ilegível, valor divergente ou pagamento não identificado."
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl p-3 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition min-h-[90px]"
+                />
+
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalRecusarAberto(false)}
+                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmarRecusaPedido}
+                    disabled={processandoAcaoId === pedidoRecusando.id}
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {processandoAcaoId === pedidoRecusando.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <span>Confirmar Recusa</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE PEDIDO */}
+        {modalExcluirAberto && pedidoExcluindo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => setModalExcluirAberto(false)}
+                disabled={excluindoPedido}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <Trash2 className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Excluir Pedido
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Confirmação de exclusão permanente e estorno de valores.
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes do Pedido */}
+              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 text-xs space-y-2 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Aluno:</span>
+                  <span className="font-bold text-zinc-900 dark:text-white">{pedidoExcluindo.alunoNome}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Quantidade:</span>
+                  <span className="font-mono font-bold text-zinc-900 dark:text-white">{pedidoExcluindo.quantidade} Displays</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Valor Total:</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    R$ {(pedidoExcluindo.valorTotal || (pedidoExcluindo.quantidade * 18)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Status Atual:</span>
+                  <span className="font-bold capitalize">{pedidoExcluindo.status.replace("_", " ")}</span>
+                </div>
+              </div>
+
+              {/* Aviso de Impacto */}
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 space-y-1 mb-4">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Tem certeza que deseja excluir este pedido?</span>
+                </p>
+                <p className="text-[11px] text-rose-600/90 dark:text-rose-300/80 leading-relaxed">
+                  Essa ação não pode ser desfeita. O pedido será removido, os lançamentos de caixa vinculados serão estornados e os displays retornarão ao estoque da fábrica.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-200 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setModalExcluirAberto(false)}
+                  disabled={excluindoPedido}
+                  className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarExclusaoPedido}
+                  disabled={excluindoPedido}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {excluindoPedido ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Excluindo e Estornando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirmar Exclusão</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE ENDEREÇO COMPLETO */}
+        {modalEnderecoAberto && enderecoVisualizando && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => setModalEnderecoAberto(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Endereço de Entrega
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Destinatário: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{enderecoVisualizando.alunoNome}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 text-xs space-y-2 text-zinc-800 dark:text-neutral-200">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Logradouro / Número</span>
+                  <span className="font-semibold text-sm text-zinc-900 dark:text-white">
+                    {enderecoVisualizando.endereco.logradouro}, {enderecoVisualizando.endereco.numero}
+                    {enderecoVisualizando.endereco.complemento ? ` (${enderecoVisualizando.endereco.complemento})` : ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Bairro / Cidade / UF</span>
+                  <span className="font-medium">
+                    {enderecoVisualizando.endereco.bairro} • {enderecoVisualizando.endereco.cidade} / {enderecoVisualizando.endereco.estado}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">CEP</span>
+                  <span className="font-mono font-bold text-sky-600 dark:text-sky-400">{enderecoVisualizando.endereco.cep}</span>
+                </div>
+                {enderecoVisualizando.endereco.ponto_referencia && (
+                  <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800">
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Ponto de Referência</span>
+                    <span className="italic text-zinc-600 dark:text-neutral-400">{enderecoVisualizando.endereco.ponto_referencia}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setModalEnderecoAberto(false)}
+                  className="bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black font-bold px-5 py-2.5 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* MODAL DO PÓDIO MENSAL - TOP DISPLAY */}
         {modalPodioAberto && (
@@ -1762,6 +4169,363 @@ export default function PainelDistribuidorAdmin() {
                       <span>Confirmar & Gerar 10 Displays Grátis</span>
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* MODAL DE LANÇAMENTO DE DESPESA / FRETE */}
+        {modalDespesaAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => setModalDespesaAberto(false)}
+                disabled={salvandoDespesa}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <TrendingDown className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Lançar Despesa / Frete
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Registre saídas para apuração precisa do lucro líquido real.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSalvarDespesa} className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                    Categoria da Despesa
+                  </label>
+                  <select
+                    value={despesaCategoria}
+                    onChange={(e) => setDespesaCategoria(e.target.value as any)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white font-medium focus:ring-2 focus:ring-rose-500 outline-hidden transition cursor-pointer"
+                  >
+                    <option value="Frete">🚚 Frete / Logística de Envio</option>
+                    <option value="Embalagem">📦 Embalagens / Caixas / Fitas</option>
+                    <option value="Reposição Fornecedor">🏭 Reposição Fornecedor / Fábrica</option>
+                    <option value="Outros">💼 Outros Custos Operacionais</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                    Descrição do Gasto
+                  </label>
+                  <input
+                    type="text"
+                    value={despesaDescricao}
+                    onChange={(e) => setDespesaDescricao(e.target.value)}
+                    placeholder="Ex: Sedex Lote 30 displays - GOPlak"
+                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white font-medium focus:ring-2 focus:ring-rose-500 outline-hidden transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                    Valor da Despesa (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-xs font-bold text-zinc-400">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={despesaValor}
+                      onChange={(e) => setDespesaValor(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl pl-9 pr-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-hidden transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-zinc-200 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalDespesaAberto(false)}
+                    disabled={salvandoDespesa}
+                    className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoDespesa || !despesaValor}
+                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {salvandoDespesa ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Registrando Saída...</span>
+                      </>
+                    ) : (
+                      <>
+                        <TrendingDown className="w-3.5 h-3.5" />
+                        <span>Registrar Saída no Caixa</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE REPOSIÇÃO DE ESTOQUE COM FORNECEDOR */}
+        {modalReposicaoAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => setModalReposicaoAberto(false)}
+                disabled={salvandoReposicao}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <PackagePlus className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Repor Displays do Fornecedor
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Registre a chegada de novas peças para abastecer o estoque físico.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSalvarReposicao} className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                    Quantidade Recebida (Unidades)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={reposicaoQtd}
+                    onChange={(e) => setReposicaoQtd(parseInt(e.target.value, 10) || 0)}
+                    placeholder="Ex: 100"
+                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                    Custo Unitário de Compra (R$/un)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-xs font-bold text-zinc-400">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={reposicaoCustoUnitario}
+                      onChange={(e) => setReposicaoCustoUnitario(e.target.value)}
+                      placeholder="12.30"
+                      className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl pl-9 pr-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Box de Resumo da Reposição */}
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center justify-between">
+                    <span>Estoque Atual:</span>
+                    <span className="font-mono font-bold">{estoqueDisplaysProntos} displays</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Novo Estoque Previsto:</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      {estoqueDisplaysProntos + (Number(reposicaoQtd) || 0)} displays
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-amber-500/20 font-semibold">
+                    <span>Nova Cobertura Estimada:</span>
+                    <span className="font-mono">
+                      ~{Math.round((estoqueDisplaysProntos + (Number(reposicaoQtd) || 0)) / (mediaSaidaDiaria || 2.5))} dias
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-amber-500/20 text-zinc-600 dark:text-neutral-400">
+                    <span>Custo Total do Lote:</span>
+                    <span className="font-mono font-bold text-zinc-900 dark:text-white">
+                      R$ {((Number(reposicaoQtd) || 0) * (parseFloat(reposicaoCustoUnitario.replace(",", ".")) || 12.30)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Checkbox para lançar despesa no caixa */}
+                <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={reposicaoLancarDespesa}
+                    onChange={(e) => setReposicaoLancarDespesa(e.target.checked)}
+                    className="mt-0.5 rounded-sm border-zinc-300 text-amber-500 focus:ring-amber-400"
+                  />
+                  <span className="text-xs text-zinc-700 dark:text-neutral-300">
+                    Lançar despesa desta compra automaticamente no Caixa da Fábrica (Saída de Fornecedor)
+                  </span>
+                </label>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-zinc-200 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalReposicaoAberto(false)}
+                    disabled={salvandoReposicao}
+                    className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoReposicao || !reposicaoQtd || reposicaoQtd <= 0}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {salvandoReposicao ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Abastecendo Estoque...</span>
+                      </>
+                    ) : (
+                      <>
+                        <PackagePlus className="w-3.5 h-3.5" />
+                        <span>Confirmar Entrada no Estoque</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE EXTRATO COMPLETO DO CAIXA */}
+        {modalExtratoCaixaAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-3xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+              <button
+                type="button"
+                onClick={() => setModalExtratoCaixaAberto(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Receipt className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Extrato Financeiro do Caixa da Fábrica
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Histórico consolidado de entradas de lotes e despesas operacionais.
+                  </p>
+                </div>
+              </div>
+
+              {/* Cards de Resumo no Topo do Extrato */}
+              <div className="grid grid-cols-3 gap-2.5 mb-4">
+                <div className="bg-zinc-50 dark:bg-neutral-950 p-3 rounded-2xl border border-zinc-200 dark:border-neutral-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 block">Faturamento Bruto</span>
+                  <span className="text-base font-black text-zinc-900 dark:text-white font-mono">
+                    R$ {metricasFinanceiras.faturamentoBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="bg-zinc-50 dark:bg-neutral-950 p-3 rounded-2xl border border-zinc-200 dark:border-neutral-800">
+                  <span className="text-[10px] uppercase font-bold text-rose-500 block">Custos & Saídas</span>
+                  <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
+                    R$ {metricasFinanceiras.custosTotais.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="bg-zinc-50 dark:bg-neutral-950 p-3 rounded-2xl border border-emerald-500/30">
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">Lucro Líquido Real</span>
+                  <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                    R$ {metricasFinanceiras.lucroLiquidoReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tabela de Lançamentos */}
+              <div className="flex-1 overflow-y-auto border border-zinc-200 dark:border-neutral-800 rounded-2xl divide-y divide-zinc-100 dark:divide-neutral-800">
+                {itensCaixa.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-zinc-400 dark:text-neutral-500">
+                    Nenhum lançamento registrado em `caixa_fabrica` até o momento. As novas aprovações e despesas serão listadas aqui automaticamente.
+                  </div>
+                ) : (
+                  itensCaixa.map((item) => {
+                    const isEntrada = item.tipo === "ENTRADA";
+                    const dt = item.created_at ? new Date(item.created_at) : new Date();
+                    return (
+                      <div key={item.id} className="p-3 hover:bg-zinc-50 dark:hover:bg-neutral-800/40 flex items-center justify-between gap-3 transition">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider ${
+                              isEntrada
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                                : "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                            }`}
+                          >
+                            {item.tipo}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-zinc-900 dark:text-white truncate">
+                                {item.descricao}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 dark:text-neutral-500 px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-neutral-800">
+                                {item.categoria}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-zinc-400 dark:text-neutral-500">
+                              {dt.toLocaleDateString("pt-BR")} às {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className={`font-mono font-bold text-xs ${isEntrada ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                            {isEntrada ? "+ " : "- "} R$ {Number(item.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </div>
+                          {isEntrada && item.lucro_liquido !== undefined && (
+                            <div className="text-[10px] text-zinc-400 font-mono">
+                              Lucro: R$ {Number(item.lucro_liquido).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="pt-4 mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setModalExtratoCaixaAberto(false)}
+                  className="bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black font-bold px-5 py-2.5 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Fechar Extrato
                 </button>
               </div>
             </div>
