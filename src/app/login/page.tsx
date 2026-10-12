@@ -60,6 +60,8 @@ function LoginForm() {
   const redirectTo = searchParams.get("redirect") || "/dashboard";
   const errorParam = searchParams.get("error");
 
+  const messageParam = searchParams.get("message");
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,6 +73,7 @@ function LoginForm() {
       ? "Acesso restrito: Você precisa de permissão de Administrador para acessar o painel Admin."
       : null
   );
+  const [infoMsg, setInfoMsg] = useState<string | null>(messageParam || null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Se já houver sessão ativa, redireciona para a rota apropriada
@@ -233,6 +236,13 @@ function LoginForm() {
       </div>
 
       {/* Mensagens de Alerta com Tradução em Português */}
+      {infoMsg && !errorMsg && !successMsg && (
+        <div className="mb-4 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900/50 text-sky-800 dark:text-sky-300 p-3.5 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in">
+          <Sparkles className="w-4 h-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
+          <span>{infoMsg}</span>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="mb-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300 p-3.5 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />

@@ -49,6 +49,7 @@ import {
   Trash2
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { exportarLoteEmFatiasZip, COST_PER_UNIT, DisplayItem } from "@/lib/exportGraficaZip";
 
 interface ConfigFabrica {
   id?: string;
@@ -97,8 +98,72 @@ interface PlacaRecord {
   whatsapp_feedback?: string;
   escudo_ativo?: boolean;
   total_scans?: number;
+  activated_at?: string;
+  data_ativacao?: string;
+  responsavel_nome?: string;
+  whatsapp_contato?: string;
+  outras_vendas?: any;
+  servicos_adicionais?: Array<{
+    id?: string;
+    descricao: string;
+    valor: number | string;
+    tipo_cobranca: "unico" | "recorrente";
+  }>;
   created_at?: string;
   updated_at?: string;
+}
+
+// Helper para calcular o Faturamento Total Real do Admin (Display + Múltiplos Serviços Adicionais)
+export function calcularFaturamentoTotalPlacaAdmin(placa: {
+  valor_venda?: number;
+  outras_vendas?: any;
+  servicos_adicionais?: any;
+  nome_empresa?: string;
+}): number {
+  const valorDisplay = Number(placa.valor_venda) || (placa.valor_venda === 0 ? 0 : 80.0);
+  let valorServicos = 0;
+
+  // 1. Caso servicos_adicionais seja um Array
+  if (Array.isArray(placa.servicos_adicionais) && placa.servicos_adicionais.length > 0) {
+    placa.servicos_adicionais.forEach((s: any) => {
+      const v = typeof s?.valor === "number" ? s.valor : parseFloat(String(s?.valor || "0").replace(",", "."));
+      if (!isNaN(v) && v > 0) {
+        valorServicos += v;
+      }
+    });
+  }
+
+  // 2. Caso outras_vendas exista (seja Array ou Objeto único)
+  if (valorServicos === 0 && placa.outras_vendas) {
+    if (Array.isArray(placa.outras_vendas)) {
+      placa.outras_vendas.forEach((s: any) => {
+        const v = typeof s?.valor === "number" ? s.valor : parseFloat(String(s?.valor || "0").replace(",", "."));
+        if (!isNaN(v) && v > 0) {
+          valorServicos += v;
+        }
+      });
+    } else if (typeof placa.outras_vendas === "object") {
+      const valObj = Number(placa.outras_vendas.valor);
+      if (!isNaN(valObj) && valObj > 0) {
+        valorServicos += valObj;
+      }
+    }
+  }
+
+  // 3. Extração da anotação composta em nome_empresa (ex: [Serviço: Otimização R$ 150 (Único) | Serviço: Fotos R$ 200 (Único)])
+  if (valorServicos === 0 && placa.nome_empresa && placa.nome_empresa.includes("[") && placa.nome_empresa.includes("]")) {
+    const matches = placa.nome_empresa.matchAll(/Servi[çc]o:[^R]*R\$\s*([\d.,]+)/gi);
+    for (const match of matches) {
+      if (match && match[1]) {
+        const parsed = parseFloat(match[1].replace(/\./g, "").replace(",", "."));
+        if (!isNaN(parsed) && parsed > 0) {
+          valorServicos += parsed;
+        }
+      }
+    }
+  }
+
+  return valorDisplay + valorServicos;
 }
 
 interface LoteExport {
@@ -128,8 +193,30 @@ interface LoteExport {
 
 const extrairNumeroCodigo = (cod: string | undefined | null): number => {
   if (!cod) return 0;
-  const match = cod.match(/\d+/);
-  return match ? parseInt(match[0], 10) : 0;
+  const match = cod.match(/\d+/g);
+  return match ? parseInt(match.join(""), 10) : 0;
+};
+
+const obterProximosNumerosLivres = (
+  quantidadeDesejada: number,
+  placasOuCodigos: ({ codigo?: string } | string)[]
+): number[] => {
+  const usados = new Set<number>();
+  placasOuCodigos.forEach((item) => {
+    const cod = typeof item === "string" ? item : item?.codigo;
+    const n = extrairNumeroCodigo(cod);
+    if (n > 0) usados.add(n);
+  });
+  const disponiveis: number[] = [];
+  let candidato = 1;
+  const totalNecessario = quantidadeDesejada > 0 ? quantidadeDesejada : 1;
+  while (disponiveis.length < totalNecessario) {
+    if (!usados.has(candidato)) {
+      disponiveis.push(candidato);
+    }
+    candidato++;
+  }
+  return disponiveis;
 };
 
 const extrairQtdCores = (lote: { quantidade?: number; modeloCor?: string; observacao?: string }): { pretas: number; azuis: number } => {
@@ -211,8 +298,8 @@ export default function PainelDistribuidorAdmin() {
 
   // Gestão de Caixa Real & Estoque Físico da Fábrica
   const [configFabricaId, setConfigFabricaId] = useState<string | null>(null);
-  const [custoUnitarioDisplay, setCustoUnitarioDisplay] = useState<number>(12.30);
-  const [estoqueDisplaysProntos, setEstoqueDisplaysProntos] = useState<number>(45);
+  const [custoUnitarioDisplay, setCustoUnitarioDisplay] = useState<number>(COST_PER_UNIT);
+  const [estoqueDisplaysProntos, setEstoqueDisplaysProntos] = useState<number>(0);
   const [mediaSaidaDiaria, setMediaSaidaDiaria] = useState<number>(2.5);
   const [itensCaixa, setItensCaixa] = useState<CaixaFabricaItem[]>([]);
 
@@ -226,12 +313,31 @@ export default function PainelDistribuidorAdmin() {
   // Modal de Reposição de Estoque de Fornecedor
   const [modalReposicaoAberto, setModalReposicaoAberto] = useState(false);
   const [reposicaoQtd, setReposicaoQtd] = useState<number>(100);
-  const [reposicaoCustoUnitario, setReposicaoCustoUnitario] = useState<string>("12.30");
+  const [reposicaoCustoUnitario, setReposicaoCustoUnitario] = useState<string>(COST_PER_UNIT.toFixed(2));
   const [reposicaoLancarDespesa, setReposicaoLancarDespesa] = useState<boolean>(true);
   const [salvandoReposicao, setSalvandoReposicao] = useState(false);
 
   // Modal de Extrato do Caixa
   const [modalExtratoCaixaAberto, setModalExtratoCaixaAberto] = useState(false);
+
+  // Gestão de Placas / Displays Ativados & Modal de Edição pelo Admin
+  const [abaPrincipal, setAbaPrincipal] = useState<"pedidos" | "placas">("pedidos");
+  const [filtroPlacaStatus, setFiltroPlacaStatus] = useState<"todas" | "ativas" | "virgens">("todas");
+  const [buscaPlaca, setBuscaPlaca] = useState("");
+  const [modalEditarPlacaAberto, setModalEditarPlacaAberto] = useState(false);
+  const [placaEditandoAdmin, setPlacaEditandoAdmin] = useState<PlacaRecord | null>(null);
+  const [editNomeLoja, setEditNomeLoja] = useState("");
+  const [editResponsavel, setEditResponsavel] = useState("");
+  const [editWhatsapp, setEditWhatsapp] = useState("");
+  const [editLinkGoogle, setEditLinkGoogle] = useState("");
+  const [editValorVenda, setEditValorVenda] = useState("80.00");
+  const [editServicosAdmin, setEditServicosAdmin] = useState<Array<{
+    id: string;
+    descricao: string;
+    valor: string;
+    tipo_cobranca: "unico" | "recorrente";
+  }>>([]);
+  const [salvandoEdicaoPlaca, setSalvandoEdicaoPlaca] = useState(false);
 
   // Métricas Consolidadas
   const [totalProduzidas, setTotalProduzidas] = useState(0);
@@ -239,8 +345,9 @@ export default function PainelDistribuidorAdmin() {
   const [totalVirgens, setTotalVirgens] = useState(0);
   const [volumeTransacionado, setVolumeTransacionado] = useState(0);
 
-  // Sequenciamento Numérico Real
+  // Sequenciamento Numérico Real & Reaproveitamento Inteligente
   const [maiorCodigoNumero, setMaiorCodigoNumero] = useState(0);
+  const [placasCadastradas, setPlacasCadastradas] = useState<PlacaRecord[]>([]);
 
   // Lista de Alunos e Lotes
   const [alunos, setAlunos] = useState<Aluno[]>([]);
@@ -397,14 +504,14 @@ export default function PainelDistribuidorAdmin() {
 
       // 2.1 Ordenação rigorosa e estritamente numérica por código (GP-0001, GP-0002, ...)
       listaPlacas.sort((a, b) => extrairNumeroCodigo(a.codigo) - extrairNumeroCodigo(b.codigo));
+      setPlacasCadastradas(listaPlacas);
 
       // 3. Cálculo das Métricas
       const total = listaPlacas.length;
       const ativas = listaPlacas.filter((p) => p.status === "ativa");
       const virgens = listaPlacas.filter((p) => p.status === "virgem");
       const volume = ativas.reduce((acc, curr) => {
-        const val = Number(curr.valor_venda);
-        return acc + (isNaN(val) ? 80.0 : val);
+        return acc + calcularFaturamentoTotalPlacaAdmin(curr);
       }, 0);
 
       setTotalProduzidas(total);
@@ -415,14 +522,9 @@ export default function PainelDistribuidorAdmin() {
       // 4. Maior Código Numérico
       let maxInt = 0;
       listaPlacas.forEach((p) => {
-        if (p.codigo) {
-          const numeros = p.codigo.match(/\d+/g);
-          if (numeros && numeros.length > 0) {
-            const num = parseInt(numeros.join(""), 10);
-            if (!isNaN(num) && num > maxInt) {
-              maxInt = num;
-            }
-          }
+        const num = extrairNumeroCodigo(p.codigo);
+        if (num > maxInt) {
+          maxInt = num;
         }
       });
       setMaiorCodigoNumero(maxInt);
@@ -630,26 +732,6 @@ export default function PainelDistribuidorAdmin() {
           });
           setLotes(formatados);
           console.log("Lotes carregados no Admin:", formatados);
-        } else if (listaPlacas.length > 0) {
-          const p1 = listaPlacas[0]?.codigo || "GP-0001";
-          const pFim = listaPlacas[listaPlacas.length - 1]?.codigo || `GP-${String(listaPlacas.length).padStart(4, "0")}`;
-          const n1 = parseInt((p1 || "").match(/\d+/)?.[0] || "0", 10);
-          const n2 = parseInt((pFim || "").match(/\d+/)?.[0] || "0", 10);
-          const minCod = Math.min(n1, n2);
-          const maxCod = Math.max(n1, n2);
-
-          setLotes([
-            {
-              id: "lote-registrado",
-              data: new Date().toLocaleDateString("pt-BR") + " 10:00",
-              alunoNome: listaAlunos[0]?.nome || "GOPlak",
-              quantidade: listaPlacas.length,
-              codigoInicio: `GP-${String(minCod).padStart(4, "0")}`,
-              codigoFim: `GP-${String(maxCod).padStart(4, "0")}`,
-              status: "entregue",
-              temLoteGerado: true,
-            },
-          ]);
         } else {
           setLotes([]);
         }
@@ -683,7 +765,7 @@ export default function PainelDistribuidorAdmin() {
               .from("config_fabrica")
               .insert({
                 custo_unitario_display: 12.30,
-                estoque_displays_prontos: 45,
+                estoque_displays_prontos: 0,
                 media_saida_diaria: 2.5,
               })
               .select()
@@ -712,6 +794,8 @@ export default function PainelDistribuidorAdmin() {
 
         if (!cxErr && cxData) {
           setItensCaixa(cxData);
+        } else if (!cxErr) {
+          setItensCaixa([]);
         }
       } catch (errCx) {
         console.warn("Aviso ao consultar caixa_fabrica:", errCx);
@@ -766,6 +850,14 @@ export default function PainelDistribuidorAdmin() {
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "pedidos_lotes" },
         () => {
+          fetchAdminData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "placas" },
+        (payload) => {
+          console.log("[Realtime Admin] Placa alterada/inserida:", payload);
           fetchAdminData();
         }
       )
@@ -827,22 +919,28 @@ export default function PainelDistribuidorAdmin() {
 
   // Cálculos Financeiros Consolidados (Caixa Real & Estoque da Fábrica)
   const metricasFinanceiras = React.useMemo(() => {
-    const entradasCaixa = itensCaixa.filter((item) => item.tipo === "ENTRADA");
+    // 1. Filtrar lotes aprovados/ativos diretamente do banco
+    const lotesAprovados = lotes.filter((l) => l.status === "em_producao" || l.status === "enviado" || l.status === "entregue");
+    const idsPedidosValidos = new Set(lotesAprovados.map((l) => l.id));
+
+    // 2. Entradas do caixa devem corresponder estritamente a pedidos aprovados ainda existentes
+    const entradasCaixa = itensCaixa.filter(
+      (item) => item.tipo === "ENTRADA" && (!item.pedido_id || idsPedidosValidos.has(item.pedido_id))
+    );
     const saidasCaixa = itensCaixa.filter((item) => item.tipo === "SAIDA");
 
-    let faturamentoBruto = entradasCaixa.reduce((acc, item) => acc + (Number(item.valor) || 0), 0);
-    
-    // Fallback: se caixa_fabrica não tiver entradas registradas, calcula a partir dos pedidos aprovados
-    if (faturamentoBruto === 0 && lotes.length > 0) {
-      const lotesAprovados = lotes.filter((l) => l.status === "em_producao" || l.status === "enviado" || l.status === "entregue");
-      faturamentoBruto = lotesAprovados.reduce((acc, l) => acc + (Number(l.valorTotal) || 0), 0);
-    }
+    let faturamentoBruto = 0;
+    let custoMercadoriasVendidas = 0;
 
-    let custoMercadoriasVendidas = entradasCaixa.reduce((acc, item) => acc + (Number(item.custo_mercadoria) || 0), 0);
-    if (custoMercadoriasVendidas === 0 && faturamentoBruto > 0) {
-      const lotesAprovados = lotes.filter((l) => l.status === "em_producao" || l.status === "enviado" || l.status === "entregue");
-      const totalDisplaysVendidos = lotesAprovados.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
-      custoMercadoriasVendidas = totalDisplaysVendidos * custoUnitarioDisplay;
+    if (lotesAprovados.length > 0) {
+      if (entradasCaixa.length > 0) {
+        faturamentoBruto = entradasCaixa.reduce((acc, item) => acc + (Number(item.valor) || 0), 0);
+        custoMercadoriasVendidas = entradasCaixa.reduce((acc, item) => acc + (Number(item.custo_mercadoria) || 0), 0);
+      } else {
+        faturamentoBruto = lotesAprovados.reduce((acc, l) => acc + (Number(l.valorTotal) || 0), 0);
+        const totalDisplaysVendidos = lotesAprovados.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
+        custoMercadoriasVendidas = totalDisplaysVendidos * custoUnitarioDisplay;
+      }
     }
 
     const despesasOperacionais = saidasCaixa.reduce((acc, item) => acc + (Number(item.valor) || 0), 0);
@@ -850,8 +948,8 @@ export default function PainelDistribuidorAdmin() {
     const lucroLiquidoReal = faturamentoBruto - custosTotais;
 
     const taxaSaida = mediaSaidaDiaria > 0 ? mediaSaidaDiaria : 2.5;
-    const diasRestantesEstoque = estoqueDisplaysProntos / taxaSaida;
-    const alertaEstoqueCritico = diasRestantesEstoque <= 20 || estoqueDisplaysProntos <= 50;
+    const diasRestantesEstoque = estoqueDisplaysProntos > 0 ? estoqueDisplaysProntos / taxaSaida : 0;
+    const alertaEstoqueCritico = estoqueDisplaysProntos <= 50;
 
     return {
       faturamentoBruto,
@@ -922,11 +1020,13 @@ export default function PainelDistribuidorAdmin() {
     }
   }, [quantidadeLote, opcaoCorManual]);
 
-  // Cálculos da Prévia Dinâmica
-  const proximoInicio = maiorCodigoNumero + 1;
-  const proximoFim = maiorCodigoNumero + (quantidadeLote > 0 ? quantidadeLote : 1);
-  const previewCodigoInicio = `GP-${String(proximoInicio).padStart(4, "0")}`;
-  const previewCodigoFim = `GP-${String(proximoFim).padStart(4, "0")}`;
+  // Cálculos da Prévia Dinâmica com Reaproveitamento Inteligente (Gaps / Lacunas)
+  const previewNumeros = obterProximosNumerosLivres(
+    quantidadeLote > 0 ? quantidadeLote : 1,
+    placasCadastradas
+  );
+  const previewCodigoInicio = `GP-${String(previewNumeros[0] || 1).padStart(4, "0")}`;
+  const previewCodigoFim = `GP-${String(previewNumeros[previewNumeros.length - 1] || 1).padStart(4, "0")}`;
 
   // Gerar Novo Lote no Banco de Dados
   const handleGerarLote = async (e: React.FormEvent) => {
@@ -943,24 +1043,31 @@ export default function PainelDistribuidorAdmin() {
     setErroMsg(null);
 
     try {
-      let maxAtual = maiorCodigoNumero;
-      const { data: checkPlacas } = await supabase.from("placas").select("codigo");
-      if (checkPlacas && checkPlacas.length > 0) {
-        checkPlacas.forEach((p) => {
-          if (p.codigo) {
-            const numeros = p.codigo.match(/\d+/g);
-            if (numeros && numeros.length > 0) {
-              const num = parseInt(numeros.join(""), 10);
-              if (!isNaN(num) && num > maxAtual) maxAtual = num;
-            }
+      // 1. Obter todos os códigos cadastrados no banco para identificar lacunas/gaps
+      let checkPlacas: { codigo?: string }[] = [];
+      const { data: placasData } = await supabase.from("placas").select("codigo");
+      if (placasData && placasData.length > 0) {
+        checkPlacas = placasData;
+      } else {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?select=codigo`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) checkPlacas = data;
           }
-        });
+        } catch (err) {
+          console.warn("Fallback REST placas:", err);
+        }
       }
 
-      const inicio = maxAtual + 1;
-      const fim = maxAtual + quantidadeLote;
-      const codInicioStr = `GP-${String(inicio).padStart(4, "0")}`;
-      const codFimStr = `GP-${String(fim).padStart(4, "0")}`;
+      const numerosLivres = obterProximosNumerosLivres(quantidadeLote, checkPlacas);
+      const codInicioStr = `GP-${String(numerosLivres[0]).padStart(4, "0")}`;
+      const codFimStr = `GP-${String(numerosLivres[numerosLivres.length - 1]).padStart(4, "0")}`;
 
       const alunoAlvo = alunos.find((a) => a.id === alunoSelecionado) || alunos[0];
       const alunoUuid = alunoAlvo?.id || "403183b5-02f6-46a7-b448-7658c5087ec4";
@@ -968,66 +1075,47 @@ export default function PainelDistribuidorAdmin() {
       const modeloCorTexto = `${qtdPretaManual} Pretas / ${qtdAzulManual} Azuis`;
 
       const isReposicao = tipoEmissaoManual === "reposicao_propria";
-      const unitCusto = custoUnitarioDisplay || 12.30;
+      const unitCusto = custoUnitarioDisplay || COST_PER_UNIT;
       const valorTotalFinal = isReposicao
         ? Number((quantidadeLote * unitCusto).toFixed(2))
         : (quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 350 : quantidadeLote === 30 ? 540 : quantidadeLote === 50 ? 850 : quantidadeLote === 100 ? 1700 : quantidadeLote * 35.0);
 
-      // 1. Criar novo registro independente na tabela pedidos_lotes
-      let pedidoId: string | undefined = undefined;
-      const payloadPedido = {
+      // 1. Inserir o pedido pai ANTES das placas com colunas estritas do banco
+      const agoraIso = new Date().toISOString();
+      const dadosPedido = {
         aluno_id: alunoUuid,
         quantidade: quantidadeLote,
         valor_total: valorTotalFinal,
-        status: isReposicao ? "em_producao" : "solicitado",
+        status: "em_producao",
+        aprovado_em: agoraIso,
       };
 
-      try {
-        const { data: novoPed, error: errPed } = await supabase
-          .from("pedidos_lotes")
-          .insert([payloadPedido])
-          .select()
-          .maybeSingle();
+      const { data: novoPedido, error: erroPedido } = await supabase
+        .from('pedidos_lotes')
+        .insert([dadosPedido])
+        .select()
+        .single();
 
-        if (!errPed && novoPed?.id) {
-          pedidoId = novoPed.id;
-        } else {
-          // Fallback REST direto
-          const resRest = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_lotes`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              Prefer: "return=representation",
-            },
-            body: JSON.stringify(payloadPedido),
-          });
-          if (resRest.ok) {
-            const arr = await resRest.json();
-            if (Array.isArray(arr) && arr[0]?.id) {
-              pedidoId = arr[0].id;
-            }
-          }
-        }
-      } catch (ePed) {
-        console.error("Erro ao inserir pedido_lote:", ePed);
+      if (erroPedido) {
+        console.error("Erro ao inserir pedido_lotes:", erroPedido);
+        alert("Erro ao criar pedido: " + erroPedido.message);
+        setErroMsg("Erro ao criar pedido: " + erroPedido.message);
+        return;
       }
 
-      // 2. Criar as placas vinculadas ao pedidoId e aluno_id
-      const novasPlacas = [];
-      for (let i = inicio; i <= fim; i++) {
-        novasPlacas.push({
-          codigo: `GP-${String(i).padStart(4, "0")}`,
-          status: "virgem",
-          valor_venda: 80.0,
-          nome_empresa: "",
-          link_google_review: "",
-          whatsapp_feedback: "",
-          aluno_id: alunoUuid,
-          pedido_id: pedidoId || null,
-        });
-      }
+      const pedidoId = novoPedido.id;
+
+      // 2. Criar as placas vinculadas ao pedido_id real gerado e aluno_id utilizando os números livres
+      const novasPlacas = numerosLivres.map((num) => ({
+        codigo: `GP-${String(num).padStart(4, "0")}`,
+        status: "virgem" as const,
+        valor_venda: 80.0,
+        nome_empresa: "",
+        link_google_review: "",
+        whatsapp_feedback: "",
+        aluno_id: alunoUuid,
+        pedido_id: pedidoId,
+      }));
 
       const { error: insertErr } = await supabase
         .from("placas")
@@ -1047,52 +1135,51 @@ export default function PainelDistribuidorAdmin() {
         });
       }
 
-      // 3. Se for Reposição Própria (ADM):
-      // - Impacto no Caixa: Registra como Saída/Custo Operacional de estoque (ex: R$ 615,00 para 50 un), SEM faturamento de revenda
-      // - Impacto no Estoque: Abastece o Estoque Central da Fábrica (+quantidadeLote)
-      if (isReposicao) {
-        try {
-          await supabase.from("caixa_fabrica").insert({
-            pedido_id: pedidoId || null,
-            tipo: "SAIDA",
-            categoria: "Reposição Fornecedor",
-            descricao: `Reposição Fábrica (ADM) - ${quantidadeLote} un Displays`,
-            valor: valorTotalFinal,
-            custo_mercadoria: valorTotalFinal,
-            lucro_liquido: -valorTotalFinal,
-          });
-        } catch (eCx) {
-          console.warn("Aviso ao registrar saída no caixa para reposição:", eCx);
-        }
+      // 3. Integração Automática com Caixa Real & Abatimento do Estoque Físico Central
+      const custoTotalDisplays = quantidadeLote * unitCusto;
+      const lucroBruto = valorTotalFinal - custoTotalDisplays;
 
-        try {
-          let estoqueDb = estoqueDisplaysProntos;
-          const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
-          if (cfgLive && cfgLive.length > 0 && cfgLive[0].estoque_displays_prontos !== undefined) {
-            estoqueDb = Number(cfgLive[0].estoque_displays_prontos);
-          }
-          const novoEstoque = estoqueDb + quantidadeLote;
-          if (configFabricaId) {
-            await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", configFabricaId);
-          } else if (cfgLive && cfgLive[0]?.id) {
-            await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", cfgLive[0].id);
-          } else {
-            const { data: nCfg } = await supabase.from("config_fabrica").insert({
-              estoque_displays_prontos: novoEstoque,
-              custo_unitario_display: unitCusto,
-              media_saida_diaria: mediaSaidaDiaria || 2.5,
-            }).select().maybeSingle();
-            if (nCfg?.id) setConfigFabricaId(nCfg.id);
-          }
-          setEstoqueDisplaysProntos(novoEstoque);
-        } catch (eEst) {
-          console.warn("Aviso ao abastecer estoque físico em config_fabrica:", eEst);
-        }
+      // Inserir registro de ENTRADA no caixa da fábrica
+      try {
+        await supabase.from("caixa_fabrica").insert({
+          pedido_id: pedidoId || null,
+          tipo: "ENTRADA",
+          categoria: "Venda Lote",
+          descricao: `Emissão Manual ${quantidadeLote} un - ${alunoAlvo?.nome || "Aluno Parceiro"}`,
+          valor: valorTotalFinal,
+          custo_mercadoria: custoTotalDisplays,
+          lucro_liquido: lucroBruto,
+        });
+      } catch (errCaixa) {
+        console.warn("Aviso ao registrar entrada em caixa_fabrica:", errCaixa);
       }
 
-      const msg = isReposicao
-        ? `Reposição de ${quantidadeLote} displays registrada a preço de custo (R$ ${valorTotalFinal.toFixed(2)})! Estoque central abastecido (+${quantidadeLote} un). Intervalo: ${codInicioStr} → ${codFimStr}`
-        : `Lote de ${quantidadeLote} placas (${qtdPretaManual} Pretas / ${qtdAzulManual} Azuis) criado com sucesso! Intervalo: ${codInicioStr} → ${codFimStr}`;
+      // Abater estoque físico em config_fabrica
+      try {
+        let estoqueDb = estoqueDisplaysProntos;
+        const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
+        if (cfgLive && cfgLive.length > 0 && cfgLive[0].estoque_displays_prontos !== undefined) {
+          estoqueDb = Number(cfgLive[0].estoque_displays_prontos);
+        }
+        const novoEstoque = Math.max(0, estoqueDb - quantidadeLote);
+        if (configFabricaId) {
+          await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", configFabricaId);
+        } else if (cfgLive && cfgLive[0]?.id) {
+          await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", cfgLive[0].id);
+        } else {
+          const { data: nCfg } = await supabase.from("config_fabrica").insert({
+            estoque_displays_prontos: novoEstoque,
+            custo_unitario_display: unitCusto,
+            media_saida_diaria: mediaSaidaDiaria || 2.5,
+          }).select().maybeSingle();
+          if (nCfg?.id) setConfigFabricaId(nCfg.id);
+        }
+        setEstoqueDisplaysProntos(novoEstoque);
+      } catch (eEst) {
+        console.warn("Aviso ao abater estoque físico em config_fabrica:", eEst);
+      }
+
+      const msg = `Lote de ${quantidadeLote} placas (${qtdPretaManual} Pretas / ${qtdAzulManual} Azuis) criado com sucesso! Intervalo: ${codInicioStr} → ${codFimStr}. Estoque da fábrica atualizado.`;
 
       setFeedbackSucesso(msg);
       setModalEmissaoManualAberto(false);
@@ -1197,6 +1284,20 @@ export default function PainelDistribuidorAdmin() {
       }
 
       const { pretas, azuis } = extrairQtdCores(lote);
+
+      // Se o pedido tiver mais de 50 displays, exportar automaticamente em fatias de 50 un dentro de arquivo ZIP
+      if (placasDoLote.length > 50) {
+        const displays: DisplayItem[] = placasDoLote.map((p, idx) => ({
+          id: p.id,
+          code: p.codigo,
+          model_color: idx < pretas ? "Preto" : "Azul",
+          target_url: `https://www.goplak.com.br/d/${p.codigo}`,
+          qr_code_url: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://www.goplak.com.br/d/${p.codigo}`,
+        }));
+        await exportarLoteEmFatiasZip(lote.id || `${codIniLabel}_${codFimLabel}`, displays);
+        setFeedbackSucesso(`Pedido ${codIniLabel} a ${codFimLabel} (${placasDoLote.length} un) exportado em fatias de 50 (ZIP) com sucesso!`);
+        return;
+      }
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "GOPLAK";
@@ -1425,45 +1526,47 @@ export default function PainelDistribuidorAdmin() {
     console.log("Iniciando geração de displays para o pedido solicitado:", lote);
 
     try {
-      // 1. Obter maior código numérico atual no banco
-      let maxAtual = 0;
-      const { data: checkPlacas, error: errPlacas } = await supabase
+      // 1. Consultar todos os códigos existentes para reaproveitamento inteligente
+      let checkPlacas: { codigo?: string }[] = [];
+      const { data: placasData, error: errPlacas } = await supabase
         .from("placas")
         .select("codigo");
 
-      if (!errPlacas && checkPlacas) {
-        checkPlacas.forEach((p) => {
-          if (p.codigo) {
-            const numeros = p.codigo.match(/\d+/g);
-            if (numeros && numeros.length > 0) {
-              const num = parseInt(numeros.join(""), 10);
-              if (!isNaN(num) && num > maxAtual) maxAtual = num;
-            }
+      if (!errPlacas && placasData) {
+        checkPlacas = placasData;
+      } else {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?select=codigo`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) checkPlacas = data;
           }
-        });
+        } catch (restErr) {
+          console.error("Erro no fallback REST de placas:", restErr);
+        }
       }
 
       const qtd = lote.quantidade > 0 ? lote.quantidade : 20;
-      const inicio = maxAtual + 1;
-      const fim = maxAtual + qtd;
-      const codInicioStr = `GP-${String(inicio).padStart(4, "0")}`;
-      const codFimStr = `GP-${String(fim).padStart(4, "0")}`;
+      const numerosLivres = obterProximosNumerosLivres(qtd, checkPlacas);
+      const codInicioStr = `GP-${String(numerosLivres[0]).padStart(4, "0")}`;
+      const codFimStr = `GP-${String(numerosLivres[numerosLivres.length - 1]).padStart(4, "0")}`;
 
-      console.log(`Sequência calculada: ${codInicioStr} a ${codFimStr} (${qtd} displays)`);
+      console.log(`Sequência inteligente calculada: ${codInicioStr} a ${codFimStr} (${qtd} displays)`);
 
       // 2. Montar array de novas placas virgens
-      const novasPlacas: PlacaRecord[] = [];
-      for (let i = inicio; i <= fim; i++) {
-        const codigoFormatado = `GP-${String(i).padStart(4, "0")}`;
-        novasPlacas.push({
-          codigo: codigoFormatado,
-          aluno_id: lote.alunoId || "00000000-0000-0000-0000-000000000001",
-          pedido_id: lote.id.startsWith("lote-") ? undefined : lote.id,
-          status: "virgem",
-          valor_venda: 80.0,
-          escudo_ativo: true,
-        });
-      }
+      const novasPlacas: PlacaRecord[] = numerosLivres.map((num) => ({
+        codigo: `GP-${String(num).padStart(4, "0")}`,
+        aluno_id: lote.alunoId || "00000000-0000-0000-0000-000000000001",
+        pedido_id: lote.id.startsWith("lote-") ? undefined : lote.id,
+        status: "virgem",
+        valor_venda: 80.0,
+        escudo_ativo: true,
+      }));
 
       // 3. Inserir placas no banco
       const { error: errInsertPlacas } = await supabase
@@ -1481,17 +1584,11 @@ export default function PainelDistribuidorAdmin() {
           .from("pedidos_lotes")
           .update({
             status: "em_producao",
-            codigo_inicio: codInicioStr,
-            codigo_fim: codFimStr,
           })
           .eq("id", lote.id);
 
         if (errUpPed) {
-          console.warn("Aviso ao atualizar pedido com códigos (tentando update simples de status):", errUpPed);
-          await supabase
-            .from("pedidos_lotes")
-            .update({ status: "em_producao" })
-            .eq("id", lote.id);
+          console.warn("Aviso ao atualizar pedido:", errUpPed);
         }
       }
 
@@ -1513,43 +1610,45 @@ export default function PainelDistribuidorAdmin() {
     setErroMsg(null);
 
     try {
-      // 1. Obter maior código numérico atual no banco
-      let maxAtual = 0;
-      const { data: checkPlacas, error: errPlacas } = await supabase
+      // 1. Consultar todos os códigos existentes para reaproveitamento inteligente
+      let checkPlacas: { codigo?: string }[] = [];
+      const { data: placasData, error: errPlacas } = await supabase
         .from("placas")
         .select("codigo");
 
-      if (!errPlacas && checkPlacas) {
-        checkPlacas.forEach((p) => {
-          if (p.codigo) {
-            const numeros = p.codigo.match(/\d+/g);
-            if (numeros && numeros.length > 0) {
-              const num = parseInt(numeros.join(""), 10);
-              if (!isNaN(num) && num > maxAtual) maxAtual = num;
-            }
+      if (!errPlacas && placasData) {
+        checkPlacas = placasData;
+      } else {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?select=codigo`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) checkPlacas = data;
           }
-        });
+        } catch (restErr) {
+          console.error("Erro no fallback REST de placas:", restErr);
+        }
       }
 
       const qtd = lote.quantidade > 0 ? lote.quantidade : 10;
-      const inicio = maxAtual + 1;
-      const fim = maxAtual + qtd;
-      const codInicioStr = `GP-${String(inicio).padStart(4, "0")}`;
-      const codFimStr = `GP-${String(fim).padStart(4, "0")}`;
+      const numerosLivres = obterProximosNumerosLivres(qtd, checkPlacas);
+      const codInicioStr = `GP-${String(numerosLivres[0]).padStart(4, "0")}`;
+      const codFimStr = `GP-${String(numerosLivres[numerosLivres.length - 1]).padStart(4, "0")}`;
 
       // 2. Montar array de novas placas virgens vinculadas ao aluno
-      const novasPlacas: PlacaRecord[] = [];
-      for (let i = inicio; i <= fim; i++) {
-        const codigoFormatado = `GP-${String(i).padStart(4, "0")}`;
-        novasPlacas.push({
-          codigo: codigoFormatado,
-          aluno_id: lote.alunoId || "403183b5-02f6-46a7-b448-7658c5087ec4",
-          pedido_id: lote.id.startsWith("lote-") ? undefined : lote.id,
-          status: "virgem",
-          valor_venda: 80.0,
-          escudo_ativo: true,
-        });
-      }
+      const novasPlacas: PlacaRecord[] = numerosLivres.map((num) => ({
+        codigo: `GP-${String(num).padStart(4, "0")}`,
+        aluno_id: lote.alunoId || "403183b5-02f6-46a7-b448-7658c5087ec4",
+        pedido_id: lote.id.startsWith("lote-") ? undefined : lote.id,
+        status: "virgem",
+        valor_venda: 80.0,
+        escudo_ativo: true,
+      }));
 
       // 3. Inserir placas no banco
       const { error: errInsertPlacas } = await supabase
@@ -1569,8 +1668,6 @@ export default function PainelDistribuidorAdmin() {
           .update({
             status: "em_producao",
             aprovado_em: agoraIso,
-            codigo_inicio: codInicioStr,
-            codigo_fim: codFimStr,
           })
           .eq("id", lote.id);
 
@@ -1586,7 +1683,7 @@ export default function PainelDistribuidorAdmin() {
       // 5. Integração Automática com Caixa Real & Estoque Físico da Fábrica (Apenas para Venda Comercial de Alunos)
       const isReposicaoPropria = (lote.observacao || "").includes("[REPOSIÇÃO PRÓPRIA") || (lote.alunoNome || "").includes("Fábrica");
       if (!isReposicaoPropria) {
-        let custoUnit = custoUnitarioDisplay || 12.30;
+        let custoUnit = custoUnitarioDisplay || COST_PER_UNIT;
         let estoqueAtual = estoqueDisplaysProntos;
         try {
           const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
@@ -1946,166 +2043,280 @@ export default function PainelDistribuidorAdmin() {
     setModalExcluirAberto(true);
   };
 
-  // Confirmar Exclusão e Estorno do Pedido (Atualização Otimista Instantânea com API Route)
+  // Confirmar Exclusão do Pedido diretamente no Supabase SDK
   const handleConfirmarExclusaoPedido = async () => {
     if (!pedidoExcluindo) return;
 
-    const pedidoParaExcluir = pedidoExcluindo;
-    const pedidoId = pedidoParaExcluir.id;
-    const qtd = Number(pedidoParaExcluir.quantidade) || 0;
-    const st = (pedidoParaExcluir.status || "").toLowerCase().trim();
-    const isAprovado = st === "em_producao" || st === "enviado" || st === "entregue" || pedidoParaExcluir.temLoteGerado;
-    const isReposicaoPropria = (pedidoParaExcluir.observacao || "").includes("[REPOSIÇÃO PRÓPRIA") || (pedidoParaExcluir.alunoNome || "").includes("Fábrica");
-
-    // 1. Salvar snapshots de backup para caso de rollback
-    const previousLotes = [...lotes];
-    const previousItensCaixa = [...itensCaixa];
-    const previousEstoque = estoqueDisplaysProntos;
-
-    // 2. ATUALIZAÇÃO OTIMISTA IMEDIATA DA INTERFACE
-    setModalExcluirAberto(false);
-    setPedidoExcluindo(null);
-    setLotes((prev) => prev.filter((p) => p.id !== pedidoId));
-    setItensCaixa((prev) => prev.filter((item) => item.pedido_id !== pedidoId));
-    if (isAprovado && qtd > 0) {
-      setEstoqueDisplaysProntos((prev) => isReposicaoPropria ? Math.max(0, prev - qtd) : prev + qtd);
+    const orderId = pedidoExcluindo.id;
+    if (!orderId || orderId === "lote-registrado") {
+      console.error("ID inválido recebido para exclusão:", orderId);
+      alert("ID inválido recebido para exclusão.");
+      return;
     }
-    setFeedbackSucesso("Pedido excluído com sucesso!");
 
+    setExcluindoPedido(true);
     try {
-      // 3. Obter token de autenticação da sessão do Administrador
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || SUPABASE_ANON_KEY;
-      const authHeaders = {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${token}`,
-      };
+      // 1. Elimina registros dependentes na tabela caixa_fabrica (se existir vínculo)
+      await supabase.from("caixa_fabrica").delete().eq("pedido_id", orderId);
 
-      if (pedidoId && !pedidoId.startsWith("lote-demo-")) {
-        // A. DELETE em 'caixa_fabrica' WHERE pedido_id = [id_do_pedido]
+      // 2. Se o pedido excluído havia abatido unidades do estoque da fábrica, devolver essa quantidade
+      const qtdEstorno = Number(pedidoExcluindo.quantidade) || 0;
+      const st = (pedidoExcluindo.status || "").toLowerCase().trim();
+      const isAprovado = st === "em_producao" || st === "enviado" || st === "entregue" || pedidoExcluindo.temLoteGerado;
+      if (isAprovado && qtdEstorno > 0) {
         try {
-          await supabase.from("caixa_fabrica").delete().eq("pedido_id", pedidoId);
-          await fetch(`${SUPABASE_URL}/rest/v1/caixa_fabrica?pedido_id=eq.${pedidoId}`, {
-            method: "DELETE",
-            headers: authHeaders,
-          });
-        } catch (eCx) {
-          console.warn("Aviso ao deletar caixa_fabrica:", eCx);
-        }
-
-        // B. DELETE em 'placas' WHERE pedido_id = [id_do_pedido] OU lote_id = [id_do_pedido]
-        try {
-          await supabase.from("placas").delete().eq("pedido_id", pedidoId);
-          await supabase.from("placas").delete().eq("lote_id", pedidoId);
-          await fetch(`${SUPABASE_URL}/rest/v1/placas?pedido_id=eq.${pedidoId}`, {
-            method: "DELETE",
-            headers: authHeaders,
-          });
-          await fetch(`${SUPABASE_URL}/rest/v1/placas?lote_id=eq.${pedidoId}`, {
-            method: "DELETE",
-            headers: authHeaders,
-          });
-        } catch (ePlacas) {
-          console.warn("Aviso ao deletar placas:", ePlacas);
-        }
-
-        // C. Estornar estoque físico em config_fabrica
-        if (isAprovado && qtd > 0) {
-          try {
-            let estoqueDb = previousEstoque;
-            const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
-            if (cfgLive && cfgLive.length > 0 && cfgLive[0].estoque_displays_prontos !== undefined) {
-              estoqueDb = Number(cfgLive[0].estoque_displays_prontos);
-            }
-            const novoEstoque = isReposicaoPropria ? Math.max(0, estoqueDb - qtd) : estoqueDb + qtd;
-            if (configFabricaId) {
-              await supabase
-                .from("config_fabrica")
-                .update({ estoque_displays_prontos: novoEstoque })
-                .eq("id", configFabricaId);
-            } else if (cfgLive && cfgLive[0]?.id) {
-              await supabase
-                .from("config_fabrica")
-                .update({ estoque_displays_prontos: novoEstoque })
-                .eq("id", cfgLive[0].id);
-            }
-          } catch (eEst) {
-            console.warn("Aviso ao estornar estoque em config_fabrica:", eEst);
+          let estoqueDb = estoqueDisplaysProntos;
+          const { data: cfgLive } = await supabase.from("config_fabrica").select("*").limit(1);
+          if (cfgLive && cfgLive.length > 0 && cfgLive[0].estoque_displays_prontos !== undefined) {
+            estoqueDb = Number(cfgLive[0].estoque_displays_prontos);
           }
-        }
-
-        // D. Excluir comprovante no storage se existir
-        if (pedidoParaExcluir.comprovanteUrl && pedidoParaExcluir.comprovanteUrl.includes("/comprovantes/")) {
-          try {
-            const fileName = pedidoParaExcluir.comprovanteUrl.split("/").pop()?.split("?")[0];
-            if (fileName) {
-              await supabase.storage.from("comprovantes").remove([fileName]);
-            }
-          } catch (eStg) {
-            console.warn("Aviso ao excluir arquivo de comprovante:", eStg);
+          const novoEstoque = estoqueDb + qtdEstorno;
+          if (configFabricaId) {
+            await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", configFabricaId);
+          } else if (cfgLive && cfgLive[0]?.id) {
+            await supabase.from("config_fabrica").update({ estoque_displays_prontos: novoEstoque }).eq("id", cfgLive[0].id);
           }
-        }
-
-        // E. Deletar registro do pedido em 'pedidos_lotes' via API Route do servidor (ignora bloqueios de RLS)
-        let deleteOk = false;
-        let errMsg = "";
-
-        try {
-          const resApi = await fetch("/api/admin/delete-order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              pedidoId,
-              isAprovado,
-              quantidade: qtd,
-              isReposicaoPropria,
-              comprovanteUrl: pedidoParaExcluir.comprovanteUrl,
-            }),
-          });
-          if (resApi.ok) {
-            deleteOk = true;
-          }
-        } catch (eApi) {
-          console.warn("API de exclusão local:", eApi);
-        }
-
-        // F. DELETE direto em 'pedidos_lotes' WHERE id = [id_do_pedido]
-        const { error: errDelSdk } = await supabase
-          .from("pedidos_lotes")
-          .delete()
-          .eq("id", pedidoId);
-
-        if (!errDelSdk) {
-          deleteOk = true;
-        } else {
-          console.warn("Tentando DELETE REST direto:", errDelSdk);
-          const resDel = await fetch(`${SUPABASE_URL}/rest/v1/pedidos_lotes?id=eq.${pedidoId}`, {
-            method: "DELETE",
-            headers: authHeaders,
-          });
-          if (resDel.ok) {
-            deleteOk = true;
-          } else {
-            const textErr = await resDel.text().catch(() => "");
-            errMsg = textErr || errDelSdk.message || "Erro ao deletar pedido_lote no Supabase";
-          }
-        }
-
-        if (!deleteOk && !pedidoId.startsWith("lote-")) {
-          throw new Error(errMsg || "Falha ao excluir pedido no banco de dados.");
+          setEstoqueDisplaysProntos(novoEstoque);
+        } catch (eEstorno) {
+          console.warn("Aviso ao devolver estoque da fábrica no estorno:", eEstorno);
         }
       }
+
+      // 3. Elimina placas vinculadas
+      await supabase.from("placas").delete().eq("pedido_id", orderId);
+      await supabase.from("placas").delete().eq("lote_id", orderId);
+
+      // 4. Elimina o lote principal em pedidos_lotes
+      const { error: errPedido } = await supabase
+        .from("pedidos_lotes")
+        .delete()
+        .eq("id", orderId);
+
+      if (errPedido) {
+        throw new Error(errPedido.message);
+      }
+
+      // Excluir comprovante no storage se existir
+      if (pedidoExcluindo.comprovanteUrl && pedidoExcluindo.comprovanteUrl.includes("/comprovantes/")) {
+        try {
+          const fileName = pedidoExcluindo.comprovanteUrl.split("/").pop()?.split("?")[0];
+          if (fileName) {
+            await supabase.storage.from("comprovantes").remove([fileName]);
+          }
+        } catch (eStg) {
+          console.warn("Aviso ao excluir comprovante do storage:", eStg);
+        }
+      }
+
+      setModalExcluirAberto(false);
+      setPedidoExcluindo(null);
+      setFeedbackSucesso("Lote excluído do banco com sucesso e estoque recalculado!");
+
+      // 5. Recarrega todos os dados (pedidos, caixa e config_fabrica) imediatamente
+      await fetchAdminData();
     } catch (err: unknown) {
-      // 4. ROLLBACK EM CASO DE ERRO & EXIBIÇÃO EXPLÍCITA
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("Falha ao excluir pedido no banco:", err);
-      setLotes(previousLotes);
-      setItensCaixa(previousItensCaixa);
-      setEstoqueDisplaysProntos(previousEstoque);
-      setFeedbackSucesso(null);
-      setErroMsg(`Falha ao excluir: ${msg}`);
-      alert(`Falha ao excluir: ${msg}`);
+      console.error("Erro ao excluir do Supabase:", err);
+      setErroMsg(`Erro ao excluir: ${msg}`);
+      alert("Erro ao excluir: " + msg);
+    } finally {
+      setExcluindoPedido(false);
+    }
+  };
+
+  // Abrir modal de Edição de Placa pelo Admin
+  const handleAbrirEditarPlaca = (placa: PlacaRecord) => {
+    setPlacaEditandoAdmin(placa);
+    // Extrai nome limpo e dados extras se houver no nome_empresa ou outras_vendas
+    const rawNome = placa.nome_empresa || "";
+    let nomeLimpo = rawNome;
+    let resp = placa.responsavel_nome || "";
+    const servicosRecuperados: Array<{
+      id: string;
+      descricao: string;
+      valor: string;
+      tipo_cobranca: "unico" | "recorrente";
+    }> = [];
+
+    // 1. Recupera de servicos_adicionais se existir
+    if (Array.isArray(placa.servicos_adicionais) && placa.servicos_adicionais.length > 0) {
+      placa.servicos_adicionais.forEach((s, idx) => {
+        servicosRecuperados.push({
+          id: s.id || `admin-serv-${Date.now()}-${idx}`,
+          descricao: s.descricao || "",
+          valor: s.valor !== undefined && s.valor !== null ? String(s.valor) : "",
+          tipo_cobranca: s.tipo_cobranca === "recorrente" ? "recorrente" : "unico",
+        });
+      });
+    }
+
+    // 2. Recupera de outras_vendas
+    if (servicosRecuperados.length === 0 && placa.outras_vendas) {
+      if (Array.isArray(placa.outras_vendas)) {
+        placa.outras_vendas.forEach((s: any, idx: number) => {
+          servicosRecuperados.push({
+            id: s.id || `admin-serv-${Date.now()}-${idx}`,
+            descricao: s.descricao || "",
+            valor: s.valor !== undefined && s.valor !== null ? String(s.valor) : "",
+            tipo_cobranca: s.tipo_cobranca === "recorrente" ? "recorrente" : "unico",
+          });
+        });
+      } else if (typeof placa.outras_vendas === "object" && placa.outras_vendas.descricao) {
+        servicosRecuperados.push({
+          id: `admin-serv-${Date.now()}-0`,
+          descricao: placa.outras_vendas.descricao || "",
+          valor: placa.outras_vendas.valor ? String(placa.outras_vendas.valor) : "",
+          tipo_cobranca: placa.outras_vendas.tipo_cobranca === "recorrente" ? "recorrente" : "unico",
+        });
+      }
+    }
+
+    // 3. Extrai de nome_empresa se ainda não recuperou nenhum
+    if (rawNome.includes(" [") && rawNome.endsWith("]")) {
+      const idx = rawNome.indexOf(" [");
+      nomeLimpo = rawNome.substring(0, idx);
+      const extraPart = rawNome.substring(idx + 2, rawNome.length - 1);
+      
+      const matchResp = extraPart.match(/Resp:\s*([^|\]]+)/);
+      if (matchResp && !resp) {
+        resp = matchResp[1].trim();
+      }
+
+      if (servicosRecuperados.length === 0) {
+        const matchesServ = extraPart.matchAll(/Servi[çc]o:\s*([^R]+)R\$\s*([\d.,]+)\s*\(([^)]+)\)/gi);
+        let sIdx = 0;
+        for (const matchServ of matchesServ) {
+          if (matchServ && matchServ[1]) {
+            servicosRecuperados.push({
+              id: `admin-serv-${Date.now()}-${sIdx++}`,
+              descricao: matchServ[1].trim(),
+              valor: matchServ[2].trim(),
+              tipo_cobranca: matchServ[3].toLowerCase().includes("recorrente") ? "recorrente" : "unico",
+            });
+          }
+        }
+      }
+    }
+
+    setEditNomeLoja(nomeLimpo);
+    setEditResponsavel(resp);
+    setEditWhatsapp(placa.whatsapp_contato || placa.whatsapp_feedback || "");
+    setEditLinkGoogle(placa.link_google_review || "");
+    setEditValorVenda(placa.valor_venda ? String(placa.valor_venda) : "80.00");
+    setEditServicosAdmin(servicosRecuperados);
+    setModalEditarPlacaAberto(true);
+  };
+
+  // Salvar Edição de Placa pelo Admin diretamente no Supabase
+  const handleSalvarEdicaoPlacaAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!placaEditandoAdmin) return;
+
+    setSalvandoEdicaoPlaca(true);
+    try {
+      const nomeLimpo = editNomeLoja.trim();
+      const respLimpo = editResponsavel.trim();
+      const whatsLimpo = editWhatsapp.replace(/\D/g, "");
+      const linkLimpo = editLinkGoogle.trim();
+      const valorNum = parseFloat(editValorVenda.replace(",", ".")) || 80.0;
+
+      // Filtra serviços válidos preenchidos
+      const servicosValidos = editServicosAdmin
+        .map((s) => ({
+          id: s.id || `admin-serv-${Math.random().toString(36).substring(2, 9)}`,
+          descricao: s.descricao.trim(),
+          valor: parseFloat(String(s.valor || "0").replace(",", ".")) || 0,
+          tipo_cobranca: s.tipo_cobranca === "recorrente" ? ("recorrente" as const) : ("unico" as const),
+        }))
+        .filter((s) => s.descricao.length > 0 || s.valor > 0);
+
+      let linkFormatado = linkLimpo;
+      if (linkFormatado && !linkFormatado.startsWith("http://") && !linkFormatado.startsWith("https://")) {
+        linkFormatado = `https://${linkFormatado}`;
+      }
+
+      // Constrói nome_empresa composto com responsável e serviços adicionais para compatibilidade 100% garantida
+      let nomeEmpresaFinal = nomeLimpo;
+      const partesExtras: string[] = [];
+      if (respLimpo) partesExtras.push(`Resp: ${respLimpo}`);
+      
+      servicosValidos.forEach((s) => {
+        const valTxt = s.valor > 0 ? `R$ ${s.valor}` : "";
+        const cobrancaTxt = s.tipo_cobranca === "recorrente" ? "Recorrente/Mês" : "Único";
+        partesExtras.push(`Serviço: ${s.descricao} ${valTxt} (${cobrancaTxt})`.trim());
+      });
+
+      if (partesExtras.length > 0) {
+        nomeEmpresaFinal = `${nomeLimpo} [${partesExtras.join(" | ")}]`;
+      }
+
+      const agoraIso = new Date().toISOString();
+      const updatePayload: Record<string, any> = {
+        nome_empresa: nomeEmpresaFinal,
+        link_google_review: linkFormatado,
+        link_destino: linkFormatado,
+        whatsapp_feedback: whatsLimpo,
+        valor_venda: valorNum,
+      };
+
+      // Se a placa estava virgem e está sendo configurada com link, atualiza status para ativa
+      if (linkFormatado && placaEditandoAdmin.status === "virgem") {
+        updatePayload.status = "ativa";
+        updatePayload.activated_at = agoraIso;
+      }
+
+      // Tenta atualizar colunas estendidas caso existam
+      const payloadEstendido: Record<string, any> = {
+        ...updatePayload,
+        responsavel_nome: respLimpo,
+        whatsapp_contato: whatsLimpo,
+        servicos_adicionais: servicosValidos,
+        outras_vendas: servicosValidos.length > 0 ? servicosValidos : null,
+      };
+
+      const { error: errEstendido } = await supabase
+        .from("placas")
+        .update(payloadEstendido)
+        .eq("id", placaEditandoAdmin.id);
+
+      if (errEstendido) {
+        console.warn("Fallback para update sem colunas extras:", errEstendido.message);
+        const { error: errBase } = await supabase
+          .from("placas")
+          .update(updatePayload)
+          .eq("id", placaEditandoAdmin.id);
+
+        if (errBase) throw new Error(errBase.message);
+      }
+
+      // Atualiza estado local de placasCadastradas
+      setPlacasCadastradas((prev) =>
+        prev.map((p) =>
+          p.id === placaEditandoAdmin.id
+            ? {
+                ...p,
+                ...updatePayload,
+                responsavel_nome: respLimpo,
+                whatsapp_contato: whatsLimpo,
+                servicos_adicionais: servicosValidos,
+                outras_vendas: servicosValidos,
+              }
+            : p
+        )
+      );
+
+      setFeedbackSucesso(`Display ${placaEditandoAdmin.codigo} atualizado com sucesso!`);
+      setModalEditarPlacaAberto(false);
+      setPlacaEditandoAdmin(null);
+
+      // Re-busca os dados e recalcula o volume transacionado instantaneamente
+      await fetchAdminData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Erro ao editar display:", err);
+      alert("Erro ao editar display: " + msg);
+    } finally {
+      setSalvandoEdicaoPlaca(false);
     }
   };
 
@@ -2142,26 +2353,16 @@ export default function PainelDistribuidorAdmin() {
     setErroMsg(null);
 
     try {
-      // 1. Obter maior código numérico atual no banco
-      let maxAtual = maiorCodigoNumero;
-      const { data: checkPlacas } = await supabase.from("placas").select("codigo");
-      if (checkPlacas && checkPlacas.length > 0) {
-        checkPlacas.forEach((p) => {
-          if (p.codigo) {
-            const numeros = p.codigo.match(/\d+/g);
-            if (numeros && numeros.length > 0) {
-              const num = parseInt(numeros.join(""), 10);
-              if (!isNaN(num) && num > maxAtual) maxAtual = num;
-            }
-          }
-        });
+      // 1. Consultar todos os códigos existentes para reaproveitamento inteligente
+      let checkPlacas: { codigo?: string }[] = [];
+      const { data: placasData } = await supabase.from("placas").select("codigo");
+      if (placasData && placasData.length > 0) {
+        checkPlacas = placasData;
       }
-
       const qtdPremio = 10;
-      const inicio = maxAtual + 1;
-      const fim = maxAtual + qtdPremio;
-      const codInicioStr = `GP-${String(inicio).padStart(4, "0")}`;
-      const codFimStr = `GP-${String(fim).padStart(4, "0")}`;
+      const numerosLivres = obterProximosNumerosLivres(qtdPremio, checkPlacas);
+      const codInicioStr = `GP-${String(numerosLivres[0]).padStart(4, "0")}`;
+      const codFimStr = `GP-${String(numerosLivres[numerosLivres.length - 1]).padStart(4, "0")}`;
 
       // 2. Determinar aluno destinatário
       const alunoAlvo =
@@ -2181,6 +2382,7 @@ export default function PainelDistribuidorAdmin() {
               quantidade: qtdPremio,
               valor_total: 0.0,
               status: "em_producao",
+              aprovado_em: new Date().toISOString(),
             },
           ])
           .select()
@@ -2194,20 +2396,17 @@ export default function PainelDistribuidorAdmin() {
         }
       }
 
-      // 4. Criar as 10 placas virgens vinculadas ao lote
-      const novasPlacas = [];
-      for (let i = inicio; i <= fim; i++) {
-        novasPlacas.push({
-          codigo: `GP-${String(i).padStart(4, "0")}`,
-          status: "virgem",
-          valor_venda: 80.0,
-          nome_empresa: "",
-          link_google_review: "",
-          whatsapp_feedback: "",
-          aluno_id: alunoUuid && !alunoUuid.startsWith("aluno-demo") ? alunoUuid : null,
-          pedido_id: pedidoId || null,
-        });
-      }
+      // 4. Criar as 10 placas virgens vinculadas ao lote com os números livres
+      const novasPlacas = numerosLivres.map((num) => ({
+        codigo: `GP-${String(num).padStart(4, "0")}`,
+        status: "virgem" as const,
+        valor_venda: 80.0,
+        nome_empresa: "",
+        link_google_review: "",
+        whatsapp_feedback: "",
+        aluno_id: alunoUuid && !alunoUuid.startsWith("aluno-demo") ? alunoUuid : null,
+        pedido_id: pedidoId || null,
+      }));
 
       const { error: insertErr } = await supabase
         .from("placas")
@@ -2246,7 +2445,7 @@ export default function PainelDistribuidorAdmin() {
       setLotes((prev) => [novoLoteUI, ...prev]);
       setTotalProduzidas((prev) => prev + qtdPremio);
       setTotalVirgens((prev) => prev + qtdPremio);
-      setMaiorCodigoNumero(fim);
+      setMaiorCodigoNumero((prev) => Math.max(prev, ...numerosLivres));
 
       // 6. Confetes e Feedback Visual
       if (typeof window !== "undefined") {
@@ -2611,13 +2810,36 @@ export default function PainelDistribuidorAdmin() {
           </div>
         </section>
 
-        {/* 2. GESTÃO DE PEDIDOS & EXPORTAÇÃO GRÁFICA (LARGURA TOTAL / COMPACTA) */}
+        {/* 2. GESTÃO DE PEDIDOS & GESTÃO DE PLACAS ATIVADAS */}
         <section id="tabela-pedidos" className="w-full bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 sm:p-4 shadow-xs transition-colors">
-          {/* Header & Ações Rápidas */}
+          {/* Header & Seletor de Abas Principais */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5 pb-2 border-b border-zinc-200 dark:border-neutral-800">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Gestão de Pedidos & Lotes</h2>
+            <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-neutral-800/80 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setAbaPrincipal("pedidos")}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  abaPrincipal === "pedidos"
+                    ? "bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white shadow-xs"
+                    : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Gestão de Pedidos & Lotes ({lotes.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAbaPrincipal("placas")}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  abaPrincipal === "placas"
+                    ? "bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white shadow-xs"
+                    : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <Layers className="w-4 h-4 text-sky-500" />
+                <span>Gestão de Placas / Displays Ativados ({placasCadastradas.length})</span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -2678,12 +2900,14 @@ export default function PainelDistribuidorAdmin() {
             </div>
           </div>
 
-          {/* Barra de Filtros por Status */}
-          <div className="flex items-center gap-1.5 mb-3 overflow-x-auto scrollbar-none pb-0.5">
-            <button
-              type="button"
-              onClick={() => setFiltroStatus("todos")}
-              className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap ${
+          {abaPrincipal === "pedidos" ? (
+            <>
+              {/* Barra de Filtros por Status */}
+              <div className="flex items-center gap-1.5 mb-3 overflow-x-auto scrollbar-none pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setFiltroStatus("todos")}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap ${
                 filtroStatus === "todos"
                   ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-xs"
                   : "bg-zinc-100 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700 hover:bg-zinc-200 dark:hover:bg-neutral-700"
@@ -2981,7 +3205,7 @@ export default function PainelDistribuidorAdmin() {
                                       type="button"
                                       onClick={() => handleBaixarPlanilhaGrafica(lote)}
                                       disabled={exportandoId === lote.id}
-                                      title="Baixar planilha com QR Codes físicos embutidos"
+                                      title={lote.quantidade > 50 ? "Exportar fatias de 50 un em arquivo ZIP para a gráfica" : "Baixar planilha com QR Codes físicos embutidos"}
                                       className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs text-xs"
                                     >
                                       {exportandoId === lote.id ? (
@@ -2989,7 +3213,7 @@ export default function PainelDistribuidorAdmin() {
                                       ) : (
                                         <>
                                           <Download className="w-3 h-3" />
-                                          <span>XLSX</span>
+                                          <span>{lote.quantidade > 50 ? "ZIP (50un)" : "XLSX"}</span>
                                         </>
                                       )}
                                     </button>
@@ -3032,7 +3256,7 @@ export default function PainelDistribuidorAdmin() {
                                       type="button"
                                       onClick={() => handleBaixarPlanilhaGrafica(lote)}
                                       disabled={exportandoId === lote.id}
-                                      title="Baixar planilha com QR Codes físicos embutidos"
+                                      title={lote.quantidade > 50 ? "Exportar fatias de 50 un em arquivo ZIP para a gráfica" : "Baixar planilha com QR Codes físicos embutidos"}
                                       className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs text-xs"
                                     >
                                       {exportandoId === lote.id ? (
@@ -3040,7 +3264,7 @@ export default function PainelDistribuidorAdmin() {
                                       ) : (
                                         <>
                                           <Download className="w-3 h-3" />
-                                          <span>XLSX</span>
+                                          <span>{lote.quantidade > 50 ? "ZIP (50un)" : "XLSX"}</span>
                                         </>
                                       )}
                                     </button>
@@ -3059,7 +3283,7 @@ export default function PainelDistribuidorAdmin() {
                                       type="button"
                                       onClick={() => handleBaixarPlanilhaGrafica(lote)}
                                       disabled={exportandoId === lote.id}
-                                      title="Baixar planilha com QR Codes físicos embutidos"
+                                      title={lote.quantidade > 50 ? "Exportar fatias de 50 un em arquivo ZIP para a gráfica" : "Baixar planilha com QR Codes físicos embutidos"}
                                       className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-emerald-500 hover:text-black dark:bg-neutral-800 dark:hover:bg-emerald-500 dark:hover:text-black text-zinc-800 dark:text-neutral-200 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-neutral-700 font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs text-xs"
                                     >
                                       {exportandoId === lote.id ? (
@@ -3067,7 +3291,7 @@ export default function PainelDistribuidorAdmin() {
                                       ) : (
                                         <>
                                           <Download className="w-3 h-3" />
-                                          <span>XLSX</span>
+                                          <span>{lote.quantidade > 50 ? "ZIP (50un)" : "XLSX"}</span>
                                         </>
                                       )}
                                     </button>
@@ -3092,7 +3316,255 @@ export default function PainelDistribuidorAdmin() {
               })()}
             </div>
           )}
-        </section>
+        </>
+      ) : (
+        /* ========================================================================= */
+        /* ABA 2: GESTÃO DE PLACAS / DISPLAYS ATIVADOS (VISÃO TOTAL DO ADMIN)       */
+        /* ========================================================================= */
+        <div className="space-y-3 pt-1">
+          {/* Barra de Busca e Filtros de Placas */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              <button
+                type="button"
+                onClick={() => setFiltroPlacaStatus("todas")}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap ${
+                  filtroPlacaStatus === "todas"
+                    ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-xs"
+                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700"
+                }`}
+              >
+                Todas ({placasCadastradas.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroPlacaStatus("ativas")}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  filtroPlacaStatus === "ativas"
+                    ? "bg-emerald-500 text-black border-emerald-400 shadow-xs"
+                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                }`}
+              >
+                <span>✅ Ativas em Loja</span>
+                <span className="font-mono bg-black/10 dark:bg-white/10 px-1.5 py-0.2 rounded-full text-[10px]">
+                  {placasCadastradas.filter((p) => p.status === "ativa").length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroPlacaStatus("virgens")}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  filtroPlacaStatus === "virgens"
+                    ? "bg-amber-500 text-black border-amber-400 shadow-xs"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                }`}
+              >
+                <span>⚪ Virgens / Em Estoque</span>
+                <span className="font-mono bg-black/10 dark:bg-white/10 px-1.5 py-0.2 rounded-full text-[10px]">
+                  {placasCadastradas.filter((p) => p.status === "virgem").length}
+                </span>
+              </button>
+            </div>
+
+            <div className="w-full sm:w-64">
+              <input
+                type="text"
+                value={buscaPlaca}
+                onChange={(e) => setBuscaPlaca(e.target.value)}
+                placeholder="Buscar código, loja ou aluno..."
+                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl px-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Tabela de Placas */}
+          {(() => {
+            const buscaLower = buscaPlaca.trim().toLowerCase();
+            const placasFiltradas = placasCadastradas.filter((p) => {
+              if (filtroPlacaStatus === "ativas" && p.status !== "ativa") return false;
+              if (filtroPlacaStatus === "virgens" && p.status !== "virgem") return false;
+
+              if (buscaLower) {
+                const alunoRel = alunos.find((a) => a.id === p.aluno_id);
+                const matchCod = (p.codigo || "").toLowerCase().includes(buscaLower);
+                const matchLoja = (p.nome_empresa || "").toLowerCase().includes(buscaLower);
+                const matchAluno = (alunoRel?.nome || "").toLowerCase().includes(buscaLower);
+                const matchResp = (p.responsavel_nome || "").toLowerCase().includes(buscaLower);
+                return matchCod || matchLoja || matchAluno || matchResp;
+              }
+              return true;
+            });
+
+            if (placasFiltradas.length === 0) {
+              return (
+                <div className="py-10 text-center text-zinc-400 dark:text-neutral-500 text-xs">
+                  Nenhuma placa encontrada com os filtros selecionados.
+                </div>
+              );
+            }
+
+            return (
+              <div className="w-full max-h-[460px] overflow-y-auto overflow-x-auto pr-1 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-white dark:bg-neutral-900 z-10 shadow-xs">
+                    <tr className="border-b border-zinc-200 dark:border-neutral-800 text-zinc-500 dark:text-neutral-400 uppercase tracking-wider text-[11px] bg-zinc-50 dark:bg-neutral-950">
+                      <th className="py-2.5 px-2.5 font-semibold">CÓDIGO</th>
+                      <th className="py-2.5 px-2.5 font-semibold">ALUNO / DISTRIBUIDOR</th>
+                      <th className="py-2.5 px-2.5 font-semibold">NOME DA LOJA</th>
+                      <th className="py-2.5 px-2.5 font-semibold">RESPONSÁVEL</th>
+                      <th className="py-2.5 px-2.5 font-semibold">WHATSAPP</th>
+                      <th className="py-2.5 px-2.5 font-semibold">DATA / HORA ATIVAÇÃO</th>
+                      <th className="py-2.5 px-2.5 font-semibold">LINK ATUAL</th>
+                      <th className="py-2.5 px-2.5 font-semibold text-center">AÇÕES</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200/80 dark:divide-neutral-800/60">
+                    {placasFiltradas.map((p) => {
+                      const alunoRel = alunos.find((a) => a.id === p.aluno_id);
+                      const isAtiva = p.status === "ativa";
+
+                      // Formata data de ativação
+                      const dataAtivacaoRaw = p.data_ativacao || p.activated_at;
+                      let dataHoraFormatada = "-";
+                      if (dataAtivacaoRaw) {
+                        try {
+                          const d = new Date(dataAtivacaoRaw);
+                          dataHoraFormatada = d.toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          });
+                        } catch {
+                          dataHoraFormatada = String(dataAtivacaoRaw);
+                        }
+                      } else if (isAtiva && p.created_at) {
+                        try {
+                          const d = new Date(p.created_at);
+                          dataHoraFormatada = d.toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          });
+                        } catch {}
+                      }
+
+                      // Extrair responsável se estiver embutido no nome_empresa
+                      let nomeLojaDisplay = p.nome_empresa || "";
+                      let respDisplay = p.responsavel_nome || "";
+                      if (nomeLojaDisplay.includes(" [") && nomeLojaDisplay.endsWith("]")) {
+                        const idx = nomeLojaDisplay.indexOf(" [");
+                        const extra = nomeLojaDisplay.substring(idx + 2, nomeLojaDisplay.length - 1);
+                        nomeLojaDisplay = nomeLojaDisplay.substring(0, idx);
+                        const matchResp = extra.match(/Resp:\s*([^|\]]+)/);
+                        if (matchResp && !respDisplay) {
+                          respDisplay = matchResp[1].trim();
+                        }
+                      }
+
+                      const whatsExibir = p.whatsapp_contato || p.whatsapp_feedback || "";
+                      const linkGoogle = p.link_google_review || "";
+
+                      return (
+                        <tr key={p.id || p.codigo} className="hover:bg-zinc-50 dark:hover:bg-neutral-800/40 transition-colors">
+                          {/* Código */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 font-mono font-bold text-zinc-900 dark:text-white">
+                              <span className={`w-2 h-2 rounded-full ${isAtiva ? "bg-emerald-500" : "bg-amber-400"}`} />
+                              <span>{p.codigo}</span>
+                            </div>
+                          </td>
+
+                          {/* Aluno / Distribuidor */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-zinc-800 dark:text-neutral-200">
+                                {alunoRel?.nome || (p.aluno_id ? "Aluno Vinculado" : "Sem aluno")}
+                              </span>
+                              {alunoRel?.email && (
+                                <span className="text-[10px] text-zinc-400 font-normal">
+                                  {alunoRel.email}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Nome da Loja */}
+                          <td className="py-2.5 px-2.5 font-medium text-zinc-900 dark:text-white max-w-[180px] truncate" title={p.nome_empresa || ""}>
+                            {nomeLojaDisplay || (
+                              <span className="text-zinc-400 dark:text-neutral-500 italic">Não ativada</span>
+                            )}
+                          </td>
+
+                          {/* Responsável */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap text-zinc-700 dark:text-neutral-300">
+                            {respDisplay || <span className="text-zinc-400">-</span>}
+                          </td>
+
+                          {/* WhatsApp */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap font-mono text-[11px] text-zinc-700 dark:text-neutral-300">
+                            {whatsExibir ? (
+                              <a
+                                href={`https://wa.me/55${whatsExibir.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+                              >
+                                <span>{whatsExibir.length === 11 ? `(${whatsExibir.slice(0, 2)}) ${whatsExibir.slice(2, 7)}-${whatsExibir.slice(7)}` : whatsExibir}</span>
+                              </a>
+                            ) : (
+                              <span className="text-zinc-400">-</span>
+                            )}
+                          </td>
+
+                          {/* Data e Horário de Ativação */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap font-mono text-[11px] text-zinc-600 dark:text-neutral-400">
+                            {dataHoraFormatada}
+                          </td>
+
+                          {/* Link Atual */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap max-w-[160px] truncate">
+                            {linkGoogle ? (
+                              <a
+                                href={linkGoogle}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1 text-[11px]"
+                                title={linkGoogle}
+                              >
+                                <span className="truncate max-w-[130px]">{linkGoogle}</span>
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                              </a>
+                            ) : (
+                              <span className="text-zinc-400 italic">Sem link</span>
+                            )}
+                          </td>
+
+                          {/* Ações: Botão Editar */}
+                          <td className="py-2.5 px-2.5 whitespace-nowrap text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditarPlaca(p)}
+                              className="bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-bold text-[11px] px-2.5 py-1 rounded-lg transition cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                              title="Editar dados da loja e link da placa"
+                            >
+                              <span>Editar</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </section>
 
         {/* MODAL DE DESPACHO E RASTREIO */}
         {modalDespachoAberto && pedidoDespachando && (
@@ -3528,7 +4000,7 @@ export default function PainelDistribuidorAdmin() {
                         <span>Valor Total da Reposição:</span>
                       </span>
                       <span className="font-mono text-sm text-amber-800 dark:text-amber-300 font-extrabold">
-                        R$ {(quantidadeLote * (custoUnitarioDisplay || 12.30)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        R$ {(quantidadeLote * (custoUnitarioDisplay || COST_PER_UNIT)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
@@ -4528,6 +5000,268 @@ export default function PainelDistribuidorAdmin() {
                   Fechar Extrato
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE EDIÇÃO DE PLACA / DISPLAY PELO ADMIN */}
+        {modalEditarPlacaAberto && placaEditandoAdmin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setModalEditarPlacaAberto(false)}
+                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
+                  {placaEditandoAdmin.codigo}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Editar Display {placaEditandoAdmin.codigo}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                    Altere os dados da loja, responsável, contato e link de avaliação do Google.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSalvarEdicaoPlacaAdmin} className="space-y-3.5">
+                {/* Nome do Comércio / Estabelecimento */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    Nome da Loja / Estabelecimento *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={salvandoEdicaoPlaca}
+                    value={editNomeLoja}
+                    onChange={(e) => setEditNomeLoja(e.target.value)}
+                    placeholder="Ex: Pizzaria Bella Roma"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* Responsável & WhatsApp (Grid 2 cols) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      Responsável
+                    </label>
+                    <input
+                      type="text"
+                      disabled={salvandoEdicaoPlaca}
+                      value={editResponsavel}
+                      onChange={(e) => setEditResponsavel(e.target.value)}
+                      placeholder="Ex: Mariana Silva"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      WhatsApp de Contato
+                    </label>
+                    <input
+                      type="text"
+                      disabled={salvandoEdicaoPlaca}
+                      value={editWhatsapp}
+                      onChange={(e) => setEditWhatsapp(e.target.value)}
+                      placeholder="(11) 99999-9999"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Link do Google Maps / Avaliação */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    Link do Google Maps / Avaliação
+                  </label>
+                  <input
+                    type="url"
+                    disabled={salvandoEdicaoPlaca}
+                    value={editLinkGoogle}
+                    onChange={(e) => setEditLinkGoogle(e.target.value)}
+                    placeholder="https://g.page/r/.../review"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-sky-500"
+                  />
+                  <div className="mt-1.5 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
+                      className="inline-flex items-center justify-start gap-1.5 w-fit px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] font-bold transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <span>🔍 Gerar Link de Avaliação no Google</span>
+                      <ExternalLink className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                    </button>
+                    <p className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                      Dica: Abra o gerador, localize a empresa, copie o link de avaliação direta e cole no campo acima.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Valor de Venda (R$) */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    Valor do Display (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-xs text-zinc-500 font-bold">R$</span>
+                    <input
+                      type="text"
+                      disabled={salvandoEdicaoPlaca}
+                      value={editValorVenda}
+                      onChange={(e) => setEditValorVenda(e.target.value)}
+                      placeholder="80,00"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
+                <div className="p-3.5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Outras Vendas / Serviços Adicionais</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono">
+                      {editServicosAdmin.length} {editServicosAdmin.length === 1 ? "adicionado" : "adicionados"}
+                    </span>
+                  </div>
+
+                  {editServicosAdmin.length === 0 ? (
+                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400 italic py-1">
+                      Nenhum serviço adicional vinculado. Clique no botão abaixo para adicionar (ex: Otimização GMN, Fotos 360, etc.).
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                      {editServicosAdmin.map((servico, idx) => (
+                        <div
+                          key={servico.id || idx}
+                          className="p-2.5 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-2 relative"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <input
+                              type="text"
+                              disabled={salvandoEdicaoPlaca}
+                              placeholder="Descrição (ex: Otimização Google Meu Negócio, Fotos...)"
+                              value={servico.descricao}
+                              onChange={(e) => {
+                                const novaLista = [...editServicosAdmin];
+                                novaLista[idx].descricao = e.target.value;
+                                setEditServicosAdmin(novaLista);
+                              }}
+                              className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-amber-500 font-medium"
+                            />
+                            <button
+                              type="button"
+                              disabled={salvandoEdicaoPlaca}
+                              onClick={() => {
+                                setEditServicosAdmin(editServicosAdmin.filter((_, i) => i !== idx));
+                              }}
+                              className="text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 p-1 rounded transition cursor-pointer"
+                              title="Remover serviço"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1.5 text-[11px] text-zinc-500 font-bold">R$</span>
+                              <input
+                                type="text"
+                                disabled={salvandoEdicaoPlaca}
+                                placeholder="150,00"
+                                value={servico.valor}
+                                onChange={(e) => {
+                                  const novaLista = [...editServicosAdmin];
+                                  novaLista[idx].valor = e.target.value;
+                                  setEditServicosAdmin(novaLista);
+                                }}
+                                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-7 pr-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+
+                            <div>
+                              <select
+                                disabled={salvandoEdicaoPlaca}
+                                value={servico.tipo_cobranca}
+                                onChange={(e) => {
+                                  const novaLista = [...editServicosAdmin];
+                                  novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
+                                  setEditServicosAdmin(novaLista);
+                                }}
+                                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                              >
+                                <option value="unico">Pagamento Único</option>
+                                <option value="recorrente">Mensal / Recorrente</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={salvandoEdicaoPlaca}
+                    onClick={() => {
+                      setEditServicosAdmin([
+                        ...editServicosAdmin,
+                        {
+                          id: `admin-serv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                          descricao: "",
+                          valor: "",
+                          tipo_cobranca: "unico",
+                        },
+                      ]);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>👉 + Adicionar Outro Serviço</span>
+                  </button>
+                </div>
+
+                {/* Botões do Rodapé */}
+                <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-zinc-200 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalEditarPlacaAberto(false)}
+                    disabled={salvandoEdicaoPlaca}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoEdicaoPlaca}
+                    className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {salvandoEdicaoPlaca ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Salvando Alterações...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 stroke-[2.5]" />
+                        <span>Salvar Display no Supabase</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

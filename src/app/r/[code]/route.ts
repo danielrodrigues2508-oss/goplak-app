@@ -6,6 +6,6 @@ export async function GET(
 ) {
   const params = await context.params;
   const code = params.code;
-  const url = new URL(`/d/${code}`, request.url);
+  const url = new URL(`/p/${code}`, request.url);
   return NextResponse.redirect(url, 307);
 }

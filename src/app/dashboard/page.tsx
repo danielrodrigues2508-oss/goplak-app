@@ -45,7 +45,9 @@ import {
   Upload,
   FileText,
   Trash2,
-  Bell
+  Bell,
+  PlusCircle,
+  Search
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -144,7 +146,14 @@ interface PlacaVirgemItem {
   codigo: string;
 }
 
-interface PlacaAtivaItem {
+export interface ServicoAdicionalItem {
+  id: string;
+  descricao: string;
+  valor: number | string;
+  tipo_cobranca: "unico" | "recorrente";
+}
+
+export interface PlacaAtivaItem {
   id: string;
   codigo: string;
   nome_empresa?: string;
@@ -154,10 +163,68 @@ interface PlacaAtivaItem {
   whatsapp_feedback?: string;
   status: string;
   valor_venda?: number;
+  responsavel_nome?: string;
+  whatsapp_contato?: string;
+  outras_vendas?: any;
+  servicos_adicionais?: ServicoAdicionalItem[];
   activated_at?: string;
+  data_ativacao?: string;
   updated_at?: string;
   created_at?: string;
   aluno_id?: string;
+}
+
+// Helper para calcular o Faturamento Total Real (Display + Múltiplos Serviços Adicionais)
+export function calcularFaturamentoTotalPlaca(placa: {
+  valor_venda?: number;
+  outras_vendas?: any;
+  servicos_adicionais?: ServicoAdicionalItem[] | any;
+  nome_empresa?: string;
+}): number {
+  const valorDisplay = Number(placa.valor_venda) || (placa.valor_venda === 0 ? 0 : 80.0);
+  let valorServicos = 0;
+
+  // 1. Caso a lista dinâmica servicos_adicionais exista como Array
+  if (Array.isArray(placa.servicos_adicionais) && placa.servicos_adicionais.length > 0) {
+    placa.servicos_adicionais.forEach((s: any) => {
+      const v = typeof s?.valor === "number" ? s.valor : parseFloat(String(s?.valor || "0").replace(",", "."));
+      if (!isNaN(v) && v > 0) {
+        valorServicos += v;
+      }
+    });
+  }
+
+  // 2. Caso o objeto estruturado outras_vendas exista (seja array ou objeto único)
+  if (valorServicos === 0 && placa.outras_vendas) {
+    if (Array.isArray(placa.outras_vendas)) {
+      placa.outras_vendas.forEach((s: any) => {
+        const v = typeof s?.valor === "number" ? s.valor : parseFloat(String(s?.valor || "0").replace(",", "."));
+        if (!isNaN(v) && v > 0) {
+          valorServicos += v;
+        }
+      });
+    } else if (typeof placa.outras_vendas === "object") {
+      const valObj = Number(placa.outras_vendas.valor);
+      if (!isNaN(valObj) && valObj > 0) {
+        valorServicos += valObj;
+      }
+    }
+  }
+
+  // 3. Extração caso os serviços estejam formatados na string nome_empresa (ex: [Serviço: Otimização R$ 150 (Único) | Serviço: Fotos R$ 200 (Único)])
+  if (valorServicos === 0 && placa.nome_empresa && placa.nome_empresa.includes("[") && placa.nome_empresa.includes("]")) {
+    const matches = placa.nome_empresa.matchAll(/Servi[çc]o:[^R]*R\$\s*([\d.,]+)/gi);
+    for (const match of matches) {
+      if (match && match[1]) {
+        const parsed = parseFloat(match[1].replace(/\./g, "").replace(",", "."));
+        if (!isNaN(parsed) && parsed > 0) {
+          valorServicos += parsed;
+        }
+      }
+    }
+  }
+
+  return valorDisplay + valorServicos;
 }
 
 export type TipoFiltroPeriodo = "hoje" | "semana" | "mes" | "personalizado";
@@ -173,11 +240,17 @@ export default function DashboardAluno() {
 
   // Métricas Principais
   const [faturamentoHoje, setFaturamentoHoje] = useState(0);
-  const [precoPorDisplay] = useState(80.0);
+  const [precoPorDisplay, setPrecoPorDisplay] = useState(80.0);
   const [displaysVirgens, setDisplaysVirgens] = useState(0);
   const [displaysVendidosHoje, setDisplaysVendidosHoje] = useState(0);
   const [displaysVendidosSemana, setDisplaysVendidosSemana] = useState(0);
-  const [metaSemanalDisplays] = useState(20);
+  const [metaSemanalDisplays, setMetaSemanalDisplays] = useState(20);
+
+  // Modal de Edição de Meta Semanal
+  const [modalEditarMetaAberto, setModalEditarMetaAberto] = useState(false);
+  const [inputMetaSemanal, setInputMetaSemanal] = useState("20");
+  const [inputPrecoDisplay, setInputPrecoDisplay] = useState("80,00");
+  const [salvandoMeta, setSalvandoMeta] = useState(false);
 
   // Filtro Temporal Reativo (Hoje, Esta Semana, Este Mês, Personalizado)
   const [tipoFiltroPeriodo, setTipoFiltroPeriodo] = useState<TipoFiltroPeriodo>("hoje");
@@ -255,6 +328,7 @@ export default function DashboardAluno() {
 
   // Histórico de Pedidos de Displays do Aluno
   const [pedidosAluno, setPedidosAluno] = useState<PedidoDisplay[]>([]);
+  const setPedidos = setPedidosAluno;
   const [abaPedidos, setAbaPedidos] = useState<"andamento" | "concluidos">("andamento");
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
   const [pedidoRecemCriadoId, setPedidoRecemCriadoId] = useState<string | null>(null);
@@ -275,13 +349,22 @@ export default function DashboardAluno() {
     });
   }, [pedidosAluno]);
 
-  // Placas Ativas do Aluno
+  // Placas Ativas do Aluno & Controles de Busca, Filtro por Mês e Paginação
   const [placasAtivas, setPlacasAtivas] = useState<PlacaAtivaItem[]>([]);
+  const [buscaPlacasAtivas, setBuscaPlacasAtivas] = useState<string>("");
+  const [filtroMesPlacasAtivas, setFiltroMesPlacasAtivas] = useState<string>("todos");
+  const [paginaPlacasAtivas, setPaginaPlacasAtivas] = useState<number>(1);
+  const ITENS_POR_PAGINA_PLACAS = 2; // Definido temporariamente como 2 para testes conforme solicitado
 
-  // Modal 4: Editar Link de Destino da Placa
+  // Modal 4: Editar Dados Completos da Placa
   const [modalEditarLinkAberto, setModalEditarLinkAberto] = useState(false);
   const [placaEditando, setPlacaEditando] = useState<PlacaAtivaItem | null>(null);
+  const [editNomeLojaAluno, setEditNomeLojaAluno] = useState("");
+  const [editResponsavelAluno, setEditResponsavelAluno] = useState("");
+  const [editWhatsappAluno, setEditWhatsappAluno] = useState("");
   const [novoLinkDestino, setNovoLinkDestino] = useState("");
+  const [editValorDisplayAluno, setEditValorDisplayAluno] = useState("80.00");
+  const [editServicosAluno, setEditServicosAluno] = useState<ServicoAdicionalItem[]>([]);
   const [salvandoLink, setSalvandoLink] = useState(false);
   const [avisoSucessoLink, setAvisoSucessoLink] = useState<string | null>(null);
 
@@ -417,14 +500,45 @@ export default function DashboardAluno() {
                 setPontoReferenciaInput(endCarregado.ponto_referencia || "");
                 setEditandoEndereco(false);
               }
+              if (a.meta_semanal_displays !== undefined && a.meta_semanal_displays !== null) {
+                const parsedMeta = Number(a.meta_semanal_displays);
+                if (!isNaN(parsedMeta) && parsedMeta > 0) {
+                  setMetaSemanalDisplays(parsedMeta);
+                  setInputMetaSemanal(String(parsedMeta));
+                }
+              }
+              if (a.preco_padrao_display !== undefined && a.preco_padrao_display !== null) {
+                const parsedPreco = Number(a.preco_padrao_display);
+                if (!isNaN(parsedPreco) && parsedPreco > 0) {
+                  setPrecoPorDisplay(parsedPreco);
+                  setInputPrecoDisplay(parsedPreco.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                }
+              }
               encontrouAluno = true;
             }
           });
         }
 
-        // Se não veio do banco, tentar recuperar do localStorage ou metadata
+        // Se não veio do banco, tentar recuperar meta e endereço do localStorage ou metadata
         if (typeof window !== "undefined") {
           try {
+            // Recuperar Meta e Preço se ainda nos valores padrão
+            const cacheMeta = localStorage.getItem("goplak_meta_semanal") || localStorage.getItem("tagplak_meta_semanal");
+            const metaMeta = currentUser.user_metadata?.meta_semanal_displays;
+            const metaFinal = Number(metaMeta || cacheMeta);
+            if (!isNaN(metaFinal) && metaFinal > 0) {
+              setMetaSemanalDisplays(metaFinal);
+              setInputMetaSemanal(String(metaFinal));
+            }
+
+            const cachePreco = localStorage.getItem("goplak_preco_display") || localStorage.getItem("tagplak_preco_display");
+            const metaPreco = currentUser.user_metadata?.preco_por_display || currentUser.user_metadata?.preco_padrao_display;
+            const precoFinal = Number(metaPreco || cachePreco);
+            if (!isNaN(precoFinal) && precoFinal > 0) {
+              setPrecoPorDisplay(precoFinal);
+              setInputPrecoDisplay(precoFinal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+
             const cacheEnd = localStorage.getItem("goplak_aluno_endereco") || localStorage.getItem("tagplak_aluno_endereco");
             const metaEnd = currentUser.user_metadata?.endereco;
             const endFallback = cacheEnd ? JSON.parse(cacheEnd) : metaEnd;
@@ -689,7 +803,11 @@ export default function DashboardAluno() {
         whatsapp_feedback: p.whatsapp_feedback || "",
         status: p.status || "ativa",
         valor_venda: Number(p.valor_venda) || 80.0,
+        responsavel_nome: p.responsavel_nome,
+        whatsapp_contato: p.whatsapp_contato,
+        outras_vendas: p.outras_vendas,
         activated_at: p.activated_at,
+        data_ativacao: p.data_ativacao,
         updated_at: p.updated_at,
         created_at: p.created_at,
         aluno_id: p.aluno_id || currentUserId,
@@ -698,14 +816,13 @@ export default function DashboardAluno() {
 
       // Displays ativados hoje (fuso horário local)
       const ativadasHoje = ativas.filter((p) => {
-        const dataRef = p.activated_at || p.created_at;
+        const dataRef = p.data_ativacao || p.activated_at || p.created_at;
         if (!dataRef) return false;
         return isMesmoDiaLocal(dataRef);
       });
 
       const fatHoje = ativadasHoje.reduce((acc, curr) => {
-        const val = Number(curr.valor_venda);
-        return acc + (isNaN(val) ? 80.0 : val);
+        return acc + calcularFaturamentoTotalPlaca(curr);
       }, 0);
 
       setFaturamentoHoje(fatHoje);
@@ -871,6 +988,15 @@ export default function DashboardAluno() {
           carregarDadosDoBanco();
         }
       )
+      // Escuta reativa instantânea de ativações e edições de placas (Sem F5)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "placas" },
+        (payload) => {
+          console.log("[Realtime Aluno] Placa alterada/ativada:", payload);
+          carregarDadosDoBanco();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -995,8 +1121,7 @@ export default function DashboardAluno() {
   // Faturamento do período selecionado
   const faturamentoPeriodo = useMemo(() => {
     return placasAtivadasPeriodo.reduce((acc, curr) => {
-      const val = Number(curr.valor_venda);
-      return acc + (isNaN(val) ? 80.0 : val);
+      return acc + calcularFaturamentoTotalPlaca(curr);
     }, 0);
   }, [placasAtivadasPeriodo]);
 
@@ -1019,6 +1144,109 @@ export default function DashboardAluno() {
 
   // Lucro Líquido no período
   const lucroLiquidoPeriodo = faturamentoPeriodo - totalGastosPeriodo;
+
+  // Helper para normalização de texto insensível a maiúsculas e acentos
+  const normalizarTexto = (texto: string) => {
+    return (texto || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  };
+
+  // Filtros Dinâmicos e Paginação de "MINHAS PLACAS ATIVAS"
+  const mesesDisponiveisPlacas = useMemo(() => {
+    const mesesSet = new Set<string>();
+    placasAtivas.forEach((p) => {
+      const dtStr = p.activated_at || p.data_ativacao || p.created_at || p.updated_at;
+      if (dtStr) {
+        const d = new Date(dtStr);
+        if (!isNaN(d.getTime())) {
+          const ano = d.getFullYear();
+          const mes = String(d.getMonth() + 1).padStart(2, "0");
+          mesesSet.add(`${ano}-${mes}`);
+        }
+      }
+    });
+
+    const lista = Array.from(mesesSet).sort().reverse();
+    return lista.map((item) => {
+      const [ano, mes] = item.split("-");
+      const dataRef = new Date(Number(ano), Number(mes) - 1, 1);
+      const nomeMes = dataRef.toLocaleDateString("pt-BR", { month: "long" });
+      const capitalizado = nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1);
+      return {
+        valor: item,
+        label: `${capitalizado}/${ano}`,
+      };
+    });
+  }, [placasAtivas]);
+
+  // Define automaticamente o mês inicial selecionado com base na venda mais recente
+  useEffect(() => {
+    if (mesesDisponiveisPlacas.length > 0) {
+      setFiltroMesPlacasAtivas((prev) => {
+        // Se ainda não foi definido ou estava no padrão inicial "todos"
+        if (prev === "todos" || !mesesDisponiveisPlacas.some((m) => m.valor === prev)) {
+          return mesesDisponiveisPlacas[0].valor;
+        }
+        return prev;
+      });
+    }
+  }, [mesesDisponiveisPlacas]);
+
+  const placasAtivasFiltradas = useMemo(() => {
+    const termoNormalizado = normalizarTexto(buscaPlacasAtivas);
+
+    return placasAtivas.filter((p) => {
+      // 1. Filtro por Mês (Pertence ao mês selecionado OU mês="todos")
+      if (filtroMesPlacasAtivas !== "todos") {
+        const dtStr = p.activated_at || p.data_ativacao || p.created_at || p.updated_at;
+        if (!dtStr) return false;
+        const d = new Date(dtStr);
+        if (isNaN(d.getTime())) return false;
+        const ano = d.getFullYear();
+        const mes = String(d.getMonth() + 1).padStart(2, "0");
+        const chaveMes = `${ano}-${mes}`;
+        if (chaveMes !== filtroMesPlacasAtivas) return false;
+      }
+
+      // 2. Filtro por Busca Textual (insensível a maiúsculas/minúsculas e acentos)
+      if (termoNormalizado) {
+        const codigo = normalizarTexto(p.codigo || "");
+        const loja = normalizarTexto(p.nome_empresa || "");
+        const resp = normalizarTexto(p.responsavel_nome || "");
+        const whats = normalizarTexto(p.whatsapp_contato || p.whatsapp_feedback || "");
+
+        // Se houver anotações embutidas em nome_empresa (ex: [Resp: Carlos]), também busca nelas
+        const matches =
+          codigo.includes(termoNormalizado) ||
+          loja.includes(termoNormalizado) ||
+          resp.includes(termoNormalizado) ||
+          whats.includes(termoNormalizado);
+
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [placasAtivas, buscaPlacasAtivas, filtroMesPlacasAtivas]);
+
+  const totalPaginasPlacas = useMemo(() => {
+    return Math.max(1, Math.ceil(placasAtivasFiltradas.length / ITENS_POR_PAGINA_PLACAS));
+  }, [placasAtivasFiltradas.length, ITENS_POR_PAGINA_PLACAS]);
+
+  const placasAtivasPaginadas = useMemo(() => {
+    const inicio = (paginaPlacasAtivas - 1) * ITENS_POR_PAGINA_PLACAS;
+    return placasAtivasFiltradas.slice(inicio, inicio + ITENS_POR_PAGINA_PLACAS);
+  }, [placasAtivasFiltradas, paginaPlacasAtivas, ITENS_POR_PAGINA_PLACAS]);
+
+  // Redefinir página caso a busca ou filtro reduza o total de páginas
+  useEffect(() => {
+    if (paginaPlacasAtivas > totalPaginasPlacas) {
+      setPaginaPlacasAtivas(1);
+    }
+  }, [totalPaginasPlacas, paginaPlacasAtivas]);
 
   // Cálculos Automáticos
   const totalGastosRua = despesasHoje.reduce((acc, curr) => acc + curr.valor, 0);
@@ -1472,10 +1700,7 @@ export default function DashboardAluno() {
         quantidade: kit.qtd,
         valor_total: kit.preco,
         status: "Aguardando",
-        modelo_cor: corEscolhida,
-        endereco_entrega: endAtual,
         comprovante_url: comprovanteUrl,
-        observacao: `Kit: ${kit.nome} (${kit.qtd} un) | Cor: ${corDesc} | Comprovante: ${comprovanteUrl || "Anexado"} | Endereço: ${enderecoTexto}`,
       };
 
       let novoPedidoId: string | null = null;
@@ -1488,24 +1713,9 @@ export default function DashboardAluno() {
       if (!errPed && insertedData?.id) {
         novoPedidoId = insertedData.id;
       } else if (errPed) {
-        console.warn("Tentando insert seguro com colunas base:", errPed);
-        const { data: fbData } = await supabase
-          .from("pedidos_lotes")
-          .insert([
-            {
-              aluno_id: alunoId,
-              quantidade: kit.qtd,
-              valor_total: kit.preco,
-              status: "Aguardando",
-              comprovante_url: comprovanteUrl,
-            },
-          ])
-          .select("id")
-          .maybeSingle();
-
-        if (fbData?.id) {
-          novoPedidoId = fbData.id;
-        }
+        console.error("Erro ao gravar pedido_lote:", errPed);
+        alert("Erro ao gravar pedido: " + errPed.message);
+        return;
       }
 
       // 3. Notificar via API / WhatsApp
@@ -1575,10 +1785,82 @@ export default function DashboardAluno() {
     }
   };
 
-  // 4. ABRIR E SALVAR EDIÇÃO DE LINK DE DESTINO DA PLACA
+  // 4. ABRIR E SALVAR EDIÇÃO COMPLETA DA PLACA PELO ALUNO
   const handleAbrirEditarLink = (placa: PlacaAtivaItem) => {
     setPlacaEditando(placa);
+    
+    // Decompõe nome_empresa caso contenha anotações extras como [Resp: ...] ou [Serviço: ...]
+    const rawNome = placa.nome_empresa || "";
+    let nomeLojaLimpo = rawNome;
+    let resp = placa.responsavel_nome || "";
+    const servicosRecuperados: ServicoAdicionalItem[] = [];
+
+    // 1. Recupera de servicos_adicionais se existir
+    if (Array.isArray(placa.servicos_adicionais) && placa.servicos_adicionais.length > 0) {
+      placa.servicos_adicionais.forEach((s, idx) => {
+        servicosRecuperados.push({
+          id: s.id || `serv-${Date.now()}-${idx}`,
+          descricao: s.descricao || "",
+          valor: s.valor !== undefined && s.valor !== null ? String(s.valor) : "",
+          tipo_cobranca: s.tipo_cobranca === "recorrente" ? "recorrente" : "unico",
+        });
+      });
+    }
+
+    // 2. Recupera de outras_vendas se ainda não tiver preenchido lista
+    if (servicosRecuperados.length === 0 && placa.outras_vendas) {
+      if (Array.isArray(placa.outras_vendas)) {
+        placa.outras_vendas.forEach((s: any, idx: number) => {
+          servicosRecuperados.push({
+            id: s.id || `serv-${Date.now()}-${idx}`,
+            descricao: s.descricao || "",
+            valor: s.valor !== undefined && s.valor !== null ? String(s.valor) : "",
+            tipo_cobranca: s.tipo_cobranca === "recorrente" ? "recorrente" : "unico",
+          });
+        });
+      } else if (typeof placa.outras_vendas === "object" && placa.outras_vendas.descricao) {
+        servicosRecuperados.push({
+          id: `serv-${Date.now()}-0`,
+          descricao: placa.outras_vendas.descricao || "",
+          valor: placa.outras_vendas.valor ? String(placa.outras_vendas.valor) : "",
+          tipo_cobranca: placa.outras_vendas.tipo_cobranca === "recorrente" ? "recorrente" : "unico",
+        });
+      }
+    }
+
+    // 3. Extrai anotações de nome_empresa caso ainda esteja vazio
+    if (rawNome.includes(" [") && rawNome.endsWith("]")) {
+      const idx = rawNome.indexOf(" [");
+      nomeLojaLimpo = rawNome.substring(0, idx);
+      const extraPart = rawNome.substring(idx + 2, rawNome.length - 1);
+      
+      const matchResp = extraPart.match(/Resp:\s*([^|\]]+)/);
+      if (matchResp && !resp) {
+        resp = matchResp[1].trim();
+      }
+
+      if (servicosRecuperados.length === 0) {
+        const matchesServ = extraPart.matchAll(/Servi[çc]o:\s*([^R]+)R\$\s*([\d.,]+)\s*\(([^)]+)\)/gi);
+        let sIdx = 0;
+        for (const matchServ of matchesServ) {
+          if (matchServ && matchServ[1]) {
+            servicosRecuperados.push({
+              id: `serv-${Date.now()}-${sIdx++}`,
+              descricao: matchServ[1].trim(),
+              valor: matchServ[2].trim(),
+              tipo_cobranca: matchServ[3].toLowerCase().includes("recorrente") ? "recorrente" : "unico",
+            });
+          }
+        }
+      }
+    }
+
+    setEditNomeLojaAluno(nomeLojaLimpo);
+    setEditResponsavelAluno(resp);
+    setEditWhatsappAluno(placa.whatsapp_contato || placa.whatsapp_feedback || "");
     setNovoLinkDestino(placa.link_destino || placa.link_google_review || placa.url_destino || "");
+    setEditValorDisplayAluno(placa.valor_venda ? String(placa.valor_venda) : "80.00");
+    setEditServicosAluno(servicosRecuperados);
     setModalEditarLinkAberto(true);
   };
 
@@ -1587,52 +1869,117 @@ export default function DashboardAluno() {
     if (!placaEditando) return;
 
     setSalvandoLink(true);
-    const linkFormatado = novoLinkDestino.trim();
-
     try {
-      // 1. UPDATE no Supabase unicamente na coluna link_destino (SEM updated_at)
-      const { error: errUpdate } = await supabase
+      const nomeLimpo = editNomeLojaAluno.trim();
+      const respLimpo = editResponsavelAluno.trim();
+      const whatsLimpo = editWhatsappAluno.replace(/\D/g, "");
+      const linkLimpo = novoLinkDestino.trim();
+      const valorDisplayNum = parseFloat(editValorDisplayAluno.replace(",", ".")) || 80.0;
+
+      // Filtra serviços válidos
+      const servicosValidos = editServicosAluno
+        .map((s) => ({
+          id: s.id || `serv-${Math.random().toString(36).substring(2, 9)}`,
+          descricao: s.descricao.trim(),
+          valor: parseFloat(String(s.valor || "0").replace(",", ".")) || 0,
+          tipo_cobranca: s.tipo_cobranca === "recorrente" ? ("recorrente" as const) : ("unico" as const),
+        }))
+        .filter((s) => s.descricao.length > 0 || s.valor > 0);
+
+      let linkFormatado = linkLimpo;
+      if (linkFormatado && !linkFormatado.startsWith("http://") && !linkFormatado.startsWith("https://")) {
+        linkFormatado = `https://${linkFormatado}`;
+      }
+
+      // Monta anotações extras dentro de nome_empresa para compatibilidade 100% garantida
+      let nomeEmpresaFinal = nomeLimpo;
+      const partesExtras: string[] = [];
+      if (respLimpo) partesExtras.push(`Resp: ${respLimpo}`);
+      
+      servicosValidos.forEach((s) => {
+        const valTxt = s.valor > 0 ? `R$ ${s.valor}` : "";
+        const cobrancaTxt = s.tipo_cobranca === "recorrente" ? "Recorrente/Mês" : "Único";
+        partesExtras.push(`Serviço: ${s.descricao} ${valTxt} (${cobrancaTxt})`.trim());
+      });
+
+      if (partesExtras.length > 0) {
+        nomeEmpresaFinal = `${nomeLimpo} [${partesExtras.join(" | ")}]`;
+      }
+
+      const updatePayload: Record<string, any> = {
+        nome_empresa: nomeEmpresaFinal,
+        link_google_review: linkFormatado,
+        link_destino: linkFormatado,
+        whatsapp_feedback: whatsLimpo,
+        valor_venda: valorDisplayNum,
+      };
+
+      if (linkFormatado && placaEditando.status === "virgem") {
+        updatePayload.status = "ativa";
+        updatePayload.activated_at = new Date().toISOString();
+      }
+
+      // Tenta enviar com colunas estendidas caso o banco as tenha
+      const payloadEstendido: Record<string, any> = {
+        ...updatePayload,
+        responsavel_nome: respLimpo,
+        whatsapp_contato: whatsLimpo,
+        servicos_adicionais: servicosValidos,
+        outras_vendas: servicosValidos.length > 0 ? servicosValidos : null,
+      };
+
+      const { error: errEstendido } = await supabase
         .from("placas")
-        .update({
-          link_destino: linkFormatado,
-        })
+        .update(payloadEstendido)
         .eq("id", placaEditando.id);
 
-      if (errUpdate) {
-        console.warn("Aviso update link_destino, tentando fallback link_google_review:", errUpdate.message);
-        const { error: errReview } = await supabase
+      if (errEstendido) {
+        console.warn("Fallback update campos base na placa:", errEstendido.message);
+        // Fallback para schema base caso colunas novas não existam
+        const { error: errBase } = await supabase
           .from("placas")
           .update({
+            nome_empresa: nomeEmpresaFinal,
             link_google_review: linkFormatado,
+            whatsapp_feedback: whatsLimpo,
+            valor_venda: valorDisplayNum,
           })
           .eq("id", placaEditando.id);
 
-        if (errReview) {
-          console.error("Erro ao salvar novo link:", errReview);
-        }
+        if (errBase) throw new Error(errBase.message);
       }
 
-      // 2. Atualiza o estado da lista localmente na hora sem reload
+      // Atualiza o estado da lista localmente na hora sem reload
       setPlacasAtivas((prev) =>
         prev.map((item) =>
           item.id === placaEditando.id
             ? {
                 ...item,
+                nome_empresa: nomeEmpresaFinal,
                 link_destino: linkFormatado,
                 link_google_review: linkFormatado,
                 url_destino: linkFormatado,
+                whatsapp_feedback: whatsLimpo,
+                whatsapp_contato: whatsLimpo,
+                responsavel_nome: respLimpo,
+                valor_venda: valorDisplayNum,
+                servicos_adicionais: servicosValidos,
+                outras_vendas: servicosValidos,
               }
             : item
         )
       );
 
-      // 3. Dispara feedback visual (toast / banner de sucesso) e fecha o modal
-      setAvisoSucessoLink(`Link de destino da placa ${placaEditando.codigo} atualizado com sucesso!`);
+      // Dispara feedback visual e fecha o modal
+      setAvisoSucessoLink(`Display ${placaEditando.codigo} atualizado com sucesso!`);
       setModalEditarLinkAberto(false);
       setPlacaEditando(null);
-    } catch (err) {
-      console.error("Erro inesperado ao salvar link:", err);
-      alert("Ocorreu um erro ao salvar o link.");
+
+      // Re-executa busca geral para recalcular todos os cards financeiros imediatamente
+      await carregarDadosDoBanco();
+    } catch (err: any) {
+      console.error("Erro inesperado ao salvar dados da placa:", err);
+      alert("Ocorreu um erro ao salvar as alterações: " + (err.message || String(err)));
     } finally {
       setSalvandoLink(false);
     }
@@ -1644,6 +1991,83 @@ export default function DashboardAluno() {
       spread: 70,
       origin: { y: 0.6 },
     });
+  };
+
+  const handleAbrirEditarMeta = () => {
+    setInputMetaSemanal(String(metaSemanalDisplays));
+    setInputPrecoDisplay(precoPorDisplay.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    setModalEditarMetaAberto(true);
+  };
+
+  const handleSalvarMetaSemanal = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const novaMetaNum = parseInt(inputMetaSemanal.replace(/\D/g, ""), 10);
+    if (isNaN(novaMetaNum) || novaMetaNum <= 0) {
+      alert("Por favor, informe uma meta válida em quantidade de displays (ex: 20).");
+      return;
+    }
+
+    // Limpar formatação monetária (remover R$, espaços e converter formato brasileiro ou americano)
+    const strPreco = String(inputPrecoDisplay).trim();
+    let novoPrecoNum = 0;
+    if (strPreco.includes(",")) {
+      novoPrecoNum = parseFloat(strPreco.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+    } else {
+      novoPrecoNum = parseFloat(strPreco.replace(/[^0-9.-]/g, "")) || 0;
+    }
+    const precoFinal = novoPrecoNum > 0 ? novoPrecoNum : precoPorDisplay;
+
+    setSalvandoMeta(true);
+    try {
+      // 1. Atualizar estado local imediatamente
+      setMetaSemanalDisplays(novaMetaNum);
+      setPrecoPorDisplay(precoFinal);
+
+      // 2. Salvar em localStorage
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("goplak_meta_semanal", String(novaMetaNum));
+          localStorage.setItem("goplak_preco_display", String(precoFinal));
+        } catch (eCache) {
+          console.warn("Aviso ao salvar meta em cache:", eCache);
+        }
+      }
+
+      // 3. Atualizar no Auth User Metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            meta_semanal_displays: novaMetaNum,
+            preco_por_display: precoFinal,
+          },
+        });
+      } catch (eAuth) {
+        console.warn("Aviso ao salvar meta no Auth:", eAuth);
+      }
+
+      // 4. Atualizar na tabela alunos se o registro existir
+      if (alunoId) {
+        try {
+          await supabase
+            .from("alunos")
+            .update({
+              meta_semanal_displays: novaMetaNum,
+              preco_padrao_display: precoFinal,
+            })
+            .eq("id", alunoId);
+        } catch (eAlu) {
+          console.warn("Aviso ao salvar meta na tabela alunos:", eAlu);
+        }
+      }
+
+      setModalEditarMetaAberto(false);
+      setAvisoSucessoLink(`Meta semanal atualizada para ${novaMetaNum} displays! 🎯`);
+    } catch (err: any) {
+      console.error("Erro ao salvar meta semanal:", err);
+      alert("Erro ao salvar meta: " + (err.message || String(err)));
+    } finally {
+      setSalvandoMeta(false);
+    }
   };
 
   const handleCopiarRastreio = (id: string, codigo: string) => {
@@ -1701,6 +2125,32 @@ export default function DashboardAluno() {
       alert("Erro ao confirmar recebimento: " + (err.message || String(err)));
     }
   };
+
+  const carregarDados = carregarDadosDoBanco;
+
+  const handleDeleteLote = async (orderId: string) => {
+    if (!orderId || !confirm("Deseja realmente excluir este pedido?")) return;
+    
+    try {
+      // Remove placas filhas vinculadas
+      await supabase.from('placas').delete().eq('pedido_id', orderId);
+      
+      // Remove o lote
+      const { error } = await supabase.from('pedidos_lotes').delete().eq('id', orderId);
+      
+      if (error) {
+        alert("Erro ao excluir: " + error.message);
+        return;
+      }
+      
+      // Recarrega a listagem mantendo os QR codes intactos
+      await carregarDados();
+    } catch (err: any) {
+      alert("Erro: " + err.message);
+    }
+  };
+
+  const handleDeleteOrder = handleDeleteLote;
 
   const handleLogout = async () => {
     try {
@@ -2063,12 +2513,24 @@ export default function DashboardAluno() {
                   <h3 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
                     <Target className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Progresso da Semana
                   </h3>
-                  <button
-                    onClick={handleComemorarMeta}
-                    className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition cursor-pointer"
-                  >
-                    Celebrar 🎉
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAbrirEditarMeta}
+                      className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition active:scale-95 cursor-pointer"
+                      title="Definir meta semanal de displays"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Editar Meta</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleComemorarMeta}
+                      className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition cursor-pointer"
+                    >
+                      Celebrar 🎉
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3">
@@ -2132,22 +2594,87 @@ export default function DashboardAluno() {
 
           {secaoPlacasAtivasAberta && (
             <div className="space-y-3 animate-in fade-in duration-200">
-              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
-                {placasAtivas.length === 0 ? (
-                  <div className="py-6 text-center space-y-2">
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors space-y-4">
+                
+                {/* 1. BARRA DE FILTROS INCONDICIONAL: Busca + Seletor de Mês */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="relative sm:col-span-2">
+                    <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={buscaPlacasAtivas}
+                      onChange={(e) => {
+                        setBuscaPlacasAtivas(e.target.value);
+                        setPaginaPlacasAtivas(1);
+                      }}
+                      placeholder="🔍 Buscar por loja, responsável ou código..."
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 transition font-medium"
+                    />
+                    {buscaPlacasAtivas && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBuscaPlacasAtivas("");
+                          setPaginaPlacasAtivas(1);
+                        }}
+                        className="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-neutral-200 text-xs p-0.5 cursor-pointer"
+                        title="Limpar busca"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <select
+                      value={filtroMesPlacasAtivas}
+                      onChange={(e) => {
+                        setFiltroMesPlacasAtivas(e.target.value);
+                        setPaginaPlacasAtivas(1);
+                      }}
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition font-medium cursor-pointer"
+                    >
+                      <option value="todos">Todos os Meses</option>
+                      {mesesDisponiveisPlacas.map((m) => (
+                        <option key={m.valor} value={m.valor}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 2. CONTEÚDO: Lista de Placas ou Mensagem de Vazio */}
+                {placasAtivasFiltradas.length === 0 ? (
+                  <div className="py-6 text-center space-y-2 border border-dashed border-zinc-200 dark:border-neutral-800 rounded-2xl">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
                       <QrCode className="w-5 h-5" />
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-neutral-400">
-                      Nenhuma placa ativada em campo ainda.
+                      {placasAtivas.length === 0
+                        ? "Nenhuma placa ativada em campo ainda."
+                        : "Nenhuma placa encontrada com os filtros selecionados."}
                     </p>
-                    <p className="text-[11px] text-zinc-400 dark:text-neutral-500">
-                      Clique no botão <strong className="text-emerald-600 dark:text-emerald-400">+</strong> flutuante para ativar seu primeiro display!
-                    </p>
+                    {placasAtivas.length === 0 ? (
+                      <p className="text-[11px] text-zinc-400 dark:text-neutral-500">
+                        Clique no botão <strong className="text-emerald-600 dark:text-emerald-400">+</strong> flutuante para ativar seu primeiro display!
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBuscaPlacasAtivas("");
+                          setFiltroMesPlacasAtivas("todos");
+                        }}
+                        className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
+                      >
+                        Limpar filtros de busca
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                    {placasAtivas.map((placa) => {
+                  <div className="space-y-3">
+                    {placasAtivasPaginadas.map((placa) => {
                       const rawLink = (placa.link_destino || placa.link_google_review || placa.url_destino || "").trim();
                       const linkExibicao = rawLink ? rawLink.replace(/^https?:\/\//i, "") : "Nenhum link configurado";
                       const linkHref = rawLink
@@ -2155,7 +2682,7 @@ export default function DashboardAluno() {
                           ? rawLink
                           : `https://${rawLink}`
                         : "#";
-                      const dtAtivacao = placa.activated_at || placa.updated_at || placa.created_at;
+                      const dtAtivacao = placa.activated_at || placa.data_ativacao || placa.updated_at || placa.created_at;
                       const dataFormatada = dtAtivacao
                         ? new Date(dtAtivacao).toLocaleDateString("pt-BR", {
                             day: "2-digit",
@@ -2226,6 +2753,32 @@ export default function DashboardAluno() {
                     })}
                   </div>
                 )}
+
+                {/* 3. RODAPÉ DE PAGINAÇÃO: Limpo e Centralizado */}
+                <div className="pt-3 border-t border-zinc-100 dark:border-neutral-800 flex items-center justify-center gap-3 text-xs">
+                  <button
+                    type="button"
+                    disabled={paginaPlacasAtivas <= 1}
+                    onClick={() => setPaginaPlacasAtivas((prev) => Math.max(1, prev - 1))}
+                    className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-neutral-800 bg-zinc-50 dark:bg-neutral-950 font-bold text-xs text-zinc-700 dark:text-neutral-300 disabled:opacity-35 disabled:cursor-not-allowed hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer shadow-sm"
+                  >
+                    Anterior
+                  </button>
+
+                  <span className="font-mono text-xs font-semibold text-zinc-600 dark:text-neutral-400 px-2 py-1">
+                    Página <strong className="text-zinc-900 dark:text-white font-bold">{paginaPlacasAtivas}</strong> de{" "}
+                    <strong className="text-zinc-900 dark:text-white font-bold">{totalPaginasPlacas}</strong>
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={paginaPlacasAtivas >= totalPaginasPlacas}
+                    onClick={() => setPaginaPlacasAtivas((prev) => Math.min(totalPaginasPlacas, prev + 1))}
+                    className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-neutral-800 bg-zinc-50 dark:bg-neutral-950 font-bold text-xs text-zinc-700 dark:text-neutral-300 disabled:opacity-35 disabled:cursor-not-allowed hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer shadow-sm"
+                  >
+                    Próxima
+                  </button>
+                </div>
               </section>
             </div>
           )}
@@ -2518,9 +3071,19 @@ export default function DashboardAluno() {
                                 </span>
                               )}
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusStyle}`}>
-                              {statusLabel}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusStyle}`}>
+                                {statusLabel}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOrder(ped.id)}
+                                className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
+                                title="Excluir este pedido"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Conteúdo Principal: Recusado ou Stepper Timeline */}
@@ -3984,21 +4547,66 @@ export default function DashboardAluno() {
               </button>
             </div>
 
-            <form onSubmit={handleSalvarNovoLink} className="space-y-4">
-              {/* Nome do Estabelecimento (Informativo / Leitura) */}
+            <form onSubmit={handleSalvarNovoLink} className="space-y-3.5">
+              {/* Nome da Loja / Estabelecimento */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Store className="w-3.5 h-3.5 text-zinc-400" /> Estabelecimento / Cliente
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Nome da Loja / Estabelecimento *</span>
                 </label>
-                <div className="w-full bg-zinc-100 dark:bg-neutral-950/80 border border-zinc-200 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-800 dark:text-neutral-200 cursor-not-allowed">
-                  {placaEditando.nome_empresa || "Estabelecimento Parceiro"}
+                <input
+                  type="text"
+                  required
+                  disabled={salvandoLink}
+                  placeholder="Ex: Pizzaria Bella Roma"
+                  value={editNomeLojaAluno}
+                  onChange={(e) => setEditNomeLojaAluno(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-semibold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                />
+              </div>
+
+              {/* Responsável & WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    Nome do Responsável
+                  </label>
+                  <input
+                    type="text"
+                    disabled={salvandoLink}
+                    placeholder="Ex: Carlos Eduardo"
+                    value={editResponsavelAluno}
+                    onChange={(e) => setEditResponsavelAluno(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-sky-500 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    WhatsApp de Contato
+                  </label>
+                  <input
+                    type="tel"
+                    disabled={salvandoLink}
+                    placeholder="(11) 99999-9999"
+                    value={editWhatsappAluno}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      let f = digits;
+                      if (digits.length > 2) f = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+                      if (digits.length > 7) f = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+                      setEditWhatsappAluno(f);
+                    }}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                  />
                 </div>
               </div>
 
-              {/* Input da Nova URL */}
+              {/* URL de Destino (Google Review / Link) */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Link2 className="w-3.5 h-3.5 text-zinc-400" /> URL de Destino (Google Review / Link) *
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Link do Google Maps / Avaliação *</span>
                 </label>
                 <input
                   type="url"
@@ -4006,12 +4614,149 @@ export default function DashboardAluno() {
                   placeholder="Ex: https://maps.app.goo.gl/... ou https://g.page/r/..."
                   value={novoLinkDestino}
                   onChange={(e) => setNovoLinkDestino(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
-                  autoFocus
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                 />
-                <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-1">
-                  Insira o link oficial de avaliação do Google Meu Negócio ou endereço web.
-                </p>
+
+                <div className="mt-1.5 flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
+                    className="inline-flex items-center justify-start gap-1.5 w-fit px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] font-bold transition active:scale-[0.98] cursor-pointer"
+                  >
+                    <span>🔍 Gerar Link de Avaliação no Google</span>
+                    <ExternalLink className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                  </button>
+                  <p className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                    Dica: Abra o gerador, localize a empresa, copie o link de avaliação direta e cole acima.
+                  </p>
+                </div>
+              </div>
+
+              {/* Valor do Display */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Valor do Display (R$)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-xs text-zinc-500 font-bold">R$</span>
+                  <input
+                    type="text"
+                    disabled={salvandoLink}
+                    value={editValorDisplayAluno}
+                    onChange={(e) => setEditValorDisplayAluno(e.target.value)}
+                    placeholder="80,00"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-amber-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Outras Vendas / Serviços Adicionais</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-mono">
+                    {editServicosAluno.length} {editServicosAluno.length === 1 ? "adicionado" : "adicionados"}
+                  </span>
+                </div>
+
+                {editServicosAluno.length === 0 ? (
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 italic py-1">
+                    Nenhum serviço adicional vinculado. Clique no botão abaixo para adicionar (ex: Otimização GMN, Fotos 360, etc.).
+                  </p>
+                ) : (
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    {editServicosAluno.map((servico, idx) => (
+                      <div
+                        key={servico.id || idx}
+                        className="p-2.5 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-2 relative"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            disabled={salvandoLink}
+                            placeholder="Descrição (ex: Otimização Google Meu Negócio, Fotos...)"
+                            value={servico.descricao}
+                            onChange={(e) => {
+                              const novaLista = [...editServicosAluno];
+                              novaLista[idx].descricao = e.target.value;
+                              setEditServicosAluno(novaLista);
+                            }}
+                            className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
+                          />
+                          <button
+                            type="button"
+                            disabled={salvandoLink}
+                            onClick={() => {
+                              setEditServicosAluno(editServicosAluno.filter((_, i) => i !== idx));
+                            }}
+                            className="text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 p-1 rounded transition cursor-pointer"
+                            title="Remover serviço"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1.5 text-[11px] text-zinc-500 font-bold">R$</span>
+                            <input
+                              type="text"
+                              disabled={salvandoLink}
+                              placeholder="150,00"
+                              value={servico.valor}
+                              onChange={(e) => {
+                                const novaLista = [...editServicosAluno];
+                                novaLista[idx].valor = e.target.value;
+                                setEditServicosAluno(novaLista);
+                              }}
+                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-7 pr-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div>
+                            <select
+                              disabled={salvandoLink}
+                              value={servico.tipo_cobranca}
+                              onChange={(e) => {
+                                const novaLista = [...editServicosAluno];
+                                novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
+                                setEditServicosAluno(novaLista);
+                              }}
+                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                              <option value="unico">Pagamento Único</option>
+                              <option value="recorrente">Mensal / Recorrente</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={salvandoLink}
+                  onClick={() => {
+                    setEditServicosAluno([
+                      ...editServicosAluno,
+                      {
+                        id: `serv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                        descricao: "",
+                        valor: "",
+                        tipo_cobranca: "unico",
+                      },
+                    ]);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>👉 + Adicionar Outro Serviço</span>
+                </button>
               </div>
 
               {/* Botões de Ação */}
@@ -4022,14 +4767,14 @@ export default function DashboardAluno() {
                     setModalEditarLinkAberto(false);
                     setPlacaEditando(null);
                   }}
-                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
+                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={salvandoLink}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {salvandoLink ? (
                     <span className="inline-flex items-center justify-center gap-2">
@@ -4037,7 +4782,135 @@ export default function DashboardAluno() {
                       <span>Salvando...</span>
                     </span>
                   ) : (
-                    <span>Salvar Novo Link</span>
+                    <span>Salvar Alterações</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DEFINIR META SEMANAL */}
+      {modalEditarMetaAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setModalEditarMetaAberto(false)}
+              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 rounded-2xl">
+                <Target className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  Definir Meta Semanal
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                  Configure seu objetivo pessoal de ativação de displays
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSalvarMetaSemanal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
+                  Quantos displays você quer ativar por semana? *
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    required
+                    value={inputMetaSemanal}
+                    onChange={(e) => setInputMetaSemanal(e.target.value)}
+                    placeholder="Ex: 20"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-2.5 text-base font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-400 dark:text-neutral-500">
+                    displays / sem
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Valor estimado por display (R$)</span>
+                  <span className="text-[10px] text-zinc-400 font-normal">Opcional</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    value={inputPrecoDisplay}
+                    onChange={(e) => setInputPrecoDisplay(e.target.value)}
+                    placeholder="80,00"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                  />
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-1">
+                  Usado para calcular a projeção financeira estimada de fechamento da semana.
+                </p>
+              </div>
+
+              {/* Prévia do montante total */}
+              {(() => {
+                const qtd = Number(inputMetaSemanal.replace(/\D/g, "")) || 0;
+                // Limpar formatação monetária (remover R$, pontos de milhar e converter vírgula se houver)
+                const valorUnitario = typeof inputPrecoDisplay === "number"
+                  ? inputPrecoDisplay
+                  : (() => {
+                      const str = String(inputPrecoDisplay).trim();
+                      if (str.includes(",")) {
+                        return parseFloat(str.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+                      }
+                      return parseFloat(str.replace(/[^0-9.-]/g, "")) || 0;
+                    })();
+
+                const faturamentoEstimado = qtd * valorUnitario;
+                if (qtd <= 0) return null;
+
+                return (
+                  <div className="p-3 rounded-2xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between">
+                    <span className="text-xs text-zinc-600 dark:text-neutral-300 font-medium">
+                      Faturamento estimado com a meta batida:
+                    </span>
+                    <span className="text-xs font-black text-violet-600 dark:text-violet-400">
+                      {faturamentoEstimado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {/* Botões */}
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalEditarMetaAberto(false)}
+                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoMeta}
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {salvandoMeta ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </span>
+                  ) : (
+                    <span>Salvar Meta</span>
                   )}
                 </button>
               </div>

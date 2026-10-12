@@ -13,4 +13,10 @@ if (typeof window !== "undefined") {
   console.log("Supabase Anon Key carregada:", !!SUPABASE_ANON_KEY);
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storage: typeof window !== "undefined" ? window.localStorage : undefined,
+  },
+});
