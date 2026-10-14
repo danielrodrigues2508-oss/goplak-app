@@ -2864,10 +2864,10 @@ export default function PainelDistribuidorAdmin() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans p-3 sm:p-4 selection:bg-emerald-500 selection:text-black transition-colors duration-200">
-      <div className="max-w-7xl mx-auto space-y-3">
+    <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans py-3 px-3 sm:py-4 sm:px-4 selection:bg-emerald-500 selection:text-black transition-colors duration-200">
+      <div className="max-w-7xl mx-auto space-y-2 sm:space-y-2.5">
         {/* HEADER SUPERIOR (COMPACTO COM BADGE INTEGRADA) */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-2 border-b border-zinc-200 dark:border-neutral-800">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
@@ -3069,23 +3069,23 @@ export default function PainelDistribuidorAdmin() {
         {metricasFinanceiras.alertaEstoqueCritico && (
           <div
             onClick={() => setModalReposicaoAberto(true)}
-            className="w-full cursor-pointer bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/15 border-2 border-amber-500/80 hover:border-amber-400 p-3 sm:p-4 rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-[1.003] group animate-in fade-in"
+            className="w-full cursor-pointer bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/15 border-2 border-amber-500/80 hover:border-amber-400 py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl shadow-md transition-all duration-300 transform hover:scale-[1.002] group animate-in fade-in"
           >
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-500 border border-amber-500/40 animate-pulse shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-500 border border-amber-500/40 animate-pulse shrink-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
                       Alerta de Reposição de Fábrica
                     </span>
-                    <span className="text-[11px] text-amber-700 dark:text-amber-300/80 font-mono font-bold">
+                    <span className="text-[10px] text-amber-700 dark:text-amber-300/80 font-mono font-bold">
                       Projeção: ~{Math.max(0, Math.round(metricasFinanceiras.diasRestantesEstoque))} dias
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-100 mt-1 leading-snug">
+                  <p className="text-xs font-bold text-amber-900 dark:text-amber-100 mt-0.5 leading-tight">
                     ⚠️ ATENÇÃO: Estoque para apenas {Math.max(0, Math.round(metricasFinanceiras.diasRestantesEstoque))} dias ({estoqueDisplaysProntos} displays restantes). Faça o pedido com o fornecedor agora!
                   </p>
                 </div>
@@ -3096,25 +3096,25 @@ export default function PainelDistribuidorAdmin() {
                   e.stopPropagation();
                   setModalReposicaoAberto(true);
                 }}
-                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-xs shadow-md transition active:scale-95 whitespace-nowrap flex items-center gap-1.5 shrink-0 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-[11px] shadow-sm transition active:scale-95 whitespace-nowrap flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
-                <PackagePlus className="w-4 h-4 stroke-[2.5]" />
-                <span>+ Adicionar Displays Recebidos do Fornecedor</span>
+                <PackagePlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>+ Adicionar Displays Recebidos</span>
               </button>
             </div>
           </div>
         )}
 
         {/* 1. CARDS DE MÉTRICAS FINANCEIRAS & ESTOQUE DA FÁBRICA */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
           {/* Faturamento Bruto (Entradas) */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3 shadow-xs transition-colors">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-xl p-2.5 sm:p-3 shadow-xs transition-colors">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-0.5">
               <span className="text-[10px] uppercase font-bold tracking-wider">Faturamento Bruto</span>
               <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl lg:text-2xl font-black text-zinc-900 dark:text-white">
+              <span className="text-lg lg:text-xl font-black text-zinc-900 dark:text-white">
                 R$ {metricasFinanceiras.faturamentoBruto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -3122,13 +3122,13 @@ export default function PainelDistribuidorAdmin() {
           </div>
 
           {/* Custos de Mercadorias / Despesas */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3 shadow-xs transition-colors">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-xl p-2.5 sm:p-3 shadow-xs transition-colors">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-0.5">
               <span className="text-[10px] uppercase font-bold tracking-wider">Custo & Despesas</span>
               <TrendingDown className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl lg:text-2xl font-black text-rose-600 dark:text-rose-400">
+              <span className="text-lg lg:text-xl font-black text-rose-600 dark:text-rose-400">
                 R$ {metricasFinanceiras.custosTotais.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -3136,13 +3136,13 @@ export default function PainelDistribuidorAdmin() {
           </div>
 
           {/* Lucro Líquido Real */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-emerald-500/40 rounded-2xl p-3 shadow-xs transition-colors bg-gradient-to-b from-transparent to-emerald-500/5">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+          <div className="bg-white dark:bg-neutral-900/90 border border-emerald-500/40 rounded-xl p-2.5 sm:p-3 shadow-xs transition-colors bg-gradient-to-b from-transparent to-emerald-500/5">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-0.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">Lucro Líquido Real</span>
               <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className={`text-xl lg:text-2xl font-black ${metricasFinanceiras.lucroLiquidoReal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
+              <span className={`text-lg lg:text-xl font-black ${metricasFinanceiras.lucroLiquidoReal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
                 R$ {metricasFinanceiras.lucroLiquidoReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -3150,24 +3150,24 @@ export default function PainelDistribuidorAdmin() {
           </div>
 
           {/* Estoque de Displays Prontos na Fábrica */}
-          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3 shadow-xs transition-all relative flex flex-col justify-between">
+          <div className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-xl p-2.5 sm:p-3 shadow-xs transition-all relative flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-1">
+              <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400 mb-0.5">
                 <span className="text-[10px] uppercase font-bold tracking-wider">Estoque na Fábrica</span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={handleAbrirAjusteEstoque}
-                    className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer"
+                    className="p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition cursor-pointer"
                     title="Ajustar / Calibrar Estoque Manualmente (Ex: zerar)"
                   >
-                    <span className="text-[10px] font-bold">⚙️ Calibrar</span>
+                    <span className="text-[9px] font-bold">⚙️ Calibrar</span>
                   </button>
                   <Package className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 </div>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl lg:text-3xl font-black text-amber-600 dark:text-amber-300">{estoqueDisplaysProntos}</span>
+                <span className="text-xl lg:text-2xl font-black text-amber-600 dark:text-amber-300">{estoqueDisplaysProntos}</span>
                 <span className="text-xs text-zinc-500 dark:text-neutral-400">un prontos</span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -3178,11 +3178,11 @@ export default function PainelDistribuidorAdmin() {
               </div>
             </div>
 
-            <div className="mt-2.5 pt-2 border-t border-zinc-100 dark:border-neutral-800/80 flex items-center gap-1.5">
+            <div className="mt-2 pt-1.5 border-t border-zinc-100 dark:border-neutral-800/80 flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setModalReposicaoAberto(true)}
-                className="flex-1 py-1 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                className="flex-1 py-0.5 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
               >
                 <PackagePlus className="w-3 h-3" />
                 <span>+ Repor</span>
@@ -3190,7 +3190,7 @@ export default function PainelDistribuidorAdmin() {
               <button
                 type="button"
                 onClick={handleAbrirAjusteEstoque}
-                className="py-1 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 border border-zinc-200 dark:border-neutral-700 text-[10px] font-bold transition cursor-pointer active:scale-95"
+                className="py-0.5 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 border border-zinc-200 dark:border-neutral-700 text-[10px] font-bold transition cursor-pointer active:scale-95"
                 title="Ajustar saldo real do estoque"
               >
                 <span>Ajustar</span>
@@ -3200,39 +3200,39 @@ export default function PainelDistribuidorAdmin() {
         </section>
 
         {/* BARRA COMPACTA DE MÉTRICAS OPERACIONAIS */}
-        <section className="bg-white/60 dark:bg-neutral-900/60 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl px-3.5 py-2 flex items-center justify-between gap-3 text-xs flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-neutral-500">Operação em Campo:</span>
+        <section className="bg-white/70 dark:bg-neutral-900/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2.5 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-neutral-500 tracking-wider">Operação em Campo:</span>
           </div>
-          <div className="flex items-center gap-4 sm:gap-6 flex-wrap text-zinc-600 dark:text-neutral-300">
-            <div className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-sky-500" />
+          <div className="flex items-center gap-3 sm:gap-5 flex-wrap text-zinc-600 dark:text-neutral-300">
+            <div className="flex items-center gap-1">
+              <Layers className="w-3 h-3 text-sky-500" />
               <span className="text-[11px]">Total Emitidas: <strong className="text-zinc-900 dark:text-white font-mono">{totalProduzidas}</strong></span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
               <span className="text-[11px]">Ativas em Lojas: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{totalAtivas}</strong></span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Package className="w-3.5 h-3.5 text-amber-500" />
+            <div className="flex items-center gap-1">
+              <Package className="w-3 h-3 text-amber-500" />
               <span className="text-[11px]">Estoque Alunos: <strong className="text-amber-600 dark:text-amber-400 font-mono">{totalVirgens}</strong></span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+            <div className="flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-emerald-500" />
               <span className="text-[11px]">Faturamento Alunos: <strong className="text-zinc-900 dark:text-white font-mono">R$ {volumeTransacionado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
             </div>
           </div>
         </section>
 
         {/* DISPONIBILIDADE DE KITS PARA ALUNOS (LANÇAMENTO) */}
-        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 sm:p-4 shadow-xs transition-colors">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-neutral-800 pb-3 mb-3">
+        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-xl p-2.5 sm:p-3 shadow-xs transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-zinc-200 dark:border-neutral-800 pb-2 mb-2">
             <div>
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                  <SlidersHorizontal className="w-4 h-4" />
+                <span className="p-1 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
                 </span>
-                <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                <h2 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white">
                   Disponibilidade de Kits para Alunos
                 </h2>
                 {salvandoKits && (
@@ -3241,21 +3241,21 @@ export default function PainelDistribuidorAdmin() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+              <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
                 Defina em tempo real quais lotes ficam liberados para compra no App do Aluno. No lançamento, mantenha apenas o Kit 10 ativo.
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-zinc-100 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700">
+              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-zinc-100 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700">
                 {Object.values(kitsDisponiveis).filter(Boolean).length} de 3 kits liberados
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
             {/* KIT START (10 UN | R$ 170,00) */}
             <div
-              className={`p-3.5 rounded-2xl border transition-all ${
+              className={`p-2.5 rounded-xl border transition-all ${
                 kitsDisponiveis.start
                   ? "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/50 shadow-xs"
                   : "bg-zinc-50/60 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800 opacity-75"
@@ -3264,10 +3264,10 @@ export default function PainelDistribuidorAdmin() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Start (10 un)</span>
+                    <span className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white">Kit Start (10 un)</span>
                   </div>
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-neutral-300 mt-0.5">
-                    R$ 170,00 <span className="text-[11px] font-normal text-zinc-500">(R$ 17,00/un)</span>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-0.5">
+                    R$ 170,00 <span className="text-[10px] font-normal text-zinc-500">(R$ 17,00/un)</span>
                   </p>
                 </div>
 
@@ -3275,26 +3275,26 @@ export default function PainelDistribuidorAdmin() {
                 <button
                   type="button"
                   onClick={() => handleToggleKitDisponibilidade("start")}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     kitsDisponiveis.start ? "bg-emerald-500" : "bg-zinc-300 dark:bg-neutral-700"
                   }`}
                   title={kitsDisponiveis.start ? "Bloquear Kit Start para alunos" : "Liberar Kit Start para alunos"}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      kitsDisponiveis.start ? "translate-x-5" : "translate-x-0"
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      kitsDisponiveis.start ? "translate-x-4" : "translate-x-0"
                     }`}
                   />
                 </button>
               </div>
 
-              <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+              <div className="mt-2 pt-1.5 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px]">
                 <span className="text-zinc-500 dark:text-neutral-400">Padrão 5 Pretas / 5 Azuis</span>
                 <span
-                  className={`font-bold px-2 py-0.5 rounded-md border text-[10px] ${
+                  className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
                     kitsDisponiveis.start
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                      : "bg-zinc-200 dark:bg-neutral-800 text-zinc-500 border-zinc-300 dark:border-neutral-700"
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                      : "bg-zinc-200 dark:bg-neutral-800 text-zinc-500 border border-zinc-300 dark:border-neutral-700"
                   }`}
                 >
                   {kitsDisponiveis.start ? "Ativo" : "Bloqueado"}
@@ -3304,7 +3304,7 @@ export default function PainelDistribuidorAdmin() {
 
             {/* KIT PRO (30 UN | R$ 510,00) */}
             <div
-              className={`p-3.5 rounded-2xl border transition-all ${
+              className={`p-2.5 rounded-xl border transition-all ${
                 kitsDisponiveis.pro
                   ? "bg-emerald-500/5 dark:bg-emerald-950/20 border-emerald-500/50 shadow-xs"
                   : "bg-zinc-50/60 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800 opacity-75"
@@ -3313,10 +3313,10 @@ export default function PainelDistribuidorAdmin() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Pro (30 un)</span>
+                    <span className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white">Kit Pro (30 un)</span>
                   </div>
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-neutral-300 mt-0.5">
-                    R$ 510,00 <span className="text-[11px] font-normal text-zinc-500">(R$ 17,00/un)</span>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-0.5">
+                    R$ 510,00 <span className="text-[10px] font-normal text-zinc-500">(R$ 17,00/un)</span>
                   </p>
                 </div>
 
@@ -3324,26 +3324,26 @@ export default function PainelDistribuidorAdmin() {
                 <button
                   type="button"
                   onClick={() => handleToggleKitDisponibilidade("pro")}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     kitsDisponiveis.pro ? "bg-emerald-500" : "bg-zinc-300 dark:bg-neutral-700"
                   }`}
                   title={kitsDisponiveis.pro ? "Bloquear Kit Pro para alunos" : "Liberar Kit Pro para alunos"}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      kitsDisponiveis.pro ? "translate-x-5" : "translate-x-0"
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      kitsDisponiveis.pro ? "translate-x-4" : "translate-x-0"
                     }`}
                   />
                 </button>
               </div>
 
-              <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+              <div className="mt-2 pt-1.5 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px]">
                 <span className="text-zinc-500 dark:text-neutral-400">Escolha de Cores</span>
                 <span
-                  className={`font-bold px-2 py-0.5 rounded-md border text-[10px] ${
+                  className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
                     kitsDisponiveis.pro
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30"
                   }`}
                 >
                   {kitsDisponiveis.pro ? "Ativo" : "Bloqueado"}
@@ -3353,7 +3353,7 @@ export default function PainelDistribuidorAdmin() {
 
             {/* KIT MASTER (50 UN | R$ 800,00) */}
             <div
-              className={`p-3.5 rounded-2xl border transition-all ${
+              className={`p-2.5 rounded-xl border transition-all ${
                 kitsDisponiveis.master
                   ? "bg-violet-500/5 dark:bg-violet-950/20 border-violet-500/50 shadow-xs"
                   : "bg-zinc-50/60 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800 opacity-75"
@@ -3362,10 +3362,10 @@ export default function PainelDistribuidorAdmin() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Master (50 un)</span>
+                    <span className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white">Kit Master (50 un)</span>
                   </div>
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-neutral-300 mt-0.5">
-                    R$ 800,00 <span className="text-[11px] font-normal text-zinc-500">(R$ 16,00/un)</span>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-0.5">
+                    R$ 800,00 <span className="text-[10px] font-normal text-zinc-500">(R$ 16,00/un)</span>
                   </p>
                 </div>
 
@@ -3373,26 +3373,26 @@ export default function PainelDistribuidorAdmin() {
                 <button
                   type="button"
                   onClick={() => handleToggleKitDisponibilidade("master")}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     kitsDisponiveis.master ? "bg-emerald-500" : "bg-zinc-300 dark:bg-neutral-700"
                   }`}
                   title={kitsDisponiveis.master ? "Bloquear Kit Master para alunos" : "Liberar Kit Master para alunos"}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      kitsDisponiveis.master ? "translate-x-5" : "translate-x-0"
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      kitsDisponiveis.master ? "translate-x-4" : "translate-x-0"
                     }`}
                   />
                 </button>
               </div>
 
-              <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+              <div className="mt-2 pt-1.5 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px]">
                 <span className="text-zinc-500 dark:text-neutral-400">Escala Máxima</span>
                 <span
-                  className={`font-bold px-2 py-0.5 rounded-md border text-[10px] ${
+                  className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
                     kitsDisponiveis.master
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30"
                   }`}
                 >
                   {kitsDisponiveis.master ? "Ativo" : "Bloqueado"}
@@ -3403,7 +3403,7 @@ export default function PainelDistribuidorAdmin() {
         </section>
 
         {/* 2. GESTÃO DE PEDIDOS & GESTÃO DE PLACAS ATIVADAS */}
-        <section id="tabela-pedidos" className="w-full bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 sm:p-4 shadow-xs transition-colors">
+        <section id="tabela-pedidos" className="w-full bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3 sm:p-3.5 shadow-xs transition-colors">
           {/* Header & Seletor de Abas Principais */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5 pb-2 border-b border-zinc-200 dark:border-neutral-800">
             <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-neutral-800/80 p-1 rounded-xl">
