@@ -2158,86 +2158,94 @@ export default function DashboardAluno() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans pb-28 pt-4 px-4 sm:px-6 max-w-lg mx-auto selection:bg-emerald-500 selection:text-black transition-colors duration-200">
-      {/* Top Header Mobile */}
-      <header className="flex items-center justify-between py-3 mb-4 border-b border-zinc-200 dark:border-neutral-800/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">GOPLAK</span>
+    <main className="w-full max-w-full overflow-x-hidden min-h-screen bg-slate-50 dark:bg-neutral-950 text-zinc-900 dark:text-neutral-100 font-sans pb-28 pt-3 px-3 sm:px-4 selection:bg-emerald-500 selection:text-black transition-colors duration-200">
+      <div className="w-full max-w-lg mx-auto min-w-0">
+        {/* Top Header Mobile */}
+        <header className="w-full min-w-0 pb-3 mb-4 border-b border-zinc-200 dark:border-neutral-800/80 space-y-2">
+          {/* Linha superior: Logo + Título e Botões de Ação */}
+          <div className="flex items-center justify-between gap-1.5 w-full min-w-0">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-600 dark:text-emerald-400 block">
+                GOPLAK
+              </span>
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-1.5 truncate">
+                Meu Dashboard <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              </h1>
+            </div>
+
+            {/* Botões de Ação Enxutos */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {isMasterAdmin && (
+                <button
+                  onClick={() => router.push("/admin")}
+                  title="Acessar Painel Administrador Master"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 text-[11px] font-bold shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+                >
+                  <Crown className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span>Admin</span>
+                </button>
+              )}
+
+              {/* Sino de Notificação Rápida */}
+              <button
+                onClick={() => {
+                  const sec = document.getElementById("meus-pedidos");
+                  if (sec) {
+                    setSecaoMeusPedidosAberta(true);
+                    sec.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                }}
+                title="Avisos e Pedidos em Andamento"
+                aria-label="Notificações"
+                className="relative p-1.5 sm:p-2 rounded-lg bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {pedidosAluno.some((p) => p.status === "enviado" || p.status === "Aguardando" || p.status === "em_producao") && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900 animate-pulse" />
+                )}
+              </button>
+
+              <ThemeToggle />
+              <button
+                onClick={() => {
+                  setRefreshing(true);
+                  carregarDadosDoBanco();
+                }}
+                title="Atualizar dados do Supabase"
+                aria-label="Atualizar dados"
+                className="p-1.5 sm:p-2 rounded-lg bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-emerald-500 dark:text-emerald-400" : ""}`} />
+              </button>
+              <button
+                onClick={handleLogout}
+                title="Sair da Conta (Logout)"
+                aria-label="Sair da Conta"
+                className="p-1.5 sm:p-2 rounded-lg bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-500/30 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2 mt-0.5">
-            Meu Dashboard <Sparkles className="w-4 h-4 text-emerald-500 dark:text-emerald-400 inline" />
-          </h1>
-          <div className="flex items-center gap-2.5 flex-wrap mt-1">
-            <span className="text-zinc-500 dark:text-neutral-400 text-xs sm:text-sm whitespace-nowrap">
+
+          {/* Linha inferior: Parceiro e Badge Top 1 com quebra suave e sem transbordo */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="text-zinc-500 dark:text-neutral-400">
               Parceiro: <strong className="font-semibold text-zinc-800 dark:text-neutral-200">{alunoNome}</strong>
             </span>
             {rankingLiderDisplays > 0 ? (
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-0.5 text-xs font-medium rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 max-w-full truncate">
                 🏆 {isAlunoLider
                   ? `Top 1 do Mês: ${rankingAlunoDisplays} displays (+10 grátis) • ${diasRestantesMes}d`
                   : `Top 1: ${rankingLiderNome} (${rankingLiderDisplays} un) • ${diasRestantesMes}d`}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-0.5 text-xs font-medium rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:text-amber-400/80">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:text-amber-400/80">
                 🏆 Top 1 do Mês: +10 displays grátis
               </span>
             )}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isMasterAdmin && (
-            <button
-              onClick={() => router.push("/admin")}
-              title="Acessar Painel Administrador Master"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer"
-            >
-              <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>Admin</span>
-            </button>
-          )}
-
-          {/* Sino de Notificação Rápida */}
-          <button
-            onClick={() => {
-              const sec = document.getElementById("meus-pedidos");
-              if (sec) {
-                setSecaoMeusPedidosAberta(true);
-                sec.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
-            }}
-            title="Avisos e Pedidos em Andamento"
-            aria-label="Notificações"
-            className="relative p-2 rounded-xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white shadow-sm transition active:scale-95 cursor-pointer"
-          >
-            <Bell className="w-4 h-4" />
-            {pedidosAluno.some((p) => p.status === "enviado" || p.status === "Aguardando" || p.status === "em_producao") && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900 animate-pulse" />
-            )}
-          </button>
-
-          <ThemeToggle />
-          <button
-            onClick={() => {
-              setRefreshing(true);
-              carregarDadosDoBanco();
-            }}
-            title="Atualizar dados do Supabase"
-            aria-label="Atualizar dados"
-            className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white shadow-sm transition active:scale-95 cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-emerald-500 dark:text-emerald-400" : ""}`} />
-          </button>
-          <button
-            onClick={handleLogout}
-            title="Sair da Conta (Logout)"
-            aria-label="Sair da Conta"
-            className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-500/30 shadow-sm transition active:scale-95 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+        </header>
 
       {/* TOASTS FLUTUANTES (FIXED TOP-RIGHT / NÃO DESLOCAM O LAYOUT) */}
       <div
@@ -2328,25 +2336,25 @@ export default function DashboardAluno() {
         <div className="space-y-3">
 
           {/* CARD PRINCIPAL: RITMO COM FILTRO TEMPORAL */}
-          <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl backdrop-blur-sm transition-colors">
+          <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl backdrop-blur-sm transition-colors w-full max-w-full overflow-hidden">
             {/* Header com Título, Indicador de Período e Filtros Rápidos (Segmented Control) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4 w-full min-w-0">
               {/* Linha de Título e Data */}
               <div className="flex items-center gap-2 shrink-0">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-zinc-600 dark:text-neutral-400 flex items-center gap-1.5 whitespace-nowrap">
                   <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" /> DESEMPENHO
                 </h2>
-                <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap font-mono">
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[10px] sm:text-[11px] text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap font-mono">
                   {labelPeriodo}
                 </span>
               </div>
 
-              {/* Barra de Filtros (Segmented Control em Cápsula Única) */}
-              <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-1 rounded-xl flex items-center gap-1 w-full sm:w-auto shrink-0">
+              {/* Barra de Filtros (Segmented Control em Grid de 3 Colunas 100% fluido) */}
+              <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-1 rounded-xl w-full sm:w-auto grid grid-cols-3 gap-1">
                 <button
                   type="button"
                   onClick={() => setTipoFiltroPeriodo("hoje")}
-                  className={`flex-1 sm:flex-initial text-xs px-3 py-1.5 rounded-lg transition cursor-pointer text-center whitespace-nowrap ${
+                  className={`w-full text-center text-xs py-1.5 px-1 rounded-lg transition cursor-pointer truncate ${
                     tipoFiltroPeriodo === "hoje"
                       ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium"
@@ -2357,7 +2365,7 @@ export default function DashboardAluno() {
                 <button
                   type="button"
                   onClick={() => setTipoFiltroPeriodo("semana")}
-                  className={`flex-1 sm:flex-initial text-xs px-3 py-1.5 rounded-lg transition cursor-pointer text-center whitespace-nowrap ${
+                  className={`w-full text-center text-xs py-1.5 px-1 rounded-lg transition cursor-pointer truncate ${
                     tipoFiltroPeriodo === "semana"
                       ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium"
@@ -2368,7 +2376,7 @@ export default function DashboardAluno() {
                 <button
                   type="button"
                   onClick={() => setTipoFiltroPeriodo("mes")}
-                  className={`flex-1 sm:flex-initial text-xs px-3 py-1.5 rounded-lg transition cursor-pointer text-center whitespace-nowrap ${
+                  className={`w-full text-center text-xs py-1.5 px-1 rounded-lg transition cursor-pointer truncate ${
                     tipoFiltroPeriodo === "mes"
                       ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
                       : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium"
@@ -2379,40 +2387,40 @@ export default function DashboardAluno() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 w-full max-w-full">
               {/* Faturamento do Período */}
-              <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5">
-                <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Faturamento
+              <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3 sm:p-3.5 min-w-0">
+                <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" /> Faturamento
                 </span>
-                <p className="text-lg font-bold text-zinc-900 dark:text-white mt-1">
+                <p className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white mt-1 truncate">
                   R$ {faturamentoPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
-                <span className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block truncate">
                   {displaysVendidosPeriodo} {displaysVendidosPeriodo === 1 ? "ativado" : "ativados"} {tipoFiltroPeriodo === "hoje" ? "hoje" : "no período"}
                 </span>
               </div>
 
               {/* Gastos de Rua do Período */}
-              <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-rose-500/20 rounded-2xl p-3.5 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
-                    <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Gastos de Rua
+              <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-rose-500/20 rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between min-w-0">
+                <div className="flex items-center justify-between gap-1 flex-wrap">
+                  <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                    <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 shrink-0" /> Gastos
                   </span>
                   <button
                     type="button"
                     onClick={() => setModalDespesaAberto(true)}
-                    className="text-[10px] font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-md transition active:scale-95 cursor-pointer"
+                    className="text-[9px] sm:text-[10px] font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded-md transition active:scale-95 cursor-pointer shrink-0"
                     title="Lançar gasto de rua"
                   >
-                    + Add Gastos
+                    + Add
                   </button>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-rose-500 dark:text-rose-400 font-mono mt-1">
+                  <p className="text-base sm:text-lg font-semibold text-rose-500 dark:text-rose-400 font-mono mt-1 truncate">
                     - R$ {totalGastosPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
-                  <span className="text-[10px] text-zinc-500 dark:text-neutral-400">
+                  <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block truncate">
                     {despesasPeriodo.length} {despesasPeriodo.length === 1 ? "lançamento" : "lançamentos"}
                   </span>
                 </div>
@@ -2420,17 +2428,17 @@ export default function DashboardAluno() {
             </div>
 
             {/* Lucro Líquido do Período em Destaque */}
-            <div className="bg-gradient-to-r from-emerald-500/10 dark:from-emerald-950/50 to-emerald-500/5 dark:to-neutral-950 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            <div className="w-full max-w-full bg-gradient-to-r from-emerald-500/10 dark:from-emerald-950/50 to-emerald-500/5 dark:to-neutral-950 border border-emerald-500/30 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-2 overflow-hidden">
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block truncate">
                   {tipoFiltroPeriodo === "hoje" ? "LUCRO LÍQUIDO HOJE" : "LUCRO LÍQUIDO NO PERÍODO"}
                 </span>
-                <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
+                <p className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-0.5 truncate">
                   R$ {lucroLiquidoPeriodo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="w-11 h-11 rounded-full bg-emerald-500/15 dark:bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <DollarSign className="w-6 h-6" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-500/15 dark:bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
             </div>
           </section>
@@ -2463,65 +2471,66 @@ export default function DashboardAluno() {
           {secaoEstoqueMetaAberta && (
             <div className="space-y-3 animate-in fade-in duration-200">
               {/* ESTOQUE DE DISPLAYS */}
-              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
-                <div className="flex items-center justify-between mb-3">
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl transition-colors w-full max-w-full overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <span className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400">
                     Inventário de Campo
                   </span>
                   <button
                     onClick={() => setModalSolicitarAberto(true)}
-                    className="inline-flex items-center gap-1 text-xs font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-500/30 px-2.5 py-1 rounded-xl transition active:scale-95 cursor-pointer"
+                    className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-500/30 px-2 sm:px-2.5 py-1 rounded-xl transition active:scale-95 cursor-pointer shrink-0"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Solicitar Displays (+)</span>
+                    <Plus className="w-3.5 h-3.5 shrink-0" />
+                    <span className="sm:hidden">+ Pedir Displays</span>
+                    <span className="hidden sm:inline">+ Solicitar Displays</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5 flex flex-col justify-between">
-                    <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-                      <ShoppingBag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Displays Virgens
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-full">
+                  <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between min-w-0">
+                    <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                      <ShoppingBag className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" /> Virgens
                     </span>
-                    <div className="mt-2 flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-zinc-900 dark:text-white">{displaysVirgens}</span>
+                    <div className="mt-2 flex items-baseline gap-1 truncate">
+                      <span className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white">{displaysVirgens}</span>
                       <span className="text-xs text-zinc-500 dark:text-neutral-400">em estoque</span>
                     </div>
                   </div>
 
-                  <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5 flex flex-col justify-between">
-                    <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-                      <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Potencial Parado
+                  <div className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between min-w-0">
+                    <span className="text-xs text-zinc-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                      <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" /> Potencial Parado
                     </span>
-                    <div className="mt-2">
-                      <p className="text-xl font-bold text-amber-600 dark:text-amber-300">
+                    <div className="mt-2 min-w-0">
+                      <p className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-300 truncate">
                         R$ {potencialEstoque.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </p>
-                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400">em potencial de venda</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block truncate">potencial de venda</span>
                     </div>
                   </div>
                 </div>
               </section>
 
               {/* PROGRESSO DA SEMANA */}
-              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5">
-                    <Target className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Progresso da Semana
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl transition-colors w-full max-w-full overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2">
+                  <h3 className="text-[11px] sm:text-xs uppercase font-bold tracking-wider text-zinc-500 dark:text-neutral-400 flex items-center gap-1.5 shrink-0">
+                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-violet-600 dark:text-violet-400 shrink-0" /> Progresso da Semana
                   </h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleAbrirEditarMeta}
-                      className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition active:scale-95 cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition active:scale-95 cursor-pointer"
                       title="Definir meta semanal de displays"
                     >
-                      <Pencil className="w-3 h-3" />
+                      <Pencil className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                       <span>Editar Meta</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleComemorarMeta}
-                      className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition cursor-pointer"
+                      className="text-[11px] sm:text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition cursor-pointer px-1 py-0.5"
                     >
                       Celebrar 🎉
                     </button>
@@ -2529,11 +2538,11 @@ export default function DashboardAluno() {
                 </div>
 
                 <div className="mt-3">
-                  <div className="flex justify-between items-baseline mb-1.5">
-                    <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-                      {displaysVendidosSemana} de {metaSemanalDisplays} displays ativados
+                  <div className="flex justify-between items-baseline mb-1.5 gap-2">
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                      {displaysVendidosSemana} de {metaSemanalDisplays} ativados
                     </span>
-                    <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">{percentualMeta}%</span>
+                    <span className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400 shrink-0">{percentualMeta}%</span>
                   </div>
 
                   {/* Barra de Progresso */}
@@ -2589,7 +2598,7 @@ export default function DashboardAluno() {
 
           {secaoPlacasAtivasAberta && (
             <div className="space-y-3 animate-in fade-in duration-200">
-              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-colors space-y-4">
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl transition-colors space-y-4 w-full max-w-full overflow-hidden">
                 
                 {/* 1. BARRA DE FILTROS INCONDICIONAL: Busca + Seletor de Mês */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -2884,7 +2893,7 @@ export default function DashboardAluno() {
 
           {secaoMeusPedidosAberta && (
             <div className="space-y-3 animate-in fade-in duration-200">
-              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl transition-colors">
+              <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-4 sm:p-5 shadow-sm dark:shadow-xl transition-colors w-full max-w-full overflow-hidden">
                 {/* Abas de Visualização: Em Andamento vs Histórico Concluído */}
                 <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-neutral-800/80 p-1 rounded-2xl mb-3.5 border border-zinc-200 dark:border-neutral-800">
                   <button
@@ -3095,23 +3104,23 @@ export default function DashboardAluno() {
                           ) : (
                             <div className="space-y-3 pt-1">
                               {/* Linha do Tempo de 5 Etapas */}
-                              <div className="relative flex items-start justify-between px-0.5">
+                              <div className="relative flex items-start justify-between px-0.5 w-full max-w-full">
                                 {/* Barra Traseira de Progresso */}
                                 <div className="absolute top-2.5 left-4 right-4 h-0.5 bg-zinc-200 dark:bg-neutral-800 -z-0" />
 
                                 {/* 1. Realizado */}
-                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                <div className="flex flex-col items-center text-center relative z-10 flex-1 min-w-0 max-w-[56px]">
                                   <div className="w-5 h-5 rounded-full bg-emerald-500 text-black flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900">
                                     <Check className="w-3 h-3 stroke-[3]" />
                                   </div>
-                                  <span className="text-[9.5px] font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 leading-tight">
+                                  <span className="text-[9.5px] font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 leading-tight truncate w-full">
                                     1. Realizado
                                   </span>
                                   {s1Time && <span className="text-[8.5px] font-mono text-zinc-500 dark:text-neutral-400 leading-tight">{s1Time}</span>}
                                 </div>
 
                                 {/* 2. Aprovado */}
-                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                <div className="flex flex-col items-center text-center relative z-10 flex-1 min-w-0 max-w-[56px]">
                                   <div
                                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
                                       s2Done
@@ -3124,7 +3133,7 @@ export default function DashboardAluno() {
                                     {s2Done ? <Check className="w-3 h-3 stroke-[3]" /> : s2Active ? <Clock className="w-3 h-3" /> : "2"}
                                   </div>
                                   <span
-                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight truncate w-full ${
                                       s2Done
                                         ? "text-zinc-800 dark:text-neutral-200"
                                         : s2Active
@@ -3142,7 +3151,7 @@ export default function DashboardAluno() {
                                 </div>
 
                                 {/* 3. Produção */}
-                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                <div className="flex flex-col items-center text-center relative z-10 flex-1 min-w-0 max-w-[56px]">
                                   <div
                                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
                                       s3Done
@@ -3155,7 +3164,7 @@ export default function DashboardAluno() {
                                     {s3Done ? <Check className="w-3 h-3 stroke-[3]" /> : s3Active ? <Package className="w-3 h-3" /> : "3"}
                                   </div>
                                   <span
-                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight truncate w-full ${
                                       s3Done
                                         ? "text-zinc-800 dark:text-neutral-200"
                                         : s3Active
@@ -3169,7 +3178,7 @@ export default function DashboardAluno() {
                                 </div>
 
                                 {/* 4. Enviado */}
-                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                <div className="flex flex-col items-center text-center relative z-10 flex-1 min-w-0 max-w-[56px]">
                                   <div
                                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
                                       s4Done
@@ -3182,7 +3191,7 @@ export default function DashboardAluno() {
                                     {s4Done ? <Check className="w-3 h-3 stroke-[3]" /> : s4Active ? <Truck className="w-3 h-3" /> : "4"}
                                   </div>
                                   <span
-                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight truncate w-full ${
                                       s4Done
                                         ? "text-zinc-800 dark:text-neutral-200"
                                         : s4Active
@@ -3200,7 +3209,7 @@ export default function DashboardAluno() {
                                 </div>
 
                                 {/* 5. Entregue */}
-                                <div className="flex flex-col items-center text-center relative z-10 w-14">
+                                <div className="flex flex-col items-center text-center relative z-10 flex-1 min-w-0 max-w-[56px]">
                                   <div
                                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ring-4 ring-white dark:ring-neutral-900 ${
                                       s5Done
@@ -3211,7 +3220,7 @@ export default function DashboardAluno() {
                                     {s5Done ? <Check className="w-3 h-3 stroke-[3]" /> : "5"}
                                   </div>
                                   <span
-                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight ${
+                                    className={`text-[9.5px] font-bold mt-1.5 leading-tight truncate w-full ${
                                       s5Done
                                         ? "text-emerald-600 dark:text-emerald-400"
                                         : "text-zinc-400 dark:text-neutral-600"
@@ -3316,6 +3325,7 @@ export default function DashboardAluno() {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* BOTÃO FLUTUANTE PRINCIPAL (+): EXCLUSIVAMENTE PARA ATIVAR NOVO DISPLAY EM CAMPO */}
