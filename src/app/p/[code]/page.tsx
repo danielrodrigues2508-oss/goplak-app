@@ -396,46 +396,46 @@ export default function DisplayRedirectPage({ params }: Props) {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-in fade-in">
+      <div className="w-full max-w-lg bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 animate-in fade-in">
         {/* Cabeçalho */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-bold">
+        <div className="text-center space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-bold">
             <QrCode className="w-3.5 h-3.5" />
             <span>Display {codigo}</span>
           </div>
 
-          <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
             Ativar Display {codigo}
           </h1>
-          <p className="text-xs text-zinc-500 dark:text-neutral-400 leading-relaxed">
-            Vincule os dados do estabelecimento para que o QR Code e NFC redirecionem diretamente para a avaliação do Google.
+          <p className="text-xs text-zinc-500 dark:text-neutral-400 leading-tight">
+            Vincule os dados para que o QR Code e NFC redirecionem para o Google.
           </p>
         </div>
 
         {/* Alerta de Sucesso */}
         {ativadaComSucesso && (
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2.5 animate-in fade-in">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div>
               <p className="font-bold">Display ativado com sucesso!</p>
-              <p className="text-[11px] opacity-90">Redirecionando para a avaliação do Google...</p>
+              <p className="text-[10px] opacity-90">Redirecionando para a avaliação do Google...</p>
             </div>
           </div>
         )}
 
         {/* Alerta de Erro */}
         {erroAtivacao && (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2.5 animate-in fade-in">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{erroAtivacao}</span>
           </div>
         )}
 
         {/* Formulário Completo de Ativação do Lojista */}
-        <form onSubmit={handleSalvarAtivacao} className="space-y-3.5">
+        <form onSubmit={handleSalvarAtivacao} className="space-y-2.5">
           {/* Nome do Comércio / Estabelecimento */}
           <div>
-            <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
               <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Nome do Comércio / Estabelecimento *</span>
             </label>
@@ -446,16 +446,16 @@ export default function DisplayRedirectPage({ params }: Props) {
               value={nomeComercio}
               onChange={(e) => setNomeComercio(e.target.value)}
               placeholder="Ex: Pizzaria Bella Roma, Barbearia Silva..."
-              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 transition font-medium"
+              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 transition font-medium"
             />
           </div>
 
-          {/* Nome do Responsável & WhatsApp de Contato */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Agrupamento Lado a Lado: Nome do Responsável (50%) + WhatsApp (50%) */}
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                <span>Nome do Responsável *</span>
+              <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate flex items-center gap-1">
+                <User className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                <span>Responsável *</span>
               </label>
               <input
                 type="text"
@@ -463,15 +463,15 @@ export default function DisplayRedirectPage({ params }: Props) {
                 disabled={salvando || ativadaComSucesso}
                 value={nomeResponsavel}
                 onChange={(e) => setNomeResponsavel(e.target.value)}
-                placeholder="Ex: Carlos Eduardo, Mariana..."
-                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-sky-500 transition"
+                placeholder="Ex: Carlos"
+                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-sky-500 transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>WhatsApp de Contato *</span>
+              <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate flex items-center gap-1">
+                <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span>WhatsApp *</span>
               </label>
               <input
                 type="tel"
@@ -480,7 +480,7 @@ export default function DisplayRedirectPage({ params }: Props) {
                 value={whatsappContato}
                 onChange={(e) => setWhatsappContato(formatarTelefone(e.target.value))}
                 placeholder="(11) 99999-9999"
-                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 transition"
+                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 transition"
               />
             </div>
           </div>
@@ -488,9 +488,9 @@ export default function DisplayRedirectPage({ params }: Props) {
           {/* Link do Google Maps / Avaliação */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+              <label className="text-xs font-medium text-zinc-500 dark:text-neutral-400 flex items-center gap-1">
                 <Link2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                <span>Link do Google Maps / Avaliação *</span>
+                <span>Link de Avaliação do Google *</span>
               </label>
             </div>
 
@@ -501,61 +501,57 @@ export default function DisplayRedirectPage({ params }: Props) {
               value={linkGoogle}
               onChange={(e) => setLinkGoogle(e.target.value)}
               placeholder="https://g.page/r/.../review ou link de avaliação"
-              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-sky-500 transition"
+              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-sky-500 transition"
             />
 
             {/* Botão de Atalho Auxiliar para Gerador de Link Externo */}
-            <div className="mt-2 flex flex-col gap-1.5">
+            <div className="mt-1 flex flex-col gap-1">
               <button
                 type="button"
                 onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
-                className="inline-flex items-center justify-center sm:justify-start gap-1.5 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-xs font-bold transition active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center justify-start gap-1 w-fit px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold transition active:scale-[0.98] cursor-pointer"
               >
                 <span>🔍 Gerar Link de Avaliação no Google</span>
-                <ExternalLink className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                <ExternalLink className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400 shrink-0" />
               </button>
-
-              <p className="text-[11px] text-zinc-500 dark:text-neutral-400 leading-normal">
-                Dica: Abra o gerador, localize a empresa, copie o link de avaliação direta e cole no campo acima.
-              </p>
             </div>
           </div>
 
           {/* Valor do Display (R$) */}
           <div>
-            <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5 text-amber-500" />
+            <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-amber-500" />
               <span>Valor do Display (R$)</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-xs text-zinc-500 dark:text-neutral-400 font-bold">R$</span>
+              <span className="absolute left-2.5 top-2 text-xs text-zinc-500 dark:text-neutral-400 font-bold">R$</span>
               <input
                 type="text"
                 disabled={salvando || ativadaComSucesso}
                 value={valorDisplay}
                 onChange={(e) => setValorDisplay(e.target.value)}
                 placeholder="80,00"
-                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 transition"
+                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-2 text-xs sm:text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 transition"
               />
             </div>
           </div>
 
           {/* Seletor Opcional: Adicionar Outras Vendas / Serviços */}
-          <div className="pt-1">
+          <div className="pt-0.5">
             <button
               type="button"
               disabled={salvando || ativadaComSucesso}
               onClick={() => setMostrarOutrasVendas(!mostrarOutrasVendas)}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>{mostrarOutrasVendas ? "Ocultar Outras Vendas / Serviços" : "+ Adicionar Outras Vendas / Serviços"}</span>
             </button>
 
             {mostrarOutrasVendas && (
-              <div className="mt-2.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 space-y-3 animate-in fade-in">
+              <div className="mt-2 p-3 rounded-2xl bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 space-y-2 animate-in fade-in">
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-medium text-zinc-500 dark:text-neutral-400 mb-1">
                     Descrição do Serviço / Venda
                   </label>
                   <input
@@ -563,41 +559,41 @@ export default function DisplayRedirectPage({ params }: Props) {
                     disabled={salvando || ativadaComSucesso}
                     value={servicoDescricao}
                     onChange={(e) => setServicoDescricao(e.target.value)}
-                    placeholder="Ex: Gestão Mensal Google Meu Negócio, Pacote de Fotos..."
-                    className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="Ex: Gestão Mensal GMN, Fotos 360..."
+                    className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                      Valor do Serviço (R$)
+                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-neutral-400 mb-1">
+                      Valor (R$)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-[11px] text-zinc-500 font-bold">R$</span>
+                      <span className="absolute left-2 top-1.5 text-[11px] text-zinc-500 font-bold">R$</span>
                       <input
                         type="text"
                         disabled={salvando || ativadaComSucesso}
                         value={servicoValor}
                         onChange={(e) => setServicoValor(e.target.value)}
                         placeholder="150,00"
-                        className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                        className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-6 pr-2 py-1.5 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                      Tipo de Cobrança
+                    <label className="block text-[11px] font-medium text-zinc-500 dark:text-neutral-400 mb-1">
+                      Cobrança
                     </label>
                     <select
                       disabled={salvando || ativadaComSucesso}
                       value={servicoTipoCobranca}
                       onChange={(e) => setServicoTipoCobranca(e.target.value as "unico" | "recorrente")}
-                      className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2 py-1.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="unico">Pagamento Único</option>
-                      <option value="recorrente">Recorrente (Mensal)</option>
+                      <option value="recorrente">Recorrente/Mês</option>
                     </select>
                   </div>
                 </div>
@@ -606,16 +602,16 @@ export default function DisplayRedirectPage({ params }: Props) {
           </div>
 
           {/* Botão de Envio */}
-          <div className="pt-2">
+          <div className="pt-1.5">
             <button
               type="submit"
               disabled={salvando || ativadaComSucesso}
-              className="w-full py-3.5 px-4 rounded-xl font-extrabold text-sm bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-xl font-extrabold text-sm bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {salvando ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Salvando no Banco e Ativando...</span>
+                  <span>Salvando & Ativando...</span>
                 </>
               ) : ativadaComSucesso ? (
                 <>
@@ -633,7 +629,7 @@ export default function DisplayRedirectPage({ params }: Props) {
         </form>
 
         {/* Rodapé Informativo */}
-        <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800 text-center">
+        <div className="pt-1.5 border-t border-zinc-200 dark:border-neutral-800 text-center">
           <p className="text-[11px] text-zinc-400 dark:text-neutral-500">
             Conectado como <strong className="text-zinc-700 dark:text-neutral-300">{usuario?.email}</strong>
           </p>

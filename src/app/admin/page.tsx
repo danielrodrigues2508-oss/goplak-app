@@ -4161,31 +4161,31 @@ export default function PainelDistribuidorAdmin() {
         {/* MODAL DE DESPACHO E RASTREIO */}
         {modalDespachoAberto && pedidoDespachando && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalDespachoAberto(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
                 <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Despachar Pedido & Rastreio
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
                     {pedidoDespachando.alunoNome} ({pedidoDespachando.quantidade} displays)
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleConfirmarDespacho} className="space-y-4">
+              <form onSubmit={handleConfirmarDespacho} className="space-y-3">
                 {/* Transportadora */}
                 <div>
                   <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
@@ -4269,36 +4269,36 @@ export default function PainelDistribuidorAdmin() {
         {/* MODAL DE EMISSÃO MANUAL DE LOTES COM SELETOR VISUAL DE CORES */}
         {modalEmissaoManualAberto && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               {/* Botão Fechar */}
               <button
                 type="button"
                 onClick={() => setModalEmissaoManualAberto(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
               {/* Cabeçalho */}
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                   <PlusCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Emissão Manual de Lote
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
                     Gere displays virgens sequenciais e credite no estoque do parceiro.
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleGerarLote} className="space-y-4">
+              <form onSubmit={handleGerarLote} className="space-y-3">
                 {/* 1. TIPO DE EMISSÃO (SELEÇÃO PRINCIPAL) */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-2">
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
                     Tipo de Emissão do Lote
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -4306,13 +4306,13 @@ export default function PainelDistribuidorAdmin() {
                     <button
                       type="button"
                       onClick={() => setTipoEmissaoManual("venda_aluno")}
-                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-start gap-2.5 ${
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex items-start gap-2 ${
                         tipoEmissaoManual === "venda_aluno"
                           ? "bg-sky-500/10 border-sky-500 text-sky-950 dark:text-sky-100 ring-2 ring-sky-500/30 shadow-xs"
                           : "bg-zinc-50 dark:bg-neutral-950 border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-900"
                       }`}
                     >
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0 ${
+                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center mt-0.5 shrink-0 ${
                         tipoEmissaoManual === "venda_aluno"
                           ? "border-sky-500 bg-sky-500"
                           : "border-zinc-400 dark:border-neutral-600"
@@ -4320,12 +4320,12 @@ export default function PainelDistribuidorAdmin() {
                         {tipoEmissaoManual === "venda_aluno" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-sky-500" />
-                          <span>Venda para Aluno / Parceiro</span>
+                        <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1">
+                          <Users className="w-3 h-3 text-sky-500" />
+                          <span>Venda Aluno / Parceiro</span>
                         </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
-                          Tabela comercial • Credita estoque do aluno
+                        <div className="text-[10px] text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          Tabela comercial • Credita estoque
                         </div>
                       </div>
                     </button>
@@ -4334,13 +4334,13 @@ export default function PainelDistribuidorAdmin() {
                     <button
                       type="button"
                       onClick={() => setTipoEmissaoManual("reposicao_propria")}
-                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-start gap-2.5 ${
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex items-start gap-2 ${
                         tipoEmissaoManual === "reposicao_propria"
                           ? "bg-amber-500/10 border-amber-500 text-amber-950 dark:text-amber-100 ring-2 ring-amber-500/30 shadow-xs"
                           : "bg-zinc-50 dark:bg-neutral-950 border-zinc-200 dark:border-neutral-800 text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-900"
                       }`}
                     >
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0 ${
+                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center mt-0.5 shrink-0 ${
                         tipoEmissaoManual === "reposicao_propria"
                           ? "border-amber-500 bg-amber-500"
                           : "border-zinc-400 dark:border-neutral-600"
@@ -4348,12 +4348,12 @@ export default function PainelDistribuidorAdmin() {
                         {tipoEmissaoManual === "reposicao_propria" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                          <PackagePlus className="w-3.5 h-3.5 text-amber-500" />
+                        <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1">
+                          <PackagePlus className="w-3 h-3 text-amber-500" />
                           <span>Reposição Própria (ADM)</span>
                         </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
-                          Preço de custo (R$ {(custoUnitarioDisplay || 12.30).toFixed(2).replace(".", ",")}/un) • Fábrica
+                        <div className="text-[10px] text-zinc-500 dark:text-neutral-400 mt-0.5">
+                          Custo R$ {(custoUnitarioDisplay || 12.30).toFixed(2).replace(".", ",")}/un • Fábrica
                         </div>
                       </div>
                     </button>
@@ -4362,21 +4362,21 @@ export default function PainelDistribuidorAdmin() {
 
                 {/* Quantidade */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
-                      Quantidade Total de Displays
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                      Quantidade Displays
                     </label>
-                    <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
-                      {tipoEmissaoManual === "reposicao_propria" ? `R$ ${(custoUnitarioDisplay || 12.30).toFixed(2).replace(".", ",")}/un (Custo Fábrica)` : "Preço de Tabela Comercial"}
+                    <span className="text-[10px] font-mono text-zinc-500 dark:text-neutral-400">
+                      {tipoEmissaoManual === "reposicao_propria" ? `R$ ${(custoUnitarioDisplay || 12.30).toFixed(2).replace(".", ",")}/un (Custo Fábrica)` : "Preço Comercial"}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="grid grid-cols-3 gap-1.5 mb-1.5">
                     {[20, 50, 100].map((qtd) => (
                       <button
                         key={qtd}
                         type="button"
                         onClick={() => setQuantidadeLote(qtd)}
-                        className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        className={`py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                           quantidadeLote === qtd
                             ? tipoEmissaoManual === "reposicao_propria"
                               ? "bg-amber-500 text-black border-amber-400 shadow-xs"
@@ -4395,15 +4395,15 @@ export default function PainelDistribuidorAdmin() {
                     required
                     value={quantidadeLote}
                     onChange={(e) => setQuantidadeLote(parseInt(e.target.value, 10) || 1)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition font-mono"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-1.5 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition font-mono"
                   />
                 </div>
 
                 {/* SELETOR VISUAL DE CORES (AZUL / PRETO) */}
-                <div className="space-y-3 bg-zinc-50/60 dark:bg-neutral-950/60 border border-zinc-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5">
+                <div className="space-y-2.5 bg-zinc-50/60 dark:bg-neutral-950/60 border border-zinc-200/80 dark:border-neutral-800/80 rounded-xl p-3">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-zinc-800 dark:text-neutral-200 uppercase tracking-wider">
-                      Composição de Cores dos Displays
+                    <label className="block text-[11px] font-bold text-zinc-800 dark:text-neutral-200 uppercase tracking-wider">
+                      Composição de Cores
                     </label>
                     <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
                       {qtdPretaManual} Pretas / {qtdAzulManual} Azuis
@@ -4460,7 +4460,7 @@ export default function PainelDistribuidorAdmin() {
 
                   {/* Campos Numéricos para Modo Personalizado */}
                   {opcaoCorManual === "personalizado" && (
-                    <div className="grid grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-150">
+                    <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
                       <div>
                         <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 mb-1">
                           Qtd Pretas (un):
@@ -4474,7 +4474,7 @@ export default function PainelDistribuidorAdmin() {
                             const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                             setQtdPretaManual(val);
                           }}
-                          className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-700 rounded-xl px-3 py-1.5 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                          className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-700 rounded-xl px-2.5 py-1 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
                       <div>
@@ -4490,7 +4490,7 @@ export default function PainelDistribuidorAdmin() {
                             const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                             setQtdAzulManual(val);
                           }}
-                          className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-700 rounded-xl px-3 py-1.5 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                          className="w-full bg-white dark:bg-neutral-900 border border-zinc-300 dark:border-neutral-700 rounded-xl px-2.5 py-1 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
                     </div>
@@ -4498,18 +4498,18 @@ export default function PainelDistribuidorAdmin() {
 
                   {/* Validação de Soma para Modo Personalizado */}
                   {opcaoCorManual === "personalizado" && qtdPretaManual + qtdAzulManual !== quantidadeLote && (
-                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>
-                        A soma atual ({qtdPretaManual + qtdAzulManual} un) difere do total do lote ({quantidadeLote} un). Ajuste os valores.
+                        Soma ({qtdPretaManual + qtdAzulManual} un) difere do total ({quantidadeLote} un).
                       </span>
                     </div>
                   )}
 
                   {/* Cards Visuais com Fotos dos Displays */}
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-2 pt-1">
                     {/* Card Placa Preta */}
-                    <div className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition ${
+                    <div className={`p-2 rounded-xl border flex flex-col items-center justify-center transition ${
                       qtdPretaManual > 0
                         ? "bg-zinc-900/5 dark:bg-neutral-900 border-zinc-800/80 dark:border-neutral-700 shadow-xs"
                         : "bg-zinc-100/40 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800/40 opacity-40"
@@ -4517,20 +4517,20 @@ export default function PainelDistribuidorAdmin() {
                       <img
                         src="/placa-preta.png"
                         alt="Display Preto Google Review"
-                        className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg shadow-sm"
+                        className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-lg shadow-sm"
                       />
-                      <div className="mt-2 text-center">
-                        <span className="block text-xs font-bold text-zinc-900 dark:text-white">
+                      <div className="mt-1 text-center">
+                        <span className="block text-[11px] font-bold text-zinc-900 dark:text-white">
                           Display Preto
                         </span>
-                        <span className="inline-block mt-0.5 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-zinc-900 text-white dark:bg-white dark:text-black">
+                        <span className="inline-block mt-0.5 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 text-white dark:bg-white dark:text-black">
                           {qtdPretaManual} un ({quantidadeLote > 0 ? Math.round((qtdPretaManual / quantidadeLote) * 100) : 0}%)
                         </span>
                       </div>
                     </div>
 
                     {/* Card Placa Azul */}
-                    <div className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition ${
+                    <div className={`p-2 rounded-xl border flex flex-col items-center justify-center transition ${
                       qtdAzulManual > 0
                         ? "bg-blue-500/5 dark:bg-blue-950/20 border-blue-500/40 dark:border-blue-500/40 shadow-xs"
                         : "bg-zinc-100/40 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800/40 opacity-40"
@@ -4538,13 +4538,13 @@ export default function PainelDistribuidorAdmin() {
                       <img
                         src="/placa-azul.png"
                         alt="Display Azul Google Review"
-                        className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg shadow-sm"
+                        className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-lg shadow-sm"
                       />
-                      <div className="mt-2 text-center">
-                        <span className="block text-xs font-bold text-blue-600 dark:text-blue-400">
+                      <div className="mt-1 text-center">
+                        <span className="block text-[11px] font-bold text-blue-600 dark:text-blue-400">
                           Display Azul
                         </span>
-                        <span className="inline-block mt-0.5 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-blue-600 text-white">
+                        <span className="inline-block mt-0.5 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-blue-600 text-white">
                           {qtdAzulManual} un ({quantidadeLote > 0 ? Math.round((qtdAzulManual / quantidadeLote) * 100) : 0}%)
                         </span>
                       </div>
@@ -4695,12 +4695,12 @@ export default function PainelDistribuidorAdmin() {
         {/* MODAL DE VISUALIZAÇÃO DO COMPROVANTE BANCÁRIO */}
         {modalComprovanteAberto && pedidoSelecionadoComprovante && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-2xl w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               {/* Botão Fechar */}
               <button
                 type="button"
                 onClick={() => setModalComprovanteAberto(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
@@ -4823,38 +4823,38 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DE RECUSA DE PEDIDO */}
         {modalRecusarAberto && pedidoRecusando && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Recusar Pedido
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
                     Aluno: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{pedidoRecusando.alunoNome}</span>
                   </p>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
                   Motivo da Recusa (Opcional)
                 </label>
                 <textarea
                   value={motivoRecusaInput}
                   onChange={(e) => setMotivoRecusaInput(e.target.value)}
                   placeholder="Ex: Comprovante ilegível, valor divergente ou pagamento não identificado."
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl p-3 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition min-h-[90px]"
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition min-h-[80px]"
                 />
 
                 <div className="pt-2 flex gap-2">
                   <button
                     type="button"
                     onClick={() => setModalRecusarAberto(false)}
-                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-xs transition cursor-pointer"
+                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2 rounded-xl text-xs transition cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -4862,7 +4862,7 @@ export default function PainelDistribuidorAdmin() {
                     type="button"
                     onClick={handleConfirmarRecusaPedido}
                     disabled={processandoAcaoId === pedidoRecusando.id}
-                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 rounded-xl text-xs transition cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
                   >
                     {processandoAcaoId === pedidoRecusando.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -4878,34 +4878,34 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE PEDIDO */}
         {modalExcluirAberto && pedidoExcluindo && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalExcluirAberto(false)}
                 disabled={excluindoPedido}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
                   <Trash2 className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Excluir Pedido
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
-                    Confirmação de exclusão permanente e estorno de valores.
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                    Confirmação de exclusão permanente e estorno.
                   </p>
                 </div>
               </div>
 
               {/* Detalhes do Pedido */}
-              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 text-xs space-y-2 mb-4">
+              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3 text-xs space-y-1.5 mb-3">
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-500">Aluno:</span>
                   <span className="font-bold text-zinc-900 dark:text-white">{pedidoExcluindo.alunoNome}</span>
@@ -4927,22 +4927,22 @@ export default function PainelDistribuidorAdmin() {
               </div>
 
               {/* Aviso de Impacto */}
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 space-y-1 mb-4">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 space-y-1 mb-3">
                 <p className="font-bold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Tem certeza que deseja excluir este pedido?</span>
+                  <span>Excluir definitivamente este pedido?</span>
                 </p>
                 <p className="text-[11px] text-rose-600/90 dark:text-rose-300/80 leading-relaxed">
-                  Essa ação não pode ser desfeita. O pedido será removido, os lançamentos de caixa vinculados serão estornados e os displays retornarão ao estoque da fábrica.
+                  Essa ação não pode ser desfeita. Lançamentos de caixa serão estornados e os displays retornarão ao estoque.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-200 dark:border-neutral-800">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setModalExcluirAberto(false)}
                   disabled={excluindoPedido}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
@@ -4950,12 +4950,12 @@ export default function PainelDistribuidorAdmin() {
                   type="button"
                   onClick={handleConfirmarExclusaoPedido}
                   disabled={excluindoPedido}
-                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {excluindoPedido ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Excluindo e Estornando...</span>
+                      <span>Excluindo...</span>
                     </>
                   ) : (
                     <>
@@ -4971,35 +4971,35 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DE ENDEREÇO COMPLETO */}
         {modalEnderecoAberto && enderecoVisualizando && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalEnderecoAberto(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Endereço de Entrega
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
                     Destinatário: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{enderecoVisualizando.alunoNome}</span>
                   </p>
                 </div>
               </div>
 
-              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 text-xs space-y-2 text-zinc-800 dark:text-neutral-200">
+              <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3 text-xs space-y-1.5 text-zinc-800 dark:text-neutral-200">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Logradouro / Número</span>
-                  <span className="font-semibold text-sm text-zinc-900 dark:text-white">
+                  <span className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white">
                     {enderecoVisualizando.endereco.logradouro}, {enderecoVisualizando.endereco.numero}
                     {enderecoVisualizando.endereco.complemento ? ` (${enderecoVisualizando.endereco.complemento})` : ""}
                   </span>
@@ -5015,18 +5015,18 @@ export default function PainelDistribuidorAdmin() {
                   <span className="font-mono font-bold text-sky-600 dark:text-sky-400">{enderecoVisualizando.endereco.cep}</span>
                 </div>
                 {enderecoVisualizando.endereco.ponto_referencia && (
-                  <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800">
+                  <div className="pt-1.5 border-t border-zinc-200 dark:border-neutral-800">
                     <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-500 block">Ponto de Referência</span>
                     <span className="italic text-zinc-600 dark:text-neutral-400">{enderecoVisualizando.endereco.ponto_referencia}</span>
                   </div>
                 )}
               </div>
 
-              <div className="pt-4 mt-2 flex justify-end">
+              <div className="pt-3 mt-1 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setModalEnderecoAberto(false)}
-                  className="bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black font-bold px-5 py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  className="bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
                 >
                   Fechar
                 </button>
@@ -5037,14 +5037,14 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DO PÓDIO MENSAL - TOP DISPLAY */}
         {modalPodioAberto && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-xl w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               {/* Botão Fechar */}
               <button
                 type="button"
                 onClick={() => setModalPodioAberto(false)}
                 disabled={gerandoPremio}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
@@ -5240,33 +5240,33 @@ export default function PainelDistribuidorAdmin() {
         )}
         {/* MODAL DE LANÇAMENTO DE DESPESA / FRETE */}
         {modalDespesaAberto && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalDespesaAberto(false)}
                 disabled={salvandoDespesa}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
                   <TrendingDown className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Lançar Despesa / Frete
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
                     Registre saídas para apuração precisa do lucro líquido real.
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleSalvarDespesa} className="space-y-4">
+              <form onSubmit={handleSalvarDespesa} className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
                     Categoria da Despesa
@@ -5274,7 +5274,7 @@ export default function PainelDistribuidorAdmin() {
                   <select
                     value={despesaCategoria}
                     onChange={(e) => setDespesaCategoria(e.target.value as any)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white font-medium focus:ring-2 focus:ring-rose-500 outline-hidden transition cursor-pointer"
+                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium focus:ring-2 focus:ring-rose-500 outline-hidden transition cursor-pointer"
                   >
                     <option value="Frete">🚚 Frete / Logística de Envio</option>
                     <option value="Embalagem">📦 Embalagens / Caixas / Fitas</option>
@@ -5283,61 +5283,63 @@ export default function PainelDistribuidorAdmin() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                    Descrição do Gasto
-                  </label>
-                  <input
-                    type="text"
-                    value={despesaDescricao}
-                    onChange={(e) => setDespesaDescricao(e.target.value)}
-                    placeholder="Ex: Sedex Lote 30 displays - GOPlak"
-                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white font-medium focus:ring-2 focus:ring-rose-500 outline-hidden transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                    Valor da Despesa (R$)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-2.5 text-xs font-bold text-zinc-400">R$</span>
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-7">
+                    <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                      Descrição do Gasto
+                    </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      required
-                      value={despesaValor}
-                      onChange={(e) => setDespesaValor(e.target.value)}
-                      placeholder="0,00"
-                      className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl pl-9 pr-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-hidden transition"
+                      type="text"
+                      value={despesaDescricao}
+                      onChange={(e) => setDespesaDescricao(e.target.value)}
+                      placeholder="Ex: Sedex Lote 30 displays"
+                      className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium focus:ring-2 focus:ring-rose-500 outline-hidden transition"
                     />
+                  </div>
+
+                  <div className="col-span-5">
+                    <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                      Valor (R$)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        value={despesaValor}
+                        onChange={(e) => setDespesaValor(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl pl-8 pr-2.5 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-hidden transition"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-zinc-200 dark:border-neutral-800">
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-200 dark:border-neutral-800">
                   <button
                     type="button"
                     onClick={() => setModalDespesaAberto(false)}
                     disabled={salvandoDespesa}
-                    className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={salvandoDespesa || !despesaValor}
-                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     {salvandoDespesa ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Registrando Saída...</span>
+                        <span>Registrando...</span>
                       </>
                     ) : (
                       <>
                         <TrendingDown className="w-3.5 h-3.5" />
-                        <span>Registrar Saída no Caixa</span>
+                        <span>Registrar Saída</span>
                       </>
                     )}
                   </button>
@@ -5349,69 +5351,71 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DE REPOSIÇÃO DE ESTOQUE COM FORNECEDOR */}
         {modalReposicaoAberto && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalReposicaoAberto(false)}
                 disabled={salvandoReposicao}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                   <PackagePlus className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Repor Displays do Fornecedor
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
-                    Registre a chegada de novas peças para abastecer o estoque físico.
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                    Registre a chegada de novas peças para abastecer a fábrica.
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleSalvarReposicao} className="space-y-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                    Quantidade Recebida (Unidades)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={reposicaoQtd}
-                    onChange={(e) => setReposicaoQtd(parseInt(e.target.value, 10) || 0)}
-                    placeholder="Ex: 100"
-                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                    Custo Unitário de Compra (R$/un)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-2.5 text-xs font-bold text-zinc-400">R$</span>
+              <form onSubmit={handleSalvarReposicao} className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                      Quantidade (Un)
+                    </label>
                     <input
                       type="number"
-                      step="0.01"
-                      min="0.01"
+                      min="1"
                       required
-                      value={reposicaoCustoUnitario}
-                      onChange={(e) => setReposicaoCustoUnitario(e.target.value)}
-                      placeholder="12.30"
-                      className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl pl-9 pr-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
+                      value={reposicaoQtd}
+                      onChange={(e) => setReposicaoQtd(parseInt(e.target.value, 10) || 0)}
+                      placeholder="Ex: 100"
+                      className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                      Custo Unit. (R$)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        value={reposicaoCustoUnitario}
+                        onChange={(e) => setReposicaoCustoUnitario(e.target.value)}
+                        placeholder="12.30"
+                        className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl pl-8 pr-2.5 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Box de Resumo da Reposição */}
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
                   <div className="flex items-center justify-between">
                     <span>Estoque Atual:</span>
                     <span className="font-mono font-bold">{estoqueDisplaysProntos} displays</span>
@@ -5437,7 +5441,7 @@ export default function PainelDistribuidorAdmin() {
                 </div>
 
                 {/* Checkbox para lançar despesa no caixa */}
-                <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                <label className="flex items-start gap-2 cursor-pointer pt-0.5">
                   <input
                     type="checkbox"
                     checked={reposicaoLancarDespesa}
@@ -5483,18 +5487,18 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DE EXTRATO COMPLETO DO CAIXA COM FILTRO DE MÊS & EXPORTAÇÃO PDF */}
         {modalExtratoCaixaAberto && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-3xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] flex flex-col">
               <button
                 type="button"
                 onClick={() => setModalExtratoCaixaAberto(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800 pr-8 flex-wrap gap-3">
+              <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800 pr-8 flex-wrap gap-2.5">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                     <Receipt className="w-5 h-5 stroke-[2.5]" />
@@ -5658,33 +5662,33 @@ export default function PainelDistribuidorAdmin() {
 
         {/* MODAL DE AJUSTE DIRETO / CALIBRAÇÃO DE ESTOQUE DA FÁBRICA */}
         {modalAjustarEstoqueAberto && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalAjustarEstoqueAberto(false)}
                 disabled={salvandoAjusteEstoque}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                   <Package className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Calibrar Estoque da Fábrica
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
-                    Ajuste direto para sincronizar com a contagem física real ou zerar.
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                    Ajuste direto para sincronizar com a contagem física real.
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleSalvarAjusteEstoque} className="space-y-4">
+              <form onSubmit={handleSalvarAjusteEstoque} className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-600 dark:text-neutral-400 uppercase tracking-wider mb-1">
                     Novo Saldo de Estoque Real (Unidades)
@@ -5696,14 +5700,14 @@ export default function PainelDistribuidorAdmin() {
                     value={inputNovoEstoque}
                     onChange={(e) => setInputNovoEstoque(parseInt(e.target.value, 10) || 0)}
                     placeholder="0"
-                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3.5 py-2.5 text-base font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-800/80 border border-zinc-200 dark:border-neutral-700 rounded-xl px-3 py-2 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-hidden transition"
                   />
                   <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-1">
-                    Digite <strong className="text-zinc-700 dark:text-neutral-200">0</strong> caso todos os pedidos tenham sido excluídos e o estoque inicial deva ser zerado.
+                    Digite <strong className="text-zinc-700 dark:text-neutral-200">0</strong> caso todos os pedidos tenham sido excluídos e o estoque deva ser zerado.
                   </p>
                 </div>
 
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-xs space-y-1 text-amber-900 dark:text-amber-200">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs space-y-1 text-amber-900 dark:text-amber-200">
                   <div className="flex justify-between">
                     <span>Estoque Registrado Atual:</span>
                     <strong className="font-mono">{estoqueDisplaysProntos} un</strong>
@@ -5714,11 +5718,11 @@ export default function PainelDistribuidorAdmin() {
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-zinc-200 dark:border-neutral-800">
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-200 dark:border-neutral-800">
                   <button
                     type="button"
                     onClick={() => setInputNovoEstoque(0)}
-                    className="px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold transition cursor-pointer"
+                    className="px-2.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold transition cursor-pointer"
                   >
                     Zerar Saldo (0 un)
                   </button>
@@ -5726,14 +5730,14 @@ export default function PainelDistribuidorAdmin() {
                     type="button"
                     onClick={() => setModalAjustarEstoqueAberto(false)}
                     disabled={salvandoAjusteEstoque}
-                    className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800 text-zinc-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={salvandoAjusteEstoque}
-                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-extrabold text-xs shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-extrabold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     {salvandoAjusteEstoque ? (
                       <>
@@ -5756,34 +5760,34 @@ export default function PainelDistribuidorAdmin() {
         {/* MODAL DE EDIÇÃO DE PLACA / DISPLAY PELO ADMIN */}
         {modalEditarPlacaAberto && placaEditandoAdmin && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setModalEditarPlacaAberto(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
                   {placaEditandoAdmin.codigo}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                     Editar Display {placaEditandoAdmin.codigo}
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400">
-                    Altere os dados da loja, responsável, contato e link de avaliação do Google.
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                    Altere dados da loja, responsável, WhatsApp e link Google.
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleSalvarEdicaoPlacaAdmin} className="space-y-3.5">
+              <form onSubmit={handleSalvarEdicaoPlacaAdmin} className="space-y-3">
                 {/* Nome do Comércio / Estabelecimento */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                     Nome da Loja / Estabelecimento *
                   </label>
                   <input
@@ -5793,14 +5797,14 @@ export default function PainelDistribuidorAdmin() {
                     value={editNomeLoja}
                     onChange={(e) => setEditNomeLoja(e.target.value)}
                     placeholder="Ex: Pizzaria Bella Roma"
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* Responsável & WhatsApp (Grid 2 cols) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Responsável & WhatsApp (Grid 2 cols no Mobile) */}
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                       Responsável
                     </label>
                     <input
@@ -5808,14 +5812,14 @@ export default function PainelDistribuidorAdmin() {
                       disabled={salvandoEdicaoPlaca}
                       value={editResponsavel}
                       onChange={(e) => setEditResponsavel(e.target.value)}
-                      placeholder="Ex: Mariana Silva"
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-sky-500"
+                      placeholder="Mariana Silva"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-sky-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
-                      WhatsApp de Contato
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      WhatsApp Contato
                     </label>
                     <input
                       type="text"
@@ -5823,14 +5827,14 @@ export default function PainelDistribuidorAdmin() {
                       value={editWhatsapp}
                       onChange={(e) => setEditWhatsapp(e.target.value)}
                       placeholder="(11) 99999-9999"
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
 
                 {/* Link do Google Maps / Avaliação */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                     Link do Google Maps / Avaliação
                   </label>
                   <input
@@ -5839,46 +5843,43 @@ export default function PainelDistribuidorAdmin() {
                     value={editLinkGoogle}
                     onChange={(e) => setEditLinkGoogle(e.target.value)}
                     placeholder="https://g.page/r/.../review"
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-sky-500"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-sky-500"
                   />
-                  <div className="mt-1.5 flex flex-col gap-1">
+                  <div className="mt-1 flex flex-col gap-0.5">
                     <button
                       type="button"
                       onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
-                      className="inline-flex items-center justify-start gap-1.5 w-fit px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] font-bold transition active:scale-[0.98] cursor-pointer"
+                      className="inline-flex items-center justify-start gap-1.5 w-fit px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold transition active:scale-[0.98] cursor-pointer"
                     >
                       <span>🔍 Gerar Link de Avaliação no Google</span>
-                      <ExternalLink className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <ExternalLink className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400 shrink-0" />
                     </button>
-                    <p className="text-[10px] text-zinc-500 dark:text-neutral-400">
-                      Dica: Abra o gerador, localize a empresa, copie o link de avaliação direta e cole no campo acima.
-                    </p>
                   </div>
                 </div>
 
                 {/* Valor de Venda (R$) */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                     Valor do Display (R$)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-2.5 text-xs text-zinc-500 font-bold">R$</span>
+                    <span className="absolute left-3 top-2 text-xs text-zinc-500 font-bold">R$</span>
                     <input
                       type="text"
                       disabled={salvandoEdicaoPlaca}
                       value={editValorVenda}
                       onChange={(e) => setEditValorVenda(e.target.value)}
                       placeholder="80,00"
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
 
                 {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
-                <div className="p-3.5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-3">
+                <div className="p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
+                      <Sparkles className="w-3 h-3" />
                       <span>Outras Vendas / Serviços Adicionais</span>
                     </span>
                     <span className="text-[10px] text-zinc-400 font-mono">
@@ -5887,28 +5888,28 @@ export default function PainelDistribuidorAdmin() {
                   </div>
 
                   {editServicosAdmin.length === 0 ? (
-                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400 italic py-1">
-                      Nenhum serviço adicional vinculado. Clique no botão abaixo para adicionar (ex: Otimização GMN, Fotos 360, etc.).
+                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400 italic py-0.5">
+                      Nenhum serviço adicional vinculado. Adicione abaixo se houver (ex: Otimização GMN).
                     </p>
                   ) : (
-                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                       {editServicosAdmin.map((servico, idx) => (
                         <div
                           key={servico.id || idx}
-                          className="p-2.5 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-2 relative"
+                          className="p-2 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-1.5 relative"
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between gap-1.5">
                             <input
                               type="text"
                               disabled={salvandoEdicaoPlaca}
-                              placeholder="Descrição (ex: Otimização Google Meu Negócio, Fotos...)"
+                              placeholder="Descrição (ex: Otimização Google, Fotos...)"
                               value={servico.descricao}
                               onChange={(e) => {
                                 const novaLista = [...editServicosAdmin];
                                 novaLista[idx].descricao = e.target.value;
                                 setEditServicosAdmin(novaLista);
                               }}
-                              className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-amber-500 font-medium"
+                              className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-0.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-amber-500 font-medium"
                             />
                             <button
                               type="button"
@@ -5923,7 +5924,7 @@ export default function PainelDistribuidorAdmin() {
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-2">
                             <div className="relative">
                               <span className="absolute left-2.5 top-1.5 text-[11px] text-zinc-500 font-bold">R$</span>
                               <input
@@ -5936,7 +5937,7 @@ export default function PainelDistribuidorAdmin() {
                                   novaLista[idx].valor = e.target.value;
                                   setEditServicosAdmin(novaLista);
                                 }}
-                                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-7 pr-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-7 pr-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                               />
                             </div>
 
@@ -5949,7 +5950,7 @@ export default function PainelDistribuidorAdmin() {
                                   novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
                                   setEditServicosAdmin(novaLista);
                                 }}
-                                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                                className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                               >
                                 <option value="unico">Pagamento Único</option>
                                 <option value="recorrente">Mensal / Recorrente</option>

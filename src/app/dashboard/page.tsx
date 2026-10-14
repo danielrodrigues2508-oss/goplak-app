@@ -3341,15 +3341,15 @@ export default function DashboardAluno() {
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <QrCode className="w-4 h-4" />
+          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <QrCode className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-                    Ativar Novo Display em Campo
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                    Ativar Display em Campo
                   </h3>
                   <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
                     Vincule a placa virgem ao estabelecimento do cliente
@@ -3360,18 +3360,18 @@ export default function DashboardAluno() {
                 onClick={() => setModalAtivacaoAberto(false)}
                 className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {placasVirgensDisponiveis.length === 0 ? (
-              <div className="text-center py-6 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
-                  <Package className="w-6 h-6" />
+              <div className="text-center py-5 space-y-2.5">
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
+                  <Package className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Sem displays virgens em estoque</h4>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-1 max-w-xs mx-auto">
+                  <h4 className="font-bold text-zinc-900 dark:text-white text-xs sm:text-sm">Sem displays virgens em estoque</h4>
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5 max-w-xs mx-auto">
                     Você não possui placas virgens disponíveis no momento. Solicite um novo lote de displays para continuar ativando.
                   </p>
                 </div>
@@ -3381,129 +3381,130 @@ export default function DashboardAluno() {
                     setModalAtivacaoAberto(false);
                     setModalSolicitarAberto(true);
                   }}
-                  className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
                 >
                   Solicitar Displays (+)
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleAtivarDisplay} className="space-y-3.5">
-                {/* Seleção do Display Virgem */}
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
-                    Display Virgem em Estoque ({placasVirgensDisponiveis.length} disponíveis)
-                  </label>
-                  <select
-                    value={placaSelecionadaId}
-                    onChange={(e) => setPlacaSelecionadaId(e.target.value)}
-                    required
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition cursor-pointer"
-                  >
-                    {placasVirgensDisponiveis.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.codigo} (Virgem / Pronto para Ativação)
-                      </option>
-                    ))}
-                  </select>
+              <form onSubmit={handleAtivarDisplay} className="space-y-2.5">
+                {/* Agrupamento Lado a Lado: Display Virgem (55%) + Valor Cobrado (45%) */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-7">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      Display ({placasVirgensDisponiveis.length} un) *
+                    </label>
+                    <select
+                      value={placaSelecionadaId}
+                      onChange={(e) => setPlacaSelecionadaId(e.target.value)}
+                      required
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition cursor-pointer truncate"
+                    >
+                      {placasVirgensDisponiveis.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.codigo}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-span-5">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate flex items-center gap-1">
+                      <DollarSign className="w-3 h-3 text-zinc-400" /> Valor (R$) *
+                    </label>
+                    <input
+                      type="number"
+                      step="5.00"
+                      required
+                      placeholder="80.00"
+                      value={formValorVenda}
+                      onChange={(e) => setFormValorVenda(e.target.value)}
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition"
+                    />
+                  </div>
                 </div>
 
                 {/* Nome do Estabelecimento */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <Store className="w-3.5 h-3.5 text-zinc-400" /> Nome do Estabelecimento / Cliente *
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <Store className="w-3 h-3 text-zinc-400" /> Nome do Estabelecimento / Cliente *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: Barbearia VIP, Padaria Central, Dr. Silva..."
+                    placeholder="Ex: Barbearia VIP, Padaria Central..."
                     value={formNomeEmpresa}
                     onChange={(e) => setFormNomeEmpresa(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
                     autoFocus
                   />
                 </div>
 
                 {/* Link Google Review */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <Link2 className="w-3.5 h-3.5 text-zinc-400" /> Link de Avaliação Google (Google Review)
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <Link2 className="w-3 h-3 text-zinc-400" /> Link de Avaliação Google (Google Review)
                   </label>
                   <input
                     type="url"
                     placeholder="Ex: https://g.page/r/... ou https://maps.app.goo.gl/..."
                     value={formLinkGoogle}
                     onChange={(e) => setFormLinkGoogle(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
 
                 {/* WhatsApp da Gerência / Feedback */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-zinc-400" /> WhatsApp do Proprietário / Gerência
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-zinc-400" /> WhatsApp do Proprietário / Gerência
                   </label>
                   <input
                     type="text"
                     placeholder="Ex: (11) 99999-8888"
                     value={formatarWhatsapp(formWhatsappFeedback)}
                     onChange={(e) => setFormWhatsappFeedback(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                {/* Valor Cobrado */}
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-zinc-400" /> Valor Cobrado na Venda (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="5.00"
-                    required
-                    placeholder="80.00"
-                    value={formValorVenda}
-                    onChange={(e) => setFormValorVenda(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
 
                 {/* Escudo Anti-Golpe Ativo */}
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-start gap-2.5">
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 flex items-start gap-2">
                   <input
                     type="checkbox"
                     id="escudoAtivoCheck"
                     checked={formEscudoAtivo}
                     onChange={(e) => setFormEscudoAtivo(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer"
+                    className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer"
                   />
                   <label htmlFor="escudoAtivoCheck" className="text-xs text-zinc-700 dark:text-neutral-300 cursor-pointer select-none">
-                    <div className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 inline" />
                       Escudo de Reputação Ativo
-                    </div>
-                    <span className="text-[11px] text-zinc-500 dark:text-neutral-400 block mt-0.5">
-                      Filtra notas de 1 a 3 estrelas para o WhatsApp privado e 4 a 5 para o Google Oficial.
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block mt-0.5">
+                      Filtra notas 1 a 3 estrelas para WhatsApp privado e 4 a 5 para Google Oficial.
                     </span>
                   </label>
                 </div>
 
                 {/* Botões de Ação */}
-                <div className="pt-2 flex gap-3">
+                <div className="pt-1.5 flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => setModalAtivacaoAberto(false)}
-                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
+                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={ativandoDisplay}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     {ativandoDisplay ? (
-                      <span className="inline-flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Ativando...</span>
                       </span>
                     ) : (
@@ -3520,109 +3521,112 @@ export default function DashboardAluno() {
       {/* MODAL 2: LANÇAR DESPESA DE RUA */}
       {modalDespesaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-rose-500 dark:text-rose-400" /> Lançar Despesa de Rua
+          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
+              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Plus className="w-4 h-4 text-rose-500 dark:text-rose-400" /> Lançar Despesa de Rua
               </h3>
               <button
                 onClick={() => setModalDespesaAberto(false)}
                 className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSalvarDespesa} className="space-y-4">
+            <form onSubmit={handleSalvarDespesa} className="space-y-2.5">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1">
                   Selecione a Categoria
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setNovaCategoria("transporte")}
-                    className={`text-xs py-2.5 px-2 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                    className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
                       novaCategoria === "transporte"
                         ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
                         : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
                     }`}
                   >
                     <span className="text-base">🚗</span>
-                    <span className="truncate text-[11px]">Transporte</span>
+                    <span className="truncate text-[10px] sm:text-[11px]">Transporte</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setNovaCategoria("alimentacao")}
-                    className={`text-xs py-2.5 px-2 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                    className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
                       novaCategoria === "alimentacao"
                         ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
                         : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
                     }`}
                   >
                     <span className="text-base">🍔</span>
-                    <span className="truncate text-[11px]">Alimentação</span>
+                    <span className="truncate text-[10px] sm:text-[11px]">Alimentação</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setNovaCategoria("outros")}
-                    className={`text-xs py-2.5 px-2 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                    className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
                       novaCategoria === "outros"
                         ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
                         : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
                     }`}
                   >
                     <span className="text-base">🔧</span>
-                    <span className="truncate text-[11px]">Outros</span>
+                    <span className="truncate text-[10px] sm:text-[11px]">Outros</span>
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Valor (R$)
-                </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  required
-                  placeholder="Ex: 25,00 ou 15.50"
-                  value={novoValor}
-                  onChange={(e) => setNovoValor(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-3 text-lg font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition"
-                  autoFocus
-                />
+              {/* Agrupamento Lado a Lado: Valor R$ (40%) + Descrição Rápida (60%) */}
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-5">
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                    Valor (R$) *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    placeholder="25,00"
+                    value={novoValor}
+                    onChange={(e) => setNovoValor(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="col-span-7">
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                    Descrição (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Uber, Almoço..."
+                    value={novaDescricao}
+                    onChange={(e) => setNovaDescricao(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-rose-500 transition"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Descrição Rápida (Opcional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Uber, Gasolina, Almoço, Estacionamento..."
-                  value={novaDescricao}
-                  onChange={(e) => setNovaDescricao(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-rose-500 transition"
-                />
-              </div>
-
-              <div className="pt-2 flex gap-3">
+              <div className="pt-1.5 flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => setModalDespesaAberto(false)}
-                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
+                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={salvandoDespesa}
-                  className="flex-1 bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {salvandoDespesa ? (
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Salvando...</span>
                     </span>
                   ) : (
@@ -3638,13 +3642,13 @@ export default function DashboardAluno() {
       {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
             {/* Header do Modal */}
-            <div className="mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3 space-y-2.5">
+            <div className="mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
-                    <Package className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+                    <Package className="w-3.5 h-3.5" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
                     Solicitar Lote de Displays
@@ -3657,7 +3661,7 @@ export default function DashboardAluno() {
                   }}
                   className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -3701,26 +3705,26 @@ export default function DashboardAluno() {
                 ETAPA 1: ENDEREÇO DE ENTREGA
                 ======================================================== */}
             {etapaSolicitacao === 1 && (
-              <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="space-y-3 animate-in fade-in duration-150">
                 {enderecoSalvo && !editandoEndereco ? (
                   /* Resumo do Endereço Salvo */
-                  <div className="space-y-4">
-                    <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60 rounded-2xl p-4 text-xs space-y-2">
+                  <div className="space-y-3">
+                    <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60 rounded-2xl p-3.5 text-xs space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 flex items-center gap-1.5 text-[11px]">
-                          <MapPin className="w-4 h-4 text-sky-600 dark:text-sky-400" /> Entregar em:
+                          <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Entregar em:
                         </span>
                         <span className="text-[10px] font-mono bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-md">
                           Cadastrado
                         </span>
                       </div>
 
-                      <div className="text-zinc-800 dark:text-neutral-200 space-y-0.5 pt-1">
-                        <p className="font-semibold text-sm text-zinc-900 dark:text-white">
+                      <div className="text-zinc-800 dark:text-neutral-200 space-y-0.5 pt-0.5">
+                        <p className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white">
                           {enderecoSalvo.logradouro}, {enderecoSalvo.numero}
                           {enderecoSalvo.complemento ? ` (${enderecoSalvo.complemento})` : ""}
                         </p>
-                        <p className="text-zinc-600 dark:text-neutral-400">
+                        <p className="text-zinc-600 dark:text-neutral-400 text-xs">
                           Bairro {enderecoSalvo.bairro} • {enderecoSalvo.cidade} / {enderecoSalvo.estado}
                         </p>
                         <p className="font-mono text-[11px] text-zinc-500 dark:text-neutral-500">
@@ -3729,7 +3733,7 @@ export default function DashboardAluno() {
                         </p>
                       </div>
 
-                      <div className="pt-2 border-t border-sky-200/80 dark:border-sky-900/50 flex justify-end">
+                      <div className="pt-1.5 border-t border-sky-200/80 dark:border-sky-900/50 flex justify-end">
                         <button
                           type="button"
                           onClick={() => setEditandoEndereco(true)}
@@ -3741,18 +3745,18 @@ export default function DashboardAluno() {
                       </div>
                     </div>
 
-                    <div className="pt-2 flex gap-3">
+                    <div className="pt-1 flex gap-2.5">
                       <button
                         type="button"
                         onClick={() => setModalSolicitarAberto(false)}
-                        className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-3 rounded-xl text-sm transition cursor-pointer"
+                        className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
                       >
                         Cancelar
                       </button>
                       <button
                         type="button"
                         onClick={() => setEtapaSolicitacao(2)}
-                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span>Avançar para Escolha do Lote</span>
                         <ArrowRight className="w-4 h-4" />
@@ -3761,9 +3765,9 @@ export default function DashboardAluno() {
                   </div>
                 ) : (
                   /* Formulário de Endereço com Busca Automática ViaCEP */
-                  <form onSubmit={handleAvancarParaKits} className="space-y-3.5">
+                  <form onSubmit={handleAvancarParaKits} className="space-y-2.5">
                     {erroEndereco && (
-                      <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                      <div className="p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>{erroEndereco}</span>
                       </div>
@@ -3772,7 +3776,7 @@ export default function DashboardAluno() {
                     {/* CEP */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400">
                           CEP *
                         </label>
                         {buscandoCep && (
@@ -3788,14 +3792,14 @@ export default function DashboardAluno() {
                         maxLength={9}
                         value={cepInput}
                         onChange={(e) => handleCepChange(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         autoFocus
                       />
                     </div>
 
                     {/* Logradouro (Rua / Avenida) */}
                     <div>
-                      <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
                         Rua / Avenida *
                       </label>
                       <input
@@ -3804,14 +3808,14 @@ export default function DashboardAluno() {
                         placeholder="Ex: Av. Paulista ou Rua das Flores"
                         value={logradouroInput}
                         onChange={(e) => setLogradouroInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                       />
                     </div>
 
-                    {/* Número e Complemento */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <div className="sm:col-span-1">
-                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    {/* Agrupamento Lado a Lado: Número (35%) + Complemento (65%) */}
+                    <div className="grid grid-cols-12 gap-2">
+                      <div className="col-span-4">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
                           Número *
                         </label>
                         <input
@@ -3820,40 +3824,42 @@ export default function DashboardAluno() {
                           placeholder="123"
                           value={numeroInput}
                           onChange={(e) => setNumeroInput(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      <div className="col-span-8">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
                           Complemento (Opcional)
                         </label>
                         <input
                           type="text"
-                          placeholder="Apto 42, Sala 3, Bloco B"
+                          placeholder="Apto 42, Bloco B..."
                           value={complementoInput}
                           onChange={(e) => setComplementoInput(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
                     </div>
 
-                    {/* Bairro, Cidade e UF */}
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                      <div className="sm:col-span-5">
-                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
-                          Bairro *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Bairro"
-                          value={bairroInput}
-                          onChange={(e) => setBairroInput(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                        />
-                      </div>
-                      <div className="sm:col-span-5">
-                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                    {/* Bairro */}
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
+                        Bairro *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Bairro"
+                        value={bairroInput}
+                        onChange={(e) => setBairroInput(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                      />
+                    </div>
+
+                    {/* Agrupamento Lado a Lado: Cidade (75%) + UF (25%) */}
+                    <div className="grid grid-cols-12 gap-2">
+                      <div className="col-span-9">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
                           Cidade *
                         </label>
                         <input
@@ -3865,8 +3871,8 @@ export default function DashboardAluno() {
                           className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      <div className="col-span-3">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate text-center">
                           UF *
                         </label>
                         <input
@@ -3876,14 +3882,14 @@ export default function DashboardAluno() {
                           placeholder="SP"
                           value={estadoInput}
                           onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-1.5 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
                         />
                       </div>
                     </div>
 
                     {/* Ponto de Referência */}
                     <div>
-                      <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
                         Ponto de Referência (Opcional)
                       </label>
                       <input
@@ -3891,12 +3897,12 @@ export default function DashboardAluno() {
                         placeholder="Ex: Próximo à padaria, portão branco..."
                         value={pontoReferenciaInput}
                         onChange={(e) => setPontoReferenciaInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                       />
                     </div>
 
                     {/* Botões */}
-                    <div className="pt-3 pb-2 flex gap-3">
+                    <div className="pt-2 flex gap-2.5">
                       {enderecoSalvo && (
                         <button
                           type="button"
@@ -3904,14 +3910,14 @@ export default function DashboardAluno() {
                             setEditandoEndereco(false);
                             setErroEndereco(null);
                           }}
-                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3.5 rounded-xl text-xs transition cursor-pointer"
+                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer"
                         >
                           Cancelar
                         </button>
                       )}
                       <button
                         type="submit"
-                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3.5 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span>Avançar para Escolha do Lote</span>
                         <ArrowRight className="w-4 h-4" />
@@ -3926,26 +3932,26 @@ export default function DashboardAluno() {
                 ETAPA 2: CATÁLOGO DE KITS & PREVIEW VISUAL DE CORES
                 ======================================================== */}
             {etapaSolicitacao === 2 && (
-              <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="space-y-2.5 animate-in fade-in duration-150">
                 {/* Header de Resumo de Endereço com botão voltar */}
-                <div className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800 p-2.5 rounded-xl text-xs">
+                <div className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800 p-2 rounded-xl text-xs">
                   <div className="flex items-center gap-1.5 truncate">
                     <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-                    <span className="text-zinc-600 dark:text-neutral-400 truncate">
+                    <span className="text-zinc-600 dark:text-neutral-400 truncate text-[11px]">
                       {enderecoSalvo?.logradouro}, {enderecoSalvo?.numero} • {enderecoSalvo?.cidade}/{enderecoSalvo?.estado}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setEtapaSolicitacao(1)}
-                    className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline shrink-0 cursor-pointer ml-2"
+                    className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline shrink-0 cursor-pointer ml-1.5"
                   >
                     Alterar
                   </button>
                 </div>
 
                 {/* 3 CARDS VERTICAIS DE KITS */}
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {/* CARD 1: KIT START (10 UN | R$ 170,00) */}
                   {(() => {
                     const disponivel = kitsDisponiveis.start !== false;
@@ -3954,7 +3960,7 @@ export default function DashboardAluno() {
                         onClick={() => {
                           if (disponivel) setKitSelecionado("start");
                         }}
-                        className={`w-full p-4 rounded-2xl border transition relative ${
+                        className={`w-full p-3 sm:p-3.5 rounded-2xl border transition relative ${
                           !disponivel
                             ? "opacity-60 cursor-not-allowed bg-zinc-50/70 dark:bg-neutral-900/40 border-dashed border-zinc-300 dark:border-neutral-800"
                             : kitSelecionado === "start"
@@ -3964,40 +3970,40 @@ export default function DashboardAluno() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Start</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white">Kit Start</span>
                               {disponivel ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
                                   Padrão Lançamento
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
-                                  🔒 Indisponível no momento
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
+                                  🔒 Indisponível
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                            <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
                               10 unidades • R$ 17,00/un
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="text-base font-black text-zinc-900 dark:text-white">R$ 170,00</span>
-                            <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                            <span className="text-sm sm:text-base font-black text-zinc-900 dark:text-white">R$ 170,00</span>
+                            <span className="block text-[9px] font-mono text-emerald-600 dark:text-emerald-400">
                               Venda: R$ 800,00
                             </span>
                           </div>
                         </div>
 
-                        {/* Mensagem Padrão de Turma + Imagens em Destaque Centralizado */}
-                        <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 flex flex-col items-center gap-2.5">
-                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full py-1">
+                        {/* Imagens em Destaque Centralizado Compactas */}
+                        <div className="mt-2 pt-2 border-t border-zinc-200/80 dark:border-neutral-800/80 flex flex-col items-center gap-1.5">
+                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full py-0.5">
                             <div className="flex flex-col items-center">
                               <img
                                 src="/placa-preta.png"
                                 alt="Placa Preta Google"
-                                className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                               />
-                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                              <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 mt-0.5 font-mono">
                                 5x Preta
                               </span>
                             </div>
@@ -4005,15 +4011,15 @@ export default function DashboardAluno() {
                               <img
                                 src="/placa-azul.png"
                                 alt="Placa Azul Google"
-                                className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                               />
-                              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
                                 5x Azul
                               </span>
                             </div>
                           </div>
-                          <span className="text-xs text-amber-700 dark:text-amber-400/90 bg-amber-500/10 border border-amber-500/20 py-1.5 px-3 rounded-md inline-block mt-2 text-center font-medium">
-                            Pacote padrão 50/50. Escolha de cor individual liberada a partir de 30 unidades.
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400/90 bg-amber-500/10 border border-amber-500/20 py-1 px-2.5 rounded-md inline-block text-center font-medium">
+                            Pacote padrão 50/50 (5 pretas e 5 azuis).
                           </span>
                         </div>
                       </div>
@@ -4028,7 +4034,7 @@ export default function DashboardAluno() {
                         onClick={() => {
                           if (disponivel) setKitSelecionado("pro");
                         }}
-                        className={`w-full p-4 rounded-2xl border transition relative ${
+                        className={`w-full p-3 sm:p-3.5 rounded-2xl border transition relative ${
                           !disponivel
                             ? "opacity-60 cursor-not-allowed bg-zinc-50/70 dark:bg-neutral-900/40 border-dashed border-zinc-300 dark:border-neutral-800"
                             : kitSelecionado === "pro"
@@ -4038,38 +4044,38 @@ export default function DashboardAluno() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Pro</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white">Kit Pro</span>
                               {disponivel ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 shadow-xs">
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 shadow-xs">
                                   🔥 Mais Vendido
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
-                                  🔒 Indisponível no momento
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
+                                  🔒 Indisponível
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                            <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
                               30 unidades • R$ 17,00/un
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="text-base font-black text-emerald-700 dark:text-emerald-400">R$ 510,00</span>
-                            <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                            <span className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400">R$ 510,00</span>
+                            <span className="block text-[9px] font-mono text-emerald-600 dark:text-emerald-400">
                               Venda: R$ 2.400,00
                             </span>
                           </div>
                         </div>
 
                         {disponivel ? (
-                          /* Botões de Cores e Preview Interativo em Alta Definição */
-                          <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                                Escolha as Cores:
+                          /* Botões de Cores e Preview Interativo Compacto */
+                          <div className="mt-2 pt-2 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-zinc-700 dark:text-neutral-300 text-[11px]">
+                                Cores:
                               </span>
-                              <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                              <span className="text-[10px] font-mono text-zinc-500 dark:text-neutral-400">
                                 {corKitPro === "misto" ? "15 Pretas / 15 Azuis" : corKitPro === "preta" ? "30 Pretas" : "30 Azuis"}
                               </span>
                             </div>
@@ -4081,7 +4087,7 @@ export default function DashboardAluno() {
                                   setKitSelecionado("pro");
                                   setCorKitPro("misto");
                                 }}
-                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                className={`py-1 px-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                                   corKitPro === "misto" && kitSelecionado === "pro"
                                     ? "bg-emerald-500 text-black border-emerald-400 shadow-sm"
                                     : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
@@ -4095,7 +4101,7 @@ export default function DashboardAluno() {
                                   setKitSelecionado("pro");
                                   setCorKitPro("preta");
                                 }}
-                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                className={`py-1 px-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                                   corKitPro === "preta" && kitSelecionado === "pro"
                                     ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
                                     : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
@@ -4109,7 +4115,7 @@ export default function DashboardAluno() {
                                   setKitSelecionado("pro");
                                   setCorKitPro("azul");
                                 }}
-                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                className={`py-1 px-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                                   corKitPro === "azul" && kitSelecionado === "pro"
                                     ? "bg-blue-600 text-white border-blue-400 shadow-sm"
                                     : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
@@ -4119,17 +4125,17 @@ export default function DashboardAluno() {
                               </button>
                             </div>
 
-                            {/* Preview Visual das Artes em Alta Definição */}
-                            <div className="flex items-center justify-center w-full py-1.5">
+                            {/* Preview Visual das Artes Compacto */}
+                            <div className="flex items-center justify-center w-full py-1">
                               {corKitPro === "misto" && (
                                 <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
                                   <div className="flex flex-col items-center">
                                     <img
                                       src="/placa-preta.png"
                                       alt="Placa Preta Google"
-                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                      className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                     />
-                                    <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                                    <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 mt-0.5 font-mono">
                                       15x Preta
                                     </span>
                                   </div>
@@ -4137,9 +4143,9 @@ export default function DashboardAluno() {
                                     <img
                                       src="/placa-azul.png"
                                       alt="Placa Azul Google"
-                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                      className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                     />
-                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
                                       15x Azul
                                     </span>
                                   </div>
@@ -4150,10 +4156,10 @@ export default function DashboardAluno() {
                                   <img
                                     src="/placa-preta.png"
                                     alt="Placa Preta Google"
-                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                   />
-                                  <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
-                                    30x Placa Preta (100% Preta)
+                                  <span className="text-[11px] font-bold text-zinc-800 dark:text-neutral-200 mt-0.5 font-mono">
+                                    30x Placa Preta
                                   </span>
                                 </div>
                               )}
@@ -4162,18 +4168,18 @@ export default function DashboardAluno() {
                                   <img
                                     src="/placa-azul.png"
                                     alt="Placa Azul Google"
-                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                   />
-                                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                                    30x Placa Azul (100% Azul)
+                                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
+                                    30x Placa Azul
                                   </span>
                                 </div>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 text-center">
-                            <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-medium">
+                          <div className="mt-2 pt-1.5 border-t border-zinc-200/60 dark:border-neutral-800/60 text-center">
+                            <span className="text-[10px] text-zinc-500 dark:text-neutral-400 font-medium">
                               ⚠️ Lote bloqueado temporariamente para este lançamento.
                             </span>
                           </div>
@@ -4190,7 +4196,7 @@ export default function DashboardAluno() {
                         onClick={() => {
                           if (disponivel) setKitSelecionado("master");
                         }}
-                        className={`w-full p-4 rounded-2xl border transition relative ${
+                        className={`w-full p-3 sm:p-3.5 rounded-2xl border transition relative ${
                           !disponivel
                             ? "opacity-60 cursor-not-allowed bg-zinc-50/70 dark:bg-neutral-900/40 border-dashed border-zinc-300 dark:border-neutral-800"
                             : kitSelecionado === "master"
@@ -4200,25 +4206,25 @@ export default function DashboardAluno() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Master</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white">Kit Master</span>
                               {disponivel ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
                                   🚀 Escala
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
-                                  🔒 Indisponível no momento
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
+                                  🔒 Indisponível
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                            <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5">
                               50 unidades • R$ 16,00/un
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="text-base font-black text-zinc-900 dark:text-white">R$ 800,00</span>
-                            <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                            <span className="text-sm sm:text-base font-black text-zinc-900 dark:text-white">R$ 800,00</span>
+                            <span className="block text-[9px] font-mono text-emerald-600 dark:text-emerald-400">
                               Venda: R$ 4.000,00
                             </span>
                           </div>
@@ -4226,12 +4232,12 @@ export default function DashboardAluno() {
 
                         {disponivel ? (
                           /* Botões de Cores e Preview */
-                          <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                                Escolha as Cores:
+                          <div className="mt-2 pt-2 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-zinc-700 dark:text-neutral-300 text-[11px]">
+                                Cores:
                               </span>
-                              <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                              <span className="text-[10px] font-mono text-zinc-500 dark:text-neutral-400">
                                 {corKitMaster === "misto" ? "25 Pretas / 25 Azuis" : corKitMaster === "preta" ? "50 Pretas" : "50 Azuis"}
                               </span>
                             </div>
@@ -4243,7 +4249,7 @@ export default function DashboardAluno() {
                                   setKitSelecionado("master");
                                   setCorKitMaster("misto");
                                 }}
-                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                className={`py-1 px-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                                   corKitMaster === "misto" && kitSelecionado === "master"
                                     ? "bg-violet-600 text-white border-violet-400 shadow-sm"
                                     : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
@@ -4257,7 +4263,7 @@ export default function DashboardAluno() {
                                   setKitSelecionado("master");
                                   setCorKitMaster("preta");
                                 }}
-                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                className={`py-1 px-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                                   corKitMaster === "preta" && kitSelecionado === "master"
                                     ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
                                     : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
@@ -4271,7 +4277,7 @@ export default function DashboardAluno() {
                                   setKitSelecionado("master");
                                   setCorKitMaster("azul");
                                 }}
-                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                className={`py-1 px-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                                   corKitMaster === "azul" && kitSelecionado === "master"
                                     ? "bg-blue-600 text-white border-blue-400 shadow-sm"
                                     : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
@@ -4281,17 +4287,17 @@ export default function DashboardAluno() {
                               </button>
                             </div>
 
-                            {/* Preview das Artes em Alta Definição */}
-                            <div className="flex items-center justify-center w-full py-1.5">
+                            {/* Preview das Artes Compacto */}
+                            <div className="flex items-center justify-center w-full py-1">
                               {corKitMaster === "misto" && (
                                 <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
                                   <div className="flex flex-col items-center">
                                     <img
                                       src="/placa-preta.png"
                                       alt="Placa Preta Google"
-                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                      className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                     />
-                                    <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                                    <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 mt-0.5 font-mono">
                                       25x Preta
                                     </span>
                                   </div>
@@ -4299,9 +4305,9 @@ export default function DashboardAluno() {
                                     <img
                                       src="/placa-azul.png"
                                       alt="Placa Azul Google"
-                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                      className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                     />
-                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
                                       25x Azul
                                     </span>
                                   </div>
@@ -4312,10 +4318,10 @@ export default function DashboardAluno() {
                                   <img
                                     src="/placa-preta.png"
                                     alt="Placa Preta Google"
-                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                   />
-                                  <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
-                                    50x Placa Preta (100% Preta)
+                                  <span className="text-[11px] font-bold text-zinc-800 dark:text-neutral-200 mt-0.5 font-mono">
+                                    50x Placa Preta
                                   </span>
                                 </div>
                               )}
@@ -4324,18 +4330,18 @@ export default function DashboardAluno() {
                                   <img
                                     src="/placa-azul.png"
                                     alt="Placa Azul Google"
-                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-lg shadow-sm border border-slate-700/50"
                                   />
-                                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                                    50x Placa Azul (100% Azul)
+                                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
+                                    50x Placa Azul
                                   </span>
                                 </div>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 text-center">
-                            <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-medium">
+                          <div className="mt-2 pt-1.5 border-t border-zinc-200/60 dark:border-neutral-800/60 text-center">
+                            <span className="text-[10px] text-zinc-500 dark:text-neutral-400 font-medium">
                               ⚠️ Lote bloqueado temporariamente para este lançamento.
                             </span>
                           </div>
@@ -4349,27 +4355,27 @@ export default function DashboardAluno() {
                 {(() => {
                   const kit = KITS_CATALOGO[kitSelecionado];
                   return (
-                    <div className="pt-2 space-y-3">
-                      <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 text-xs space-y-1">
+                    <div className="pt-1 space-y-2">
+                      <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl p-2.5 text-xs space-y-1">
                         <div className="flex justify-between items-center text-zinc-700 dark:text-neutral-300">
-                          <span>Destinatário:</span>
-                          <span className="font-semibold text-zinc-900 dark:text-white">{alunoNome}</span>
+                          <span className="text-[11px]">Destinatário:</span>
+                          <span className="font-semibold text-xs text-zinc-900 dark:text-white">{alunoNome}</span>
                         </div>
                         <div className="flex justify-between items-center text-zinc-700 dark:text-neutral-300">
-                          <span>Potencial de Faturamento:</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                          <span className="text-[11px]">Potencial de Venda:</span>
+                          <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 font-mono">
                             R$ {kit.potencialVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
 
-                      <div className="pt-2 pb-2 flex gap-3">
+                      <div className="pt-1 flex gap-2.5">
                         <button
                           type="button"
                           onClick={() => setEtapaSolicitacao(1)}
-                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3.5 rounded-xl text-xs transition cursor-pointer flex items-center gap-1"
+                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center gap-1"
                         >
-                          <ArrowLeft className="w-4 h-4" />
+                          <ArrowLeft className="w-3.5 h-3.5" />
                           <span>Voltar</span>
                         </button>
                         <button
@@ -4380,12 +4386,12 @@ export default function DashboardAluno() {
                             }
                           }}
                           disabled={!kitsDisponiveis[kitSelecionado]}
-                          className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-3.5 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {kitsDisponiveis[kitSelecionado] ? (
                             <span>Ir para Pagamento • R$ {kit.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ⚡</span>
                           ) : (
-                            <span>Kit Selecionado Indisponível</span>
+                            <span>Kit Indisponível</span>
                           )}
                         </button>
                       </div>
@@ -4399,15 +4405,15 @@ export default function DashboardAluno() {
                 ETAPA 3: PAGAMENTO & UPLOAD DE COMPROVANTE
                 ======================================================== */}
             {etapaSolicitacao === 3 && (
-              <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="space-y-2.5 animate-in fade-in duration-150">
                 {/* 1. Resumo do Pedido */}
                 {(() => {
                   const kit = KITS_CATALOGO[kitSelecionado];
                   let corDesc = "5 Pretas + 5 Azuis";
                   if (kitSelecionado === "pro") {
-                    corDesc = corKitPro === "misto" ? "15 Pretas + 15 Azuis" : corKitPro === "preta" ? "30x Placa Preta (100% Preta)" : "30x Placa Azul (100% Azul)";
+                    corDesc = corKitPro === "misto" ? "15 Pretas + 15 Azuis" : corKitPro === "preta" ? "30x Placa Preta" : "30x Placa Azul";
                   } else if (kitSelecionado === "master") {
-                    corDesc = corKitMaster === "misto" ? "25 Pretas + 25 Azuis" : corKitMaster === "preta" ? "50x Placa Preta (100% Preta)" : "50x Placa Azul (100% Azul)";
+                    corDesc = corKitMaster === "misto" ? "25 Pretas + 25 Azuis" : corKitMaster === "preta" ? "50x Placa Preta" : "50x Placa Azul";
                   }
 
                   const endAtual = enderecoSalvo || {
@@ -4422,31 +4428,31 @@ export default function DashboardAluno() {
                   };
 
                   return (
-                    <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 space-y-2.5">
+                    <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3 space-y-1.5">
                       <div className="flex items-start justify-between">
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                             Resumo do Pedido
                           </span>
-                          <h4 className="text-base font-bold text-zinc-900 dark:text-white">
+                          <h4 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white">
                             {kit.nome} • {kit.qtd} Displays
                           </h4>
-                          <p className="text-xs text-zinc-600 dark:text-neutral-400 font-medium mt-0.5">
+                          <p className="text-[11px] text-zinc-600 dark:text-neutral-400 font-medium">
                             Cores: <span className="text-zinc-900 dark:text-white font-semibold">{corDesc}</span>
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-neutral-400 block">
+                          <span className="text-[9px] uppercase font-bold text-zinc-500 dark:text-neutral-400 block">
                             Total a Pagar
                           </span>
-                          <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">
+                          <span className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400">
                             R$ {kit.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
 
                       {/* Endereço de entrega resumido */}
-                      <div className="pt-2 border-t border-zinc-200 dark:border-neutral-800 flex items-center justify-between text-xs">
+                      <div className="pt-1.5 border-t border-zinc-200 dark:border-neutral-800 flex items-center justify-between text-[11px]">
                         <div className="flex items-center gap-1.5 truncate text-zinc-600 dark:text-neutral-400">
                           <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
                           <span className="truncate">
@@ -4456,7 +4462,7 @@ export default function DashboardAluno() {
                         <button
                           type="button"
                           onClick={() => setEtapaSolicitacao(1)}
-                          className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline shrink-0 ml-2 cursor-pointer"
+                          className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline shrink-0 ml-1.5 cursor-pointer"
                         >
                           Alterar
                         </button>
@@ -4466,88 +4472,88 @@ export default function DashboardAluno() {
                 })()}
 
                 {/* 2. Área da Chave PIX */}
-                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 space-y-2.5">
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       Chave PIX (E-mail)
                     </span>
-                    <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-semibold">
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-semibold">
                       GOPLAK Oficial
                     </span>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-neutral-900 border border-emerald-500/30 rounded-xl p-2.5">
-                    <span className="flex-1 font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-white truncate selection:bg-emerald-500 selection:text-black text-center sm:text-left py-1">
+                  <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 border border-emerald-500/30 rounded-lg p-2">
+                    <span className="flex-1 font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-white truncate selection:bg-emerald-500 selection:text-black py-0.5">
                       contato@goplak.com.br
                     </span>
                     <button
                       type="button"
                       onClick={handleCopiarChavePix}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold text-xs shadow-sm transition cursor-pointer shrink-0"
+                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold text-xs shadow-sm transition cursor-pointer shrink-0"
                     >
                       {copiouChavePix ? (
                         <>
-                          <Check className="w-3.5 h-3.5" />
+                          <Check className="w-3 h-3" />
                           <span>Copiado!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy className="w-3 h-3" />
                           <span>Copiar PIX</span>
                         </>
                       )}
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-zinc-600 dark:text-neutral-400 leading-tight">
+                  <p className="text-[10px] text-zinc-600 dark:text-neutral-400 leading-tight">
                     💡 Transfira o valor exato pelo app do seu banco e anexe o comprovante abaixo.
                   </p>
                 </div>
 
                 {/* 3. Área de Upload do Comprovante */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400">
                     Comprovante de Pagamento *
                   </label>
 
                   {!arquivoComprovante ? (
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-neutral-700 hover:border-emerald-500 dark:hover:border-emerald-500/70 bg-zinc-50 dark:bg-neutral-950/60 rounded-2xl p-4 sm:p-5 text-center cursor-pointer transition group">
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-neutral-700 hover:border-emerald-500 dark:hover:border-emerald-500/70 bg-zinc-50 dark:bg-neutral-950/60 rounded-xl p-3.5 text-center cursor-pointer transition group">
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/jpg,application/pdf"
                         onChange={handleSelecionarArquivoComprovante}
                         className="hidden"
                       />
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2 group-hover:scale-110 transition">
-                        <Paperclip className="w-5 h-5" />
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-1.5 group-hover:scale-110 transition">
+                        <Paperclip className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold text-zinc-900 dark:text-white">
                         📎 Selecionar Comprovante (PNG, JPG ou PDF)
                       </span>
                       <span className="text-[10px] text-zinc-500 dark:text-neutral-500 mt-0.5">
-                        Clique para buscar ou arraste seu arquivo até aqui
+                        Clique para anexar arquivo
                       </span>
                     </label>
                   ) : (
-                    <div className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950 border border-emerald-500/40 rounded-2xl p-3.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4" />
+                    <div className="flex items-center justify-between bg-zinc-50 dark:bg-neutral-950 border border-emerald-500/40 rounded-xl p-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                          <FileText className="w-3.5 h-3.5" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">
                             {nomeArquivoComprovante}
                           </p>
                           <p className="text-[10px] text-zinc-500 dark:text-neutral-400">
-                            {(arquivoComprovante.size / (1024 * 1024)).toFixed(2)} MB • Pronto para envio
+                            {(arquivoComprovante.size / (1024 * 1024)).toFixed(2)} MB • Pronto
                           </p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={handleRemoverComprovante}
-                        className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 font-semibold p-1.5 rounded-lg hover:bg-rose-500/10 transition cursor-pointer flex items-center gap-1 shrink-0 ml-2"
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 font-semibold p-1 rounded-lg hover:bg-rose-500/10 transition cursor-pointer flex items-center gap-1 shrink-0 ml-1.5"
                         title="Remover arquivo"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -4558,31 +4564,31 @@ export default function DashboardAluno() {
                 </div>
 
                 {/* 4. Ações do Rodapé */}
-                <div className="pt-3 pb-2 flex gap-3">
+                <div className="pt-2 flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => setEtapaSolicitacao(2)}
                     disabled={enviandoComprovante}
-                    className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3.5 rounded-xl text-xs transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                    className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Voltar</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleConcluirPedidoComprovante}
                     disabled={!arquivoComprovante || enviandoComprovante}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-3.5 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {enviandoComprovante ? (
-                      <span className="inline-flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Enviando Comprovante...</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center justify-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Concluir Pedido e Enviar Comprovante</span>
+                        <span>Concluir Pedido</span>
                       </span>
                     )}
                   </button>
@@ -4596,18 +4602,18 @@ export default function DashboardAluno() {
       {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
       {modalEditarLinkAberto && placaEditando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Link2 className="w-4 h-4" />
+          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Link2 className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-                    Atualizar Destino da Placa {placaEditando.codigo}
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                    Atualizar Destino • {placaEditando.codigo}
                   </h3>
                   <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
-                    Altere a URL de redirecionamento do QR Code / NFC
+                    Altere o redirecionamento do QR Code / NFC
                   </p>
                 </div>
               </div>
@@ -4618,15 +4624,15 @@ export default function DashboardAluno() {
                 }}
                 className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSalvarNovoLink} className="space-y-3.5">
+            <form onSubmit={handleSalvarNovoLink} className="space-y-2.5">
               {/* Nome da Loja / Estabelecimento */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5 text-emerald-500" />
+                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                  <Store className="w-3 h-3 text-emerald-500" />
                   <span>Nome da Loja / Estabelecimento *</span>
                 </label>
                 <input
@@ -4636,15 +4642,15 @@ export default function DashboardAluno() {
                   placeholder="Ex: Pizzaria Bella Roma"
                   value={editNomeLojaAluno}
                   onChange={(e) => setEditNomeLojaAluno(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-semibold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                 />
               </div>
 
-              {/* Responsável & WhatsApp */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Agrupamento Lado a Lado: Responsável (50%) + WhatsApp (50%) */}
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
-                    Nome do Responsável
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                    Responsável
                   </label>
                   <input
                     type="text"
@@ -4652,13 +4658,13 @@ export default function DashboardAluno() {
                     placeholder="Ex: Carlos Eduardo"
                     value={editResponsavelAluno}
                     onChange={(e) => setEditResponsavelAluno(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-sky-500 transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
-                    WhatsApp de Contato
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                    WhatsApp Contato
                   </label>
                   <input
                     type="tel"
@@ -4672,65 +4678,62 @@ export default function DashboardAluno() {
                       if (digits.length > 7) f = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
                       setEditWhatsappAluno(f);
                     }}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
               </div>
 
               {/* URL de Destino (Google Review / Link) */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                  <Link2 className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Link do Google Maps / Avaliação *</span>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                  <Link2 className="w-3 h-3 text-sky-500" />
+                  <span>Link de Avaliação Google *</span>
                 </label>
                 <input
                   type="url"
                   required
-                  placeholder="Ex: https://maps.app.goo.gl/... ou https://g.page/r/..."
+                  placeholder="https://maps.app.goo.gl/... ou https://g.page/r/..."
                   value={novoLinkDestino}
                   onChange={(e) => setNovoLinkDestino(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                 />
 
-                <div className="mt-1.5 flex flex-col gap-1">
+                <div className="mt-1 flex flex-col gap-1">
                   <button
                     type="button"
                     onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
-                    className="inline-flex items-center justify-start gap-1.5 w-fit px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] font-bold transition active:scale-[0.98] cursor-pointer"
+                    className="inline-flex items-center justify-start gap-1 w-fit px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold transition active:scale-[0.98] cursor-pointer"
                   >
                     <span>🔍 Gerar Link de Avaliação no Google</span>
-                    <ExternalLink className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                    <ExternalLink className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400 shrink-0" />
                   </button>
-                  <p className="text-[10px] text-zinc-500 dark:text-neutral-400">
-                    Dica: Abra o gerador, localize a empresa, copie o link de avaliação direta e cole acima.
-                  </p>
                 </div>
               </div>
 
               {/* Valor do Display */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5 text-amber-500" />
+                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                  <DollarSign className="w-3 h-3 text-amber-500" />
                   <span>Valor do Display (R$)</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-xs text-zinc-500 font-bold">R$</span>
+                  <span className="absolute left-2.5 top-2 text-xs text-zinc-500 font-bold">R$</span>
                   <input
                     type="text"
                     disabled={salvandoLink}
                     value={editValorDisplayAluno}
                     onChange={(e) => setEditValorDisplayAluno(e.target.value)}
                     placeholder="80,00"
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-amber-500 transition"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs font-bold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-amber-500 transition"
                   />
                 </div>
               </div>
 
               {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
-              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-3">
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
                     <span>Outras Vendas / Serviços Adicionais</span>
                   </span>
                   <span className="text-[10px] text-zinc-400 font-mono">
@@ -4739,28 +4742,28 @@ export default function DashboardAluno() {
                 </div>
 
                 {editServicosAluno.length === 0 ? (
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 italic py-1">
-                    Nenhum serviço adicional vinculado. Clique no botão abaixo para adicionar (ex: Otimização GMN, Fotos 360, etc.).
+                  <p className="text-[10px] text-zinc-500 dark:text-neutral-400 italic py-0.5">
+                    Nenhum serviço adicional vinculado. Adicione caso tenha vendido gestão, fotos, etc.
                   </p>
                 ) : (
-                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
                     {editServicosAluno.map((servico, idx) => (
                       <div
                         key={servico.id || idx}
-                        className="p-2.5 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-2 relative"
+                        className="p-2 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-1.5 relative"
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-1.5">
                           <input
                             type="text"
                             disabled={salvandoLink}
-                            placeholder="Descrição (ex: Otimização Google Meu Negócio, Fotos...)"
+                            placeholder="Descrição (ex: Gestão GMN, Fotos 360...)"
                             value={servico.descricao}
                             onChange={(e) => {
                               const novaLista = [...editServicosAluno];
                               novaLista[idx].descricao = e.target.value;
                               setEditServicosAluno(novaLista);
                             }}
-                            className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
+                            className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-0.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
                           />
                           <button
                             type="button"
@@ -4775,9 +4778,10 @@ export default function DashboardAluno() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Agrupamento Lado a Lado: Valor (50%) + Tipo Cobrança (50%) */}
+                        <div className="grid grid-cols-2 gap-2">
                           <div className="relative">
-                            <span className="absolute left-2.5 top-1.5 text-[11px] text-zinc-500 font-bold">R$</span>
+                            <span className="absolute left-2 top-1 text-[10px] text-zinc-500 font-bold">R$</span>
                             <input
                               type="text"
                               disabled={salvandoLink}
@@ -4788,7 +4792,7 @@ export default function DashboardAluno() {
                                 novaLista[idx].valor = e.target.value;
                                 setEditServicosAluno(novaLista);
                               }}
-                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-7 pr-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
                             />
                           </div>
 
@@ -4801,7 +4805,7 @@ export default function DashboardAluno() {
                                 novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
                                 setEditServicosAluno(novaLista);
                               }}
-                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                             >
                               <option value="unico">Pagamento Único</option>
                               <option value="recorrente">Mensal / Recorrente</option>
@@ -4827,7 +4831,7 @@ export default function DashboardAluno() {
                       },
                     ]);
                   }}
-                  className="w-full py-2 px-3 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>👉 + Adicionar Outro Serviço</span>
@@ -4835,7 +4839,7 @@ export default function DashboardAluno() {
               </div>
 
               {/* Botões de Ação */}
-              <div className="pt-2 flex gap-3">
+              <div className="pt-1.5 flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -4849,11 +4853,11 @@ export default function DashboardAluno() {
                 <button
                   type="submit"
                   disabled={salvandoLink}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {salvandoLink ? (
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Salvando...</span>
                     </span>
                   ) : (
@@ -4869,77 +4873,72 @@ export default function DashboardAluno() {
       {/* MODAL DEFINIR META SEMANAL */}
       {modalEditarMetaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150 relative">
+          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150 relative">
             <button
               type="button"
               onClick={() => setModalEditarMetaAberto(false)}
-              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-3 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 rounded-2xl">
-                <Target className="w-6 h-6" />
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="p-2 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 rounded-xl">
+                <Target className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
                   Definir Meta Semanal
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-neutral-400">
-                  Configure seu objetivo pessoal de ativação de displays
+                <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                  Configure seu objetivo de ativação de displays
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleSalvarMetaSemanal} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
-                  Quantos displays você quer ativar por semana? *
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    max="500"
-                    required
-                    value={inputMetaSemanal}
-                    onChange={(e) => setInputMetaSemanal(e.target.value)}
-                    placeholder="Ex: 20"
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-4 py-2.5 text-base font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
-                  />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-400 dark:text-neutral-500">
-                    displays / sem
-                  </span>
+            <form onSubmit={handleSalvarMetaSemanal} className="space-y-2.5">
+              {/* Agrupamento Lado a Lado: Quantidade de Displays (50%) + Preço Unitário (50%) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                    Meta Displays / sem *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="500"
+                      required
+                      value={inputMetaSemanal}
+                      onChange={(e) => setInputMetaSemanal(e.target.value)}
+                      placeholder="20"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                    Valor por display (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={inputPrecoDisplay}
+                      onChange={(e) => setInputPrecoDisplay(e.target.value)}
+                      placeholder="80,00"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-2.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Valor estimado por display (R$)</span>
-                  <span className="text-[10px] text-zinc-400 font-normal">Opcional</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
-                    R$
-                  </span>
-                  <input
-                    type="text"
-                    value={inputPrecoDisplay}
-                    onChange={(e) => setInputPrecoDisplay(e.target.value)}
-                    placeholder="80,00"
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
-                  />
-                </div>
-                <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-1">
-                  Usado para calcular a projeção financeira estimada de fechamento da semana.
-                </p>
-              </div>
-
-              {/* Prévia do montante total */}
+              {/* Prévia do montante total centralizado */}
               {(() => {
                 const qtd = Number(inputMetaSemanal.replace(/\D/g, "")) || 0;
-                // Limpar formatação monetária (remover R$, pontos de milhar e converter vírgula se houver)
                 const valorUnitario = typeof inputPrecoDisplay === "number"
                   ? inputPrecoDisplay
                   : (() => {
@@ -4954,8 +4953,8 @@ export default function DashboardAluno() {
                 if (qtd <= 0) return null;
 
                 return (
-                  <div className="p-3 rounded-2xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between">
-                    <span className="text-xs text-zinc-600 dark:text-neutral-300 font-medium">
+                  <div className="p-2.5 rounded-xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between text-xs">
+                    <span className="text-zinc-600 dark:text-neutral-300 font-medium">
                       Faturamento estimado com a meta batida:
                     </span>
                     <span className="text-xs font-black text-violet-600 dark:text-violet-400">
@@ -4966,7 +4965,7 @@ export default function DashboardAluno() {
               })()}
 
               {/* Botões */}
-              <div className="pt-2 flex gap-3">
+              <div className="pt-1.5 flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => setModalEditarMetaAberto(false)}
@@ -4977,11 +4976,11 @@ export default function DashboardAluno() {
                 <button
                   type="submit"
                   disabled={salvandoMeta}
-                  className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {salvandoMeta ? (
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Salvando...</span>
                     </span>
                   ) : (
