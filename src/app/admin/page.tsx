@@ -47,11 +47,19 @@ import {
   Wallet,
   Receipt,
   Boxes,
-  History,
-  Trash2
+  Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { exportarLoteEmFatiasZip, COST_PER_UNIT, DisplayItem } from "@/lib/exportGraficaZip";
+import {
+  KitsDisponiveis,
+  KITS_DISPONIVEIS_PADRAO,
+  KITS_CATALOGO,
+  encodeKitsToCode,
+  decodeKitsFromCode,
+} from "@/lib/kitsConfig";
+
 
 interface ConfigFabrica {
   id?: string;
@@ -304,6 +312,11 @@ export default function PainelDistribuidorAdmin() {
   const [estoqueDisplaysProntos, setEstoqueDisplaysProntos] = useState<number>(0);
   const [mediaSaidaDiaria, setMediaSaidaDiaria] = useState<number>(2.5);
   const [itensCaixa, setItensCaixa] = useState<CaixaFabricaItem[]>([]);
+
+  // Disponibilidade de Kits para Alunos (Lançamento)
+  const [kitsDisponiveis, setKitsDisponiveis] = useState<KitsDisponiveis>(KITS_DISPONIVEIS_PADRAO);
+  const [salvandoKits, setSalvandoKits] = useState(false);
+
 
   // Modal de Lançamento de Despesa / Frete
   const [modalDespesaAberto, setModalDespesaAberto] = useState(false);
@@ -711,7 +724,7 @@ export default function PainelDistribuidorAdmin() {
 
             const qtdFinal = ped.quantidade || (temPlacas ? placasDoPedido.length : 10);
             if (!valTotal) {
-              valTotal = qtdFinal === 10 ? 170 : qtdFinal === 30 ? 540 : qtdFinal === 50 ? 850 : qtdFinal * 18;
+              valTotal = qtdFinal === 10 ? 170 : qtdFinal === 30 ? 510 : qtdFinal === 50 ? 800 : qtdFinal * 17;
             }
 
             return {
@@ -756,7 +769,7 @@ export default function PainelDistribuidorAdmin() {
           .limit(1);
 
         if (!cfgErr && cfgData && cfgData.length > 0) {
-          const cfg = cfgData[0];
+          const cfg = cfgData[0] as any;
           setConfigFabricaId(cfg.id);
           if (cfg.custo_unitario_display !== undefined && cfg.custo_unitario_display !== null) {
             setCustoUnitarioDisplay(Number(cfg.custo_unitario_display));
@@ -766,6 +779,28 @@ export default function PainelDistribuidorAdmin() {
           }
           if (cfg.media_saida_diaria !== undefined && cfg.media_saida_diaria !== null) {
             setMediaSaidaDiaria(Number(cfg.media_saida_diaria));
+          }
+
+          // Disponibilidade de Kits para Alunos
+          let kitsAtual: KitsDisponiveis = { ...KITS_DISPONIVEIS_PADRAO };
+          if (typeof window !== "undefined") {
+            const cacheKits = localStorage.getItem("goplak_kits_disponiveis");
+            if (cacheKits) {
+              try {
+                kitsAtual = { ...kitsAtual, ...JSON.parse(cacheKits) };
+              } catch (e) {}
+            }
+          }
+          if (cfg.kits_disponiveis && typeof cfg.kits_disponiveis === "object") {
+            kitsAtual = { ...kitsAtual, ...cfg.kits_disponiveis };
+          } else if (cfg.dias_alerta_reposicao !== undefined && cfg.dias_alerta_reposicao !== null) {
+            kitsAtual = decodeKitsFromCode(Number(cfg.dias_alerta_reposicao));
+          }
+          setKitsDisponiveis(kitsAtual);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem("goplak_kits_disponiveis", JSON.stringify(kitsAtual));
+            } catch (e) {}
           }
         } else {
           // Inserir registro inicial padrão caso a tabela esteja vazia
@@ -1141,7 +1176,7 @@ export default function PainelDistribuidorAdmin() {
       const unitCusto = custoUnitarioDisplay || COST_PER_UNIT;
       const valorTotalFinal = isReposicao
         ? Number((quantidadeLote * unitCusto).toFixed(2))
-        : (quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 350 : quantidadeLote === 30 ? 540 : quantidadeLote === 50 ? 850 : quantidadeLote === 100 ? 1700 : quantidadeLote * 35.0);
+        : (quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 340 : quantidadeLote === 30 ? 510 : quantidadeLote === 50 ? 800 : quantidadeLote === 100 ? 1600 : quantidadeLote * 17.0);
 
       // 1. Inserir o pedido pai ANTES das placas com colunas estritas do banco
       const agoraIso = new Date().toISOString();
@@ -1758,7 +1793,7 @@ export default function PainelDistribuidorAdmin() {
           console.warn("Aviso ao consultar config_fabrica ao vivo:", errCfgLive);
         }
 
-        const valPedido = Number(lote.valorTotal) || (qtd === 10 ? 170 : qtd === 30 ? 540 : qtd === 50 ? 850 : qtd * 18);
+        const valPedido = Number(lote.valorTotal) || (qtd === 10 ? 170 : qtd === 30 ? 510 : qtd === 50 ? 800 : qtd * 17);
         const custoTotalDisplays = qtd * custoUnit;
         const lucroBruto = valPedido - custoTotalDisplays;
 
@@ -1964,6 +1999,47 @@ export default function PainelDistribuidorAdmin() {
       setSalvandoAjusteEstoque(false);
     }
   };
+
+  // Controle de Disponibilidade de Kits para Alunos
+  const handleToggleKitDisponibilidade = async (kitKey: "start" | "pro" | "master") => {
+    const novoValor = !kitsDisponiveis[kitKey];
+    const novoEstado: KitsDisponiveis = {
+      ...kitsDisponiveis,
+      [kitKey]: novoValor,
+    };
+    setKitsDisponiveis(novoEstado);
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("goplak_kits_disponiveis", JSON.stringify(novoEstado));
+      } catch (e) {}
+    }
+
+    setSalvandoKits(true);
+    try {
+      const code = encodeKitsToCode(novoEstado);
+      if (configFabricaId) {
+        await supabase
+          .from("config_fabrica")
+          .update({ dias_alerta_reposicao: code })
+          .eq("id", configFabricaId);
+      } else {
+        const { data: cfgLive } = await supabase.from("config_fabrica").select("id").limit(1);
+        if (cfgLive && cfgLive.length > 0) {
+          await supabase
+            .from("config_fabrica")
+            .update({ dias_alerta_reposicao: code })
+            .eq("id", cfgLive[0].id);
+        }
+      }
+      setFeedbackSucesso(`📦 Kit ${kitKey === "start" ? "Start" : kitKey === "pro" ? "Pro" : "Master"} ${novoValor ? "liberado" : "bloqueado"} com sucesso!`);
+    } catch (err) {
+      console.warn("Aviso ao salvar disponibilidade de kit no Supabase:", err);
+    } finally {
+      setSalvandoKits(false);
+    }
+  };
+
 
   // Exportar Relatório em PDF Formatado do Extrato de Caixa
   const handleExportarPdfExtrato = () => {
@@ -3144,6 +3220,184 @@ export default function PainelDistribuidorAdmin() {
             <div className="flex items-center gap-1.5">
               <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
               <span className="text-[11px]">Faturamento Alunos: <strong className="text-zinc-900 dark:text-white font-mono">R$ {volumeTransacionado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+            </div>
+          </div>
+        </section>
+
+        {/* DISPONIBILIDADE DE KITS PARA ALUNOS (LANÇAMENTO) */}
+        <section className="bg-white dark:bg-neutral-900/90 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 sm:p-4 shadow-xs transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-neutral-800 pb-3 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </span>
+                <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                  Disponibilidade de Kits para Alunos
+                </h2>
+                {salvandoKits && (
+                  <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1 animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Sincronizando...
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                Defina em tempo real quais lotes ficam liberados para compra no App do Aluno. No lançamento, mantenha apenas o Kit 10 ativo.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-zinc-100 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700">
+                {Object.values(kitsDisponiveis).filter(Boolean).length} de 3 kits liberados
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* KIT START (10 UN | R$ 170,00) */}
+            <div
+              className={`p-3.5 rounded-2xl border transition-all ${
+                kitsDisponiveis.start
+                  ? "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/50 shadow-xs"
+                  : "bg-zinc-50/60 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800 opacity-75"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Start (10 un)</span>
+                  </div>
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-neutral-300 mt-0.5">
+                    R$ 170,00 <span className="text-[11px] font-normal text-zinc-500">(R$ 17,00/un)</span>
+                  </p>
+                </div>
+
+                {/* Toggle Switch */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleKitDisponibilidade("start")}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    kitsDisponiveis.start ? "bg-emerald-500" : "bg-zinc-300 dark:bg-neutral-700"
+                  }`}
+                  title={kitsDisponiveis.start ? "Bloquear Kit Start para alunos" : "Liberar Kit Start para alunos"}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      kitsDisponiveis.start ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-zinc-500 dark:text-neutral-400">Padrão 5 Pretas / 5 Azuis</span>
+                <span
+                  className={`font-bold px-2 py-0.5 rounded-md border text-[10px] ${
+                    kitsDisponiveis.start
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                      : "bg-zinc-200 dark:bg-neutral-800 text-zinc-500 border-zinc-300 dark:border-neutral-700"
+                  }`}
+                >
+                  {kitsDisponiveis.start ? "Ativo" : "Bloqueado"}
+                </span>
+              </div>
+            </div>
+
+            {/* KIT PRO (30 UN | R$ 510,00) */}
+            <div
+              className={`p-3.5 rounded-2xl border transition-all ${
+                kitsDisponiveis.pro
+                  ? "bg-emerald-500/5 dark:bg-emerald-950/20 border-emerald-500/50 shadow-xs"
+                  : "bg-zinc-50/60 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800 opacity-75"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Pro (30 un)</span>
+                  </div>
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-neutral-300 mt-0.5">
+                    R$ 510,00 <span className="text-[11px] font-normal text-zinc-500">(R$ 17,00/un)</span>
+                  </p>
+                </div>
+
+                {/* Toggle Switch */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleKitDisponibilidade("pro")}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    kitsDisponiveis.pro ? "bg-emerald-500" : "bg-zinc-300 dark:bg-neutral-700"
+                  }`}
+                  title={kitsDisponiveis.pro ? "Bloquear Kit Pro para alunos" : "Liberar Kit Pro para alunos"}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      kitsDisponiveis.pro ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-zinc-500 dark:text-neutral-400">Escolha de Cores</span>
+                <span
+                  className={`font-bold px-2 py-0.5 rounded-md border text-[10px] ${
+                    kitsDisponiveis.pro
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                  }`}
+                >
+                  {kitsDisponiveis.pro ? "Ativo" : "Bloqueado"}
+                </span>
+              </div>
+            </div>
+
+            {/* KIT MASTER (50 UN | R$ 800,00) */}
+            <div
+              className={`p-3.5 rounded-2xl border transition-all ${
+                kitsDisponiveis.master
+                  ? "bg-violet-500/5 dark:bg-violet-950/20 border-violet-500/50 shadow-xs"
+                  : "bg-zinc-50/60 dark:bg-neutral-900/40 border-zinc-200 dark:border-neutral-800 opacity-75"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Master (50 un)</span>
+                  </div>
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-neutral-300 mt-0.5">
+                    R$ 800,00 <span className="text-[11px] font-normal text-zinc-500">(R$ 16,00/un)</span>
+                  </p>
+                </div>
+
+                {/* Toggle Switch */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleKitDisponibilidade("master")}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    kitsDisponiveis.master ? "bg-emerald-500" : "bg-zinc-300 dark:bg-neutral-700"
+                  }`}
+                  title={kitsDisponiveis.master ? "Bloquear Kit Master para alunos" : "Liberar Kit Master para alunos"}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      kitsDisponiveis.master ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-zinc-500 dark:text-neutral-400">Escala Máxima</span>
+                <span
+                  className={`font-bold px-2 py-0.5 rounded-md border text-[10px] ${
+                    kitsDisponiveis.master
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                  }`}
+                >
+                  {kitsDisponiveis.master ? "Ativo" : "Bloqueado"}
+                </span>
+              </div>
             </div>
           </div>
         </section>
@@ -4360,7 +4614,7 @@ export default function PainelDistribuidorAdmin() {
                         <span>Valor Total do Pedido:</span>
                       </span>
                       <span className="font-mono text-sm text-sky-800 dark:text-sky-300 font-extrabold">
-                        R$ {(quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 350 : quantidadeLote === 30 ? 540 : quantidadeLote === 50 ? 850 : quantidadeLote === 100 ? 1700 : quantidadeLote * 35.0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        R$ {(quantidadeLote === 10 ? 170 : quantidadeLote === 20 ? 340 : quantidadeLote === 30 ? 510 : quantidadeLote === 50 ? 800 : quantidadeLote === 100 ? 1600 : quantidadeLote * 17.0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">

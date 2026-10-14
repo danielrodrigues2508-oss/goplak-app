@@ -62,56 +62,19 @@ export interface EnderecoEntrega {
   ponto_referencia?: string;
 }
 
-export type TipoKit = "start" | "pro" | "master";
+import {
+  TipoKit,
+  KitItem,
+  KitsDisponiveis,
+  KITS_DISPONIVEIS_PADRAO,
+  KITS_CATALOGO,
+  decodeKitsFromCode,
+} from "@/lib/kitsConfig";
+
+export type { TipoKit, KitItem, KitsDisponiveis };
+export { KITS_CATALOGO };
 export type ModeloCor = "misto" | "preta" | "azul";
 
-export interface KitItem {
-  id: TipoKit;
-  nome: string;
-  qtd: number;
-  preco: number;
-  badge: string;
-  badgeCor: string;
-  desc: string;
-  permiteEscolhaCor: boolean;
-  potencialVenda: number;
-}
-
-export const KITS_CATALOGO: Record<TipoKit, KitItem> = {
-  start: {
-    id: "start",
-    nome: "Kit Start",
-    qtd: 10,
-    preco: 170.0,
-    badge: "Padrão Lançamento",
-    badgeCor: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
-    desc: "Padrão de Turma: 5 Pretas e 5 Azuis",
-    permiteEscolhaCor: false,
-    potencialVenda: 800.0,
-  },
-  pro: {
-    id: "pro",
-    nome: "Kit Pro",
-    qtd: 30,
-    preco: 540.0,
-    badge: "Mais Vendido",
-    badgeCor: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 font-bold shadow-xs",
-    desc: "Ideal para alta tração e velocidade em campo",
-    permiteEscolhaCor: true,
-    potencialVenda: 2400.0,
-  },
-  master: {
-    id: "master",
-    nome: "Kit Master",
-    qtd: 50,
-    preco: 850.0,
-    badge: "Escala",
-    badgeCor: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30",
-    desc: "Máximo faturamento e menor custo por unidade",
-    permiteEscolhaCor: true,
-    potencialVenda: 4000.0,
-  },
-};
 
 interface Despesa {
   id: string;
@@ -313,7 +276,8 @@ export default function DashboardAluno() {
   const [erroEndereco, setErroEndereco] = useState<string | null>(null);
 
   // Seleções do Catálogo de Kits e Opções de Cores
-  const [kitSelecionado, setKitSelecionado] = useState<TipoKit>("pro");
+  const [kitsDisponiveis, setKitsDisponiveis] = useState<KitsDisponiveis>(KITS_DISPONIVEIS_PADRAO);
+  const [kitSelecionado, setKitSelecionado] = useState<TipoKit>("start");
   const [corKitPro, setCorKitPro] = useState<ModeloCor>("misto");
   const [corKitMaster, setCorKitMaster] = useState<ModeloCor>("misto");
   const [solicitandoDisplays, setSolicitandoDisplays] = useState(false);
@@ -554,6 +518,37 @@ export default function DashboardAluno() {
               setPontoReferenciaInput((prev) => prev || endFallback.ponto_referencia || "");
             }
           } catch (eCache) {}
+        }
+
+        // Recuperar Disponibilidade de Kits (Catálogo de Displays)
+        try {
+          let kitsAtual: KitsDisponiveis = { ...KITS_DISPONIVEIS_PADRAO };
+          if (typeof window !== "undefined") {
+            const cacheKits = localStorage.getItem("goplak_kits_disponiveis");
+            if (cacheKits) {
+              try {
+                kitsAtual = { ...kitsAtual, ...JSON.parse(cacheKits) };
+              } catch (e) {}
+            }
+          }
+          const { data: cfgData } = await supabase.from("config_fabrica").select("*").limit(1);
+          if (cfgData && cfgData.length > 0) {
+            const cfg = cfgData[0] as any;
+            if (cfg.kits_disponiveis && typeof cfg.kits_disponiveis === "object") {
+              kitsAtual = { ...kitsAtual, ...cfg.kits_disponiveis };
+            } else if (cfg.dias_alerta_reposicao !== undefined && cfg.dias_alerta_reposicao !== null) {
+              kitsAtual = decodeKitsFromCode(Number(cfg.dias_alerta_reposicao));
+            }
+          }
+          setKitsDisponiveis(kitsAtual);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem("goplak_kits_disponiveis", JSON.stringify(kitsAtual));
+            } catch (e) {}
+          }
+          setKitSelecionado((prev) => (kitsAtual[prev] ? prev : "start"));
+        } catch (eKits) {
+          console.warn("Aviso ao carregar disponibilidade de kits:", eKits);
         }
 
         // Self-Healing: Se não encontrou o aluno na tabela alunos, insere automaticamente
@@ -3633,7 +3628,7 @@ export default function DashboardAluno() {
       {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-lg mx-auto rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 pb-8 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[88vh] sm:max-h-[90vh] overflow-y-auto overflow-x-hidden">
             {/* Header do Modal */}
             <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
@@ -3804,8 +3799,8 @@ export default function DashboardAluno() {
                     </div>
 
                     {/* Número e Complemento */}
-                    <div className="grid grid-cols-3 gap-2.5">
-                      <div className="col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="sm:col-span-1">
                         <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
                           Número *
                         </label>
@@ -3818,7 +3813,7 @@ export default function DashboardAluno() {
                           className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
                           Complemento (Opcional)
                         </label>
@@ -3833,8 +3828,8 @@ export default function DashboardAluno() {
                     </div>
 
                     {/* Bairro, Cidade e UF */}
-                    <div className="grid grid-cols-12 gap-2">
-                      <div className="col-span-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      <div className="sm:col-span-5">
                         <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
                           Bairro *
                         </label>
@@ -3847,7 +3842,7 @@ export default function DashboardAluno() {
                           className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                      <div className="col-span-5">
+                      <div className="sm:col-span-5">
                         <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
                           Cidade *
                         </label>
@@ -3860,7 +3855,7 @@ export default function DashboardAluno() {
                           className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         <label className="block text-xs font-bold text-zinc-600 dark:text-neutral-300 uppercase tracking-wider mb-1">
                           UF *
                         </label>
@@ -3891,7 +3886,7 @@ export default function DashboardAluno() {
                     </div>
 
                     {/* Botões */}
-                    <div className="pt-2 flex gap-3">
+                    <div className="pt-3 pb-2 flex gap-3">
                       {enderecoSalvo && (
                         <button
                           type="button"
@@ -3899,14 +3894,14 @@ export default function DashboardAluno() {
                             setEditandoEndereco(false);
                             setErroEndereco(null);
                           }}
-                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3 rounded-xl text-xs transition cursor-pointer"
+                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-4 py-3.5 rounded-xl text-xs transition cursor-pointer"
                         >
                           Cancelar
                         </button>
                       )}
                       <button
                         type="submit"
-                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-3.5 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span>Avançar para Escolha do Lote</span>
                         <ArrowRight className="w-4 h-4" />
@@ -3942,341 +3937,402 @@ export default function DashboardAluno() {
                 {/* 3 CARDS VERTICAIS DE KITS */}
                 <div className="space-y-3">
                   {/* CARD 1: KIT START (10 UN | R$ 170,00) */}
-                  <div
-                    onClick={() => setKitSelecionado("start")}
-                    className={`p-4 rounded-2xl border transition cursor-pointer relative ${
-                      kitSelecionado === "start"
-                        ? "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500 ring-2 ring-amber-500/30"
-                        : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Start</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
-                            Padrão Lançamento
-                          </span>
+                  {(() => {
+                    const disponivel = kitsDisponiveis.start !== false;
+                    return (
+                      <div
+                        onClick={() => {
+                          if (disponivel) setKitSelecionado("start");
+                        }}
+                        className={`w-full p-4 rounded-2xl border transition relative ${
+                          !disponivel
+                            ? "opacity-60 cursor-not-allowed bg-zinc-50/70 dark:bg-neutral-900/40 border-dashed border-zinc-300 dark:border-neutral-800"
+                            : kitSelecionado === "start"
+                            ? "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500 ring-2 ring-amber-500/30 cursor-pointer"
+                            : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700 cursor-pointer"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Start</span>
+                              {disponivel ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                                  Padrão Lançamento
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
+                                  🔒 Indisponível no momento
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                              10 unidades • R$ 17,00/un
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-base font-black text-zinc-900 dark:text-white">R$ 170,00</span>
+                            <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                              Venda: R$ 800,00
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
-                          10 unidades • R$ 17,00/un
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-base font-black text-zinc-900 dark:text-white">R$ 170,00</span>
-                        <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
-                          Venda: R$ 800,00
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Mensagem Padrão de Turma + Imagens em Destaque Centralizado */}
-                    <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 flex flex-col items-center gap-2.5">
-                      <div className="flex items-center justify-center gap-4 sm:gap-6 w-full py-1">
-                        <div className="flex flex-col items-center">
-                          <img
-                            src="/placa-preta.png"
-                            alt="Placa Preta Google"
-                            className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                          />
-                          <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
-                            5x Preta
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <img
-                            src="/placa-azul.png"
-                            alt="Placa Azul Google"
-                            className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                          />
-                          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                            5x Azul
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-xs text-amber-700 dark:text-amber-400/90 bg-amber-500/10 border border-amber-500/20 py-1.5 px-3 rounded-md inline-block mt-2 text-center font-medium">
-                        Pacote padrão 50/50. Escolha de cor individual liberada a partir de 30 unidades.
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* CARD 2: KIT PRO (30 UN | R$ 540,00 - DESTAQUE VERDE) */}
-                  <div
-                    onClick={() => setKitSelecionado("pro")}
-                    className={`p-4 rounded-2xl border transition cursor-pointer relative ${
-                      kitSelecionado === "pro"
-                        ? "bg-emerald-500/5 dark:bg-emerald-950/20 border-emerald-500 ring-2 ring-emerald-500/40 shadow-sm"
-                        : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Pro</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 shadow-xs">
-                            🔥 Mais Vendido
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
-                          30 unidades • R$ 18,00/un
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-base font-black text-emerald-700 dark:text-emerald-400">R$ 540,00</span>
-                        <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
-                          Venda: R$ 2.400,00
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Botões de Cores e Preview Interativo em Alta Definição */}
-                    <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                          Escolha as Cores:
-                        </span>
-                        <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
-                          {corKitPro === "misto" ? "15 Pretas / 15 Azuis" : corKitPro === "preta" ? "30 Pretas" : "30 Azuis"}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setKitSelecionado("pro");
-                            setCorKitPro("misto");
-                          }}
-                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            corKitPro === "misto" && kitSelecionado === "pro"
-                              ? "bg-emerald-500 text-black border-emerald-400 shadow-sm"
-                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
-                          }`}
-                        >
-                          Misto 15/15
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setKitSelecionado("pro");
-                            setCorKitPro("preta");
-                          }}
-                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            corKitPro === "preta" && kitSelecionado === "pro"
-                              ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
-                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
-                          }`}
-                        >
-                          100% Preta
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setKitSelecionado("pro");
-                            setCorKitPro("azul");
-                          }}
-                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            corKitPro === "azul" && kitSelecionado === "pro"
-                              ? "bg-blue-600 text-white border-blue-400 shadow-sm"
-                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
-                          }`}
-                        >
-                          100% Azul
-                        </button>
-                      </div>
-
-                      {/* Preview Visual das Artes em Alta Definição */}
-                      <div className="flex items-center justify-center w-full py-1.5">
-                        {corKitPro === "misto" && (
-                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
+                        {/* Mensagem Padrão de Turma + Imagens em Destaque Centralizado */}
+                        <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 flex flex-col items-center gap-2.5">
+                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full py-1">
                             <div className="flex flex-col items-center">
                               <img
                                 src="/placa-preta.png"
                                 alt="Placa Preta Google"
-                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
                               />
                               <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
-                                15x Preta
+                                5x Preta
                               </span>
                             </div>
                             <div className="flex flex-col items-center">
                               <img
                                 src="/placa-azul.png"
                                 alt="Placa Azul Google"
-                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
                               />
                               <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                                15x Azul
+                                5x Azul
                               </span>
                             </div>
                           </div>
-                        )}
-                        {corKitPro === "preta" && (
-                          <div className="flex flex-col items-center justify-center w-full">
-                            <img
-                              src="/placa-preta.png"
-                              alt="Placa Preta Google"
-                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                            />
-                            <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
-                              30x Placa Preta (100% Preta)
-                            </span>
-                          </div>
-                        )}
-                        {corKitPro === "azul" && (
-                          <div className="flex flex-col items-center justify-center w-full">
-                            <img
-                              src="/placa-azul.png"
-                              alt="Placa Azul Google"
-                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                            />
-                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                              30x Placa Azul (100% Azul)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* CARD 3: KIT MASTER (50 UN | R$ 850,00) */}
-                  <div
-                    onClick={() => setKitSelecionado("master")}
-                    className={`p-4 rounded-2xl border transition cursor-pointer relative ${
-                      kitSelecionado === "master"
-                        ? "bg-violet-500/5 dark:bg-violet-950/20 border-violet-500 ring-2 ring-violet-500/30"
-                        : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Master</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
-                            Escala
+                          <span className="text-xs text-amber-700 dark:text-amber-400/90 bg-amber-500/10 border border-amber-500/20 py-1.5 px-3 rounded-md inline-block mt-2 text-center font-medium">
+                            Pacote padrão 50/50. Escolha de cor individual liberada a partir de 30 unidades.
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
-                          50 unidades • R$ 17,00/un
-                        </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-base font-black text-zinc-900 dark:text-white">R$ 850,00</span>
-                        <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
-                          Venda: R$ 4.000,00
-                        </span>
-                      </div>
-                    </div>
+                    );
+                  })()}
 
-                    {/* Botões de Cores e Preview */}
-                    <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                          Escolha as Cores:
-                        </span>
-                        <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
-                          {corKitMaster === "misto" ? "25 Pretas / 25 Azuis" : corKitMaster === "preta" ? "50 Pretas" : "50 Azuis"}
-                        </span>
-                      </div>
+                  {/* CARD 2: KIT PRO (30 UN | R$ 510,00 - DESTAQUE VERDE) */}
+                  {(() => {
+                    const disponivel = kitsDisponiveis.pro === true;
+                    return (
+                      <div
+                        onClick={() => {
+                          if (disponivel) setKitSelecionado("pro");
+                        }}
+                        className={`w-full p-4 rounded-2xl border transition relative ${
+                          !disponivel
+                            ? "opacity-60 cursor-not-allowed bg-zinc-50/70 dark:bg-neutral-900/40 border-dashed border-zinc-300 dark:border-neutral-800"
+                            : kitSelecionado === "pro"
+                            ? "bg-emerald-500/5 dark:bg-emerald-950/20 border-emerald-500 ring-2 ring-emerald-500/40 shadow-sm cursor-pointer"
+                            : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700 cursor-pointer"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Pro</span>
+                              {disponivel ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 shadow-xs">
+                                  🔥 Mais Vendido
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
+                                  🔒 Indisponível no momento
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                              30 unidades • R$ 17,00/un
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-base font-black text-emerald-700 dark:text-emerald-400">R$ 510,00</span>
+                            <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                              Venda: R$ 2.400,00
+                            </span>
+                          </div>
+                        </div>
 
-                      <div className="grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setKitSelecionado("master");
-                            setCorKitMaster("misto");
-                          }}
-                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            corKitMaster === "misto" && kitSelecionado === "master"
-                              ? "bg-violet-600 text-white border-violet-400 shadow-sm"
-                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
-                          }`}
-                        >
-                          Misto 25/25
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setKitSelecionado("master");
-                            setCorKitMaster("preta");
-                          }}
-                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            corKitMaster === "preta" && kitSelecionado === "master"
-                              ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
-                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
-                          }`}
-                        >
-                          100% Preta
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setKitSelecionado("master");
-                            setCorKitMaster("azul");
-                          }}
-                          className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            corKitMaster === "azul" && kitSelecionado === "master"
-                              ? "bg-blue-600 text-white border-blue-400 shadow-sm"
-                              : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
-                          }`}
-                        >
-                          100% Azul
-                        </button>
-                      </div>
-
-                      {/* Preview das Artes em Alta Definição */}
-                      <div className="flex items-center justify-center w-full py-1.5">
-                        {corKitMaster === "misto" && (
-                          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
-                            <div className="flex flex-col items-center">
-                              <img
-                                src="/placa-preta.png"
-                                alt="Placa Preta Google"
-                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                              />
-                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
-                                25x Preta
+                        {disponivel ? (
+                          /* Botões de Cores e Preview Interativo em Alta Definição */
+                          <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                                Escolha as Cores:
+                              </span>
+                              <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                                {corKitPro === "misto" ? "15 Pretas / 15 Azuis" : corKitPro === "preta" ? "30 Pretas" : "30 Azuis"}
                               </span>
                             </div>
-                            <div className="flex flex-col items-center">
-                              <img
-                                src="/placa-azul.png"
-                                alt="Placa Azul Google"
-                                className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                              />
-                              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                                25x Azul
-                              </span>
+
+                            <div className="grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitSelecionado("pro");
+                                  setCorKitPro("misto");
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  corKitPro === "misto" && kitSelecionado === "pro"
+                                    ? "bg-emerald-500 text-black border-emerald-400 shadow-sm"
+                                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                                }`}
+                              >
+                                Misto 15/15
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitSelecionado("pro");
+                                  setCorKitPro("preta");
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  corKitPro === "preta" && kitSelecionado === "pro"
+                                    ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
+                                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                                }`}
+                              >
+                                100% Preta
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitSelecionado("pro");
+                                  setCorKitPro("azul");
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  corKitPro === "azul" && kitSelecionado === "pro"
+                                    ? "bg-blue-600 text-white border-blue-400 shadow-sm"
+                                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                                }`}
+                              >
+                                100% Azul
+                              </button>
+                            </div>
+
+                            {/* Preview Visual das Artes em Alta Definição */}
+                            <div className="flex items-center justify-center w-full py-1.5">
+                              {corKitPro === "misto" && (
+                                <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
+                                  <div className="flex flex-col items-center">
+                                    <img
+                                      src="/placa-preta.png"
+                                      alt="Placa Preta Google"
+                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    />
+                                    <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                                      15x Preta
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <img
+                                      src="/placa-azul.png"
+                                      alt="Placa Azul Google"
+                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    />
+                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                      15x Azul
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              {corKitPro === "preta" && (
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <img
+                                    src="/placa-preta.png"
+                                    alt="Placa Preta Google"
+                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                  />
+                                  <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
+                                    30x Placa Preta (100% Preta)
+                                  </span>
+                                </div>
+                              )}
+                              {corKitPro === "azul" && (
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <img
+                                    src="/placa-azul.png"
+                                    alt="Placa Azul Google"
+                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                  />
+                                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                    30x Placa Azul (100% Azul)
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        )}
-                        {corKitMaster === "preta" && (
-                          <div className="flex flex-col items-center justify-center w-full">
-                            <img
-                              src="/placa-preta.png"
-                              alt="Placa Preta Google"
-                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                            />
-                            <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
-                              50x Placa Preta (100% Preta)
+                        ) : (
+                          <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 text-center">
+                            <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-medium">
+                              ⚠️ Lote bloqueado temporariamente para este lançamento.
                             </span>
                           </div>
                         )}
-                        {corKitMaster === "azul" && (
-                          <div className="flex flex-col items-center justify-center w-full">
-                            <img
-                              src="/placa-azul.png"
-                              alt="Placa Azul Google"
-                              className="w-28 h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
-                            />
-                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
-                              50x Placa Azul (100% Azul)
+                      </div>
+                    );
+                  })()}
+
+                  {/* CARD 3: KIT MASTER (50 UN | R$ 800,00) */}
+                  {(() => {
+                    const disponivel = kitsDisponiveis.master === true;
+                    return (
+                      <div
+                        onClick={() => {
+                          if (disponivel) setKitSelecionado("master");
+                        }}
+                        className={`w-full p-4 rounded-2xl border transition relative ${
+                          !disponivel
+                            ? "opacity-60 cursor-not-allowed bg-zinc-50/70 dark:bg-neutral-900/40 border-dashed border-zinc-300 dark:border-neutral-800"
+                            : kitSelecionado === "master"
+                            ? "bg-violet-500/5 dark:bg-violet-950/20 border-violet-500 ring-2 ring-violet-500/30 cursor-pointer"
+                            : "bg-white dark:bg-neutral-900 border-zinc-200 dark:border-neutral-800 hover:border-zinc-300 dark:hover:border-neutral-700 cursor-pointer"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-zinc-900 dark:text-white">Kit Master</span>
+                              {disponivel ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
+                                  🚀 Escala
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-zinc-200 dark:bg-neutral-800 text-zinc-600 dark:text-neutral-400 border-zinc-300 dark:border-neutral-700">
+                                  🔒 Indisponível no momento
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                              50 unidades • R$ 16,00/un
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-base font-black text-zinc-900 dark:text-white">R$ 800,00</span>
+                            <span className="block text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                              Venda: R$ 4.000,00
+                            </span>
+                          </div>
+                        </div>
+
+                        {disponivel ? (
+                          /* Botões de Cores e Preview */
+                          <div className="mt-3 pt-3 border-t border-zinc-200/80 dark:border-neutral-800/80 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                                Escolha as Cores:
+                              </span>
+                              <span className="text-[11px] font-mono text-zinc-500 dark:text-neutral-400">
+                                {corKitMaster === "misto" ? "25 Pretas / 25 Azuis" : corKitMaster === "preta" ? "50 Pretas" : "50 Azuis"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitSelecionado("master");
+                                  setCorKitMaster("misto");
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  corKitMaster === "misto" && kitSelecionado === "master"
+                                    ? "bg-violet-600 text-white border-violet-400 shadow-sm"
+                                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                                }`}
+                              >
+                                Misto 25/25
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitSelecionado("master");
+                                  setCorKitMaster("preta");
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  corKitMaster === "preta" && kitSelecionado === "master"
+                                    ? "bg-zinc-900 text-white border-zinc-700 shadow-sm"
+                                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                                }`}
+                              >
+                                100% Preta
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitSelecionado("master");
+                                  setCorKitMaster("azul");
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  corKitMaster === "azul" && kitSelecionado === "master"
+                                    ? "bg-blue-600 text-white border-blue-400 shadow-sm"
+                                    : "bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-700"
+                                }`}
+                              >
+                                100% Azul
+                              </button>
+                            </div>
+
+                            {/* Preview das Artes em Alta Definição */}
+                            <div className="flex items-center justify-center w-full py-1.5">
+                              {corKitMaster === "misto" && (
+                                <div className="flex items-center justify-center gap-4 sm:gap-6 w-full">
+                                  <div className="flex flex-col items-center">
+                                    <img
+                                      src="/placa-preta.png"
+                                      alt="Placa Preta Google"
+                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    />
+                                    <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300 mt-1.5 font-mono">
+                                      25x Preta
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <img
+                                      src="/placa-azul.png"
+                                      alt="Placa Azul Google"
+                                      className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                    />
+                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                      25x Azul
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              {corKitMaster === "preta" && (
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <img
+                                    src="/placa-preta.png"
+                                    alt="Placa Preta Google"
+                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                  />
+                                  <span className="text-xs font-bold text-zinc-800 dark:text-neutral-200 mt-1.5 font-mono">
+                                    50x Placa Preta (100% Preta)
+                                  </span>
+                                </div>
+                              )}
+                              {corKitMaster === "azul" && (
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <img
+                                    src="/placa-azul.png"
+                                    alt="Placa Azul Google"
+                                    className="w-24 sm:w-28 h-24 sm:h-28 object-contain rounded-lg shadow-md border border-slate-700/50"
+                                  />
+                                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+                                    50x Placa Azul (100% Azul)
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-neutral-800/60 text-center">
+                            <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-medium">
+                              ⚠️ Lote bloqueado temporariamente para este lançamento.
                             </span>
                           </div>
                         )}
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Resumo Final & Botão PIX */}
@@ -4297,7 +4353,7 @@ export default function DashboardAluno() {
                         </div>
                       </div>
 
-                      <div className="flex gap-3">
+                      <div className="pt-2 pb-2 flex gap-3">
                         <button
                           type="button"
                           onClick={() => setEtapaSolicitacao(1)}
@@ -4308,10 +4364,19 @@ export default function DashboardAluno() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setEtapaSolicitacao(3)}
-                          className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-3.5 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                          onClick={() => {
+                            if (kitsDisponiveis[kitSelecionado]) {
+                              setEtapaSolicitacao(3);
+                            }
+                          }}
+                          disabled={!kitsDisponiveis[kitSelecionado]}
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-3.5 rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <span>Ir para Pagamento • R$ {kit.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ⚡</span>
+                          {kitsDisponiveis[kitSelecionado] ? (
+                            <span>Ir para Pagamento • R$ {kit.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ⚡</span>
+                          ) : (
+                            <span>Kit Selecionado Indisponível</span>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -4402,14 +4467,14 @@ export default function DashboardAluno() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 border border-emerald-500/30 rounded-xl p-2.5">
-                    <span className="flex-1 font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-white truncate selection:bg-emerald-500 selection:text-black">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-neutral-900 border border-emerald-500/30 rounded-xl p-2.5">
+                    <span className="flex-1 font-mono font-bold text-xs sm:text-sm text-zinc-900 dark:text-white truncate selection:bg-emerald-500 selection:text-black text-center sm:text-left py-1">
                       contato@goplak.com.br
                     </span>
                     <button
                       type="button"
                       onClick={handleCopiarChavePix}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold text-xs shadow-sm transition cursor-pointer shrink-0"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold text-xs shadow-sm transition cursor-pointer shrink-0"
                     >
                       {copiouChavePix ? (
                         <>
@@ -4483,7 +4548,7 @@ export default function DashboardAluno() {
                 </div>
 
                 {/* 4. Ações do Rodapé */}
-                <div className="pt-2 flex gap-3">
+                <div className="pt-3 pb-2 flex gap-3">
                   <button
                     type="button"
                     onClick={() => setEtapaSolicitacao(2)}
@@ -4521,7 +4586,7 @@ export default function DashboardAluno() {
       {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
       {modalEditarLinkAberto && placaEditando && (
         <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 pb-8 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -4793,8 +4858,8 @@ export default function DashboardAluno() {
 
       {/* MODAL DEFINIR META SEMANAL */}
       {modalEditarMetaAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full mx-auto p-5 sm:p-6 pb-8 sm:pb-6 shadow-2xl relative max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <button
               type="button"
               onClick={() => setModalEditarMetaAberto(false)}
