@@ -3340,8 +3340,8 @@ export default function DashboardAluno() {
 
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -3519,8 +3519,8 @@ export default function DashboardAluno() {
 
       {/* MODAL 2: LANÇAR DESPESA DE RUA */}
       {modalDespesaAberto && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
               <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <Plus className="w-5 h-5 text-rose-500 dark:text-rose-400" /> Lançar Despesa de Rua
@@ -3637,64 +3637,64 @@ export default function DashboardAluno() {
 
       {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-lg mx-auto rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 pb-8 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[88vh] sm:max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
             {/* Header do Modal */}
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                  <Package className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-                    Solicitar Novo Lote de Displays
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-1 overflow-x-auto scrollbar-none pb-0.5">
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border transition whitespace-nowrap ${
-                        etapaSolicitacao === 1
-                          ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
-                          : etapaSolicitacao > 1
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
-                      }`}
-                    >
-                      1. Endereço
-                    </span>
-                    <span className="text-zinc-400 text-xs shrink-0">➔</span>
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border transition whitespace-nowrap ${
-                        etapaSolicitacao === 2
-                          ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
-                          : etapaSolicitacao > 2
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
-                      }`}
-                    >
-                      2. Kits & Cores
-                    </span>
-                    <span className="text-zinc-400 text-xs shrink-0">➔</span>
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border transition whitespace-nowrap ${
-                        etapaSolicitacao === 3
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
-                          : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
-                      }`}
-                    >
-                      3. Pagamento
-                    </span>
+            <div className="mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+                    <Package className="w-4 h-4" />
                   </div>
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
+                    Solicitar Lote de Displays
+                  </h3>
                 </div>
+                <button
+                  onClick={() => {
+                    setModalSolicitarAberto(false);
+                    setEtapaSolicitacao(1);
+                  }}
+                  className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setModalSolicitarAberto(false);
-                  setEtapaSolicitacao(1);
-                }}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Barra de Passos Superior Fluida 100% da Largura */}
+              <div className="w-full grid grid-cols-3 gap-1 text-[10px] sm:text-xs font-bold text-center">
+                <span
+                  className={`py-1 px-1 rounded-md border transition truncate ${
+                    etapaSolicitacao === 1
+                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                      : etapaSolicitacao > 1
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
+                  }`}
+                >
+                  1. Endereço
+                </span>
+                <span
+                  className={`py-1 px-1 rounded-md border transition truncate ${
+                    etapaSolicitacao === 2
+                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                      : etapaSolicitacao > 2
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
+                  }`}
+                >
+                  2. Kits & Cores
+                </span>
+                <span
+                  className={`py-1 px-1 rounded-md border transition truncate ${
+                    etapaSolicitacao === 3
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
+                      : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
+                  }`}
+                >
+                  3. Pagamento
+                </span>
+              </div>
             </div>
 
             {/* ========================================================
@@ -4595,8 +4595,8 @@ export default function DashboardAluno() {
 
       {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
       {modalEditarLinkAberto && placaEditando && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 pb-8 sm:pb-6 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-neutral-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -4868,8 +4868,8 @@ export default function DashboardAluno() {
 
       {/* MODAL DEFINIR META SEMANAL */}
       {modalEditarMetaAberto && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full mx-auto p-5 sm:p-6 pb-8 sm:pb-6 shadow-2xl relative max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-6 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150 relative">
             <button
               type="button"
               onClick={() => setModalEditarMetaAberto(false)}
