@@ -3341,179 +3341,184 @@ export default function DashboardAluno() {
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                   <QrCode className="w-3.5 h-3.5" />
                 </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
                     Ativar Display em Campo
                   </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 truncate">
                     Vincule a placa virgem ao estabelecimento do cliente
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setModalAtivacaoAberto(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {placasVirgensDisponiveis.length === 0 ? (
-              <div className="text-center py-5 space-y-2.5">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
-                  <Package className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-zinc-900 dark:text-white text-xs sm:text-sm">Sem displays virgens em estoque</h4>
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5 max-w-xs mx-auto">
-                    Você não possui placas virgens disponíveis no momento. Solicite um novo lote de displays para continuar ativando.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalAtivacaoAberto(false);
-                    setModalSolicitarAberto(true);
-                  }}
-                  className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
-                >
-                  Solicitar Displays (+)
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleAtivarDisplay} className="space-y-2.5">
-                {/* Agrupamento Lado a Lado: Display Virgem (55%) + Valor Cobrado (45%) */}
-                <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-7">
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                      Display ({placasVirgensDisponiveis.length} un) *
-                    </label>
-                    <select
-                      value={placaSelecionadaId}
-                      onChange={(e) => setPlacaSelecionadaId(e.target.value)}
-                      required
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition cursor-pointer truncate"
-                    >
-                      {placasVirgensDisponiveis.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.codigo}
-                        </option>
-                      ))}
-                    </select>
+            {/* Corpo interno com scroll seguro */}
+            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
+              {placasVirgensDisponiveis.length === 0 ? (
+                <div className="text-center py-5 space-y-2.5">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
+                    <Package className="w-5 h-5" />
                   </div>
-
-                  <div className="col-span-5">
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate flex items-center gap-1">
-                      <DollarSign className="w-3 h-3 text-zinc-400" /> Valor (R$) *
-                    </label>
-                    <input
-                      type="number"
-                      step="5.00"
-                      required
-                      placeholder="80.00"
-                      value={formValorVenda}
-                      onChange={(e) => setFormValorVenda(e.target.value)}
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition"
-                    />
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white text-xs sm:text-sm">Sem displays virgens em estoque</h4>
+                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5 max-w-xs mx-auto">
+                      Você não possui placas virgens disponíveis no momento. Solicite um novo lote de displays para continuar ativando.
+                    </p>
                   </div>
-                </div>
-
-                {/* Nome do Estabelecimento */}
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                    <Store className="w-3 h-3 text-zinc-400" /> Nome do Estabelecimento / Cliente *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Barbearia VIP, Padaria Central..."
-                    value={formNomeEmpresa}
-                    onChange={(e) => setFormNomeEmpresa(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
-                    autoFocus
-                  />
-                </div>
-
-                {/* Link Google Review */}
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                    <Link2 className="w-3 h-3 text-zinc-400" /> Link de Avaliação Google (Google Review)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="Ex: https://g.page/r/... ou https://maps.app.goo.gl/..."
-                    value={formLinkGoogle}
-                    onChange={(e) => setFormLinkGoogle(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                {/* WhatsApp da Gerência / Feedback */}
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-zinc-400" /> WhatsApp do Proprietário / Gerência
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: (11) 99999-8888"
-                    value={formatarWhatsapp(formWhatsappFeedback)}
-                    onChange={(e) => setFormWhatsappFeedback(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                {/* Escudo Anti-Golpe Ativo */}
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    id="escudoAtivoCheck"
-                    checked={formEscudoAtivo}
-                    onChange={(e) => setFormEscudoAtivo(e.target.checked)}
-                    className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer"
-                  />
-                  <label htmlFor="escudoAtivoCheck" className="text-xs text-zinc-700 dark:text-neutral-300 cursor-pointer select-none">
-                    <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 inline" />
-                      Escudo de Reputação Ativo
-                    </span>
-                    <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block mt-0.5">
-                      Filtra notas 1 a 3 estrelas para WhatsApp privado e 4 a 5 para Google Oficial.
-                    </span>
-                  </label>
-                </div>
-
-                {/* Botões de Ação */}
-                <div className="pt-1.5 flex gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setModalAtivacaoAberto(false)}
-                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                    onClick={() => {
+                      setModalAtivacaoAberto(false);
+                      setModalSolicitarAberto(true);
+                    }}
+                    className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={ativandoDisplay}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {ativandoDisplay ? (
-                      <span className="inline-flex items-center justify-center gap-1.5">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Ativando...</span>
-                      </span>
-                    ) : (
-                      <span>Ativar Display 🚀</span>
-                    )}
+                    Solicitar Displays (+)
                   </button>
                 </div>
-              </form>
-            )}
+              ) : (
+                <form onSubmit={handleAtivarDisplay} className="space-y-2.5 w-full box-border">
+                  {/* Agrupamento Lado a Lado: Display Virgem (55%) + Valor Cobrado (45%) */}
+                  <div className="grid grid-cols-12 gap-2 w-full box-border">
+                    <div className="col-span-7">
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                        Display ({placasVirgensDisponiveis.length} un) *
+                      </label>
+                      <select
+                        value={placaSelecionadaId}
+                        onChange={(e) => setPlacaSelecionadaId(e.target.value)}
+                        required
+                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition cursor-pointer truncate"
+                      >
+                        {placasVirgensDisponiveis.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.codigo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-span-5">
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate flex items-center gap-1">
+                        <DollarSign className="w-3 h-3 text-zinc-400" /> Valor (R$) *
+                      </label>
+                      <input
+                        type="number"
+                        step="5.00"
+                        required
+                        placeholder="80.00"
+                        value={formValorVenda}
+                        onChange={(e) => setFormValorVenda(e.target.value)}
+                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Nome do Estabelecimento */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                      <Store className="w-3 h-3 text-zinc-400" /> Nome do Estabelecimento / Cliente *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Barbearia VIP, Padaria Central..."
+                      value={formNomeEmpresa}
+                      onChange={(e) => setFormNomeEmpresa(e.target.value)}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Link Google Review */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                      <Link2 className="w-3 h-3 text-zinc-400" /> Link de Avaliação Google (Google Review)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="Ex: https://g.page/r/... ou https://maps.app.goo.gl/..."
+                      value={formLinkGoogle}
+                      onChange={(e) => setFormLinkGoogle(e.target.value)}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  {/* WhatsApp da Gerência / Feedback */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-zinc-400" /> WhatsApp do Proprietário / Gerência
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: (11) 99999-8888"
+                      value={formatarWhatsapp(formWhatsappFeedback)}
+                      onChange={(e) => setFormWhatsappFeedback(e.target.value)}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  {/* Escudo Anti-Golpe Ativo */}
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      id="escudoAtivoCheck"
+                      checked={formEscudoAtivo}
+                      onChange={(e) => setFormEscudoAtivo(e.target.checked)}
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer"
+                    />
+                    <label htmlFor="escudoAtivoCheck" className="text-xs text-zinc-700 dark:text-neutral-300 cursor-pointer select-none">
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 inline" />
+                        Escudo de Reputação Ativo
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block mt-0.5">
+                        Filtra notas 1 a 3 estrelas para WhatsApp privado e 4 a 5 para Google Oficial.
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Botões de Ação */}
+                  <div className="pt-1.5 flex gap-2.5 w-full box-border">
+                    <button
+                      type="button"
+                      onClick={() => setModalAtivacaoAberto(false)}
+                      className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={ativandoDisplay}
+                      className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
+                    >
+                      {ativandoDisplay ? (
+                        <span className="inline-flex items-center justify-center gap-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Ativando...</span>
+                        </span>
+                      ) : (
+                        <span>Ativar Display 🚀</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -3521,120 +3526,125 @@ export default function DashboardAluno() {
       {/* MODAL 2: LANÇAR DESPESA DE RUA */}
       {modalDespesaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
-              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <Plus className="w-4 h-4 text-rose-500 dark:text-rose-400" /> Lançar Despesa de Rua
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2 truncate">
+                <Plus className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" /> Lançar Despesa de Rua
               </h3>
               <button
+                type="button"
                 onClick={() => setModalDespesaAberto(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSalvarDespesa} className="space-y-2.5">
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                  Selecione a Categoria
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNovaCategoria("transporte")}
-                    className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                      novaCategoria === "transporte"
-                        ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
-                        : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                    }`}
-                  >
-                    <span className="text-base">🚗</span>
-                    <span className="truncate text-[10px] sm:text-[11px]">Transporte</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNovaCategoria("alimentacao")}
-                    className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                      novaCategoria === "alimentacao"
-                        ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
-                        : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                    }`}
-                  >
-                    <span className="text-base">🍔</span>
-                    <span className="truncate text-[10px] sm:text-[11px]">Alimentação</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNovaCategoria("outros")}
-                    className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                      novaCategoria === "outros"
-                        ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
-                        : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                    }`}
-                  >
-                    <span className="text-base">🔧</span>
-                    <span className="truncate text-[10px] sm:text-[11px]">Outros</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Agrupamento Lado a Lado: Valor R$ (40%) + Descrição Rápida (60%) */}
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-5">
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                    Valor (R$) *
+            {/* Corpo interno com scroll seguro */}
+            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
+              <form onSubmit={handleSalvarDespesa} className="space-y-2.5 w-full box-border">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1">
+                    Selecione a Categoria
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    required
-                    placeholder="25,00"
-                    value={novoValor}
-                    onChange={(e) => setNovoValor(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition"
-                    autoFocus
-                  />
+                  <div className="grid grid-cols-3 gap-2 w-full box-border">
+                    <button
+                      type="button"
+                      onClick={() => setNovaCategoria("transporte")}
+                      className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer min-w-0 box-border ${
+                        novaCategoria === "transporte"
+                          ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
+                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <span className="text-base">🚗</span>
+                      <span className="truncate text-[10px] sm:text-[11px]">Transporte</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNovaCategoria("alimentacao")}
+                      className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer min-w-0 box-border ${
+                        novaCategoria === "alimentacao"
+                          ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
+                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <span className="text-base">🍔</span>
+                      <span className="truncate text-[10px] sm:text-[11px]">Alimentação</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNovaCategoria("outros")}
+                      className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer min-w-0 box-border ${
+                        novaCategoria === "outros"
+                          ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
+                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <span className="text-base">🔧</span>
+                      <span className="truncate text-[10px] sm:text-[11px]">Outros</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="col-span-7">
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                    Descrição (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Uber, Almoço..."
-                    value={novaDescricao}
-                    onChange={(e) => setNovaDescricao(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-rose-500 transition"
-                  />
-                </div>
-              </div>
+                {/* Agrupamento Lado a Lado: Valor R$ (40%) + Descrição Rápida (60%) */}
+                <div className="grid grid-cols-12 gap-2 w-full box-border">
+                  <div className="col-span-5 min-w-0">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      Valor (R$) *
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      required
+                      placeholder="25,00"
+                      value={novoValor}
+                      onChange={(e) => setNovoValor(e.target.value)}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition"
+                      autoFocus
+                    />
+                  </div>
 
-              <div className="pt-1.5 flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setModalDespesaAberto(false)}
-                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvandoDespesa}
-                  className="flex-1 bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {salvandoDespesa ? (
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </span>
-                  ) : (
-                    <span>Confirmar Gasto</span>
-                  )}
-                </button>
-              </div>
-            </form>
+                  <div className="col-span-7 min-w-0">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      Descrição (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Uber, Almoço..."
+                      value={novaDescricao}
+                      onChange={(e) => setNovaDescricao(e.target.value)}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-rose-500 transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-1.5 flex gap-2.5 w-full box-border">
+                  <button
+                    type="button"
+                    onClick={() => setModalDespesaAberto(false)}
+                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoDespesa}
+                    className="flex-1 bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
+                  >
+                    {salvandoDespesa ? (
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Salvando...</span>
+                      </span>
+                    ) : (
+                      <span>Confirmar Gasto</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -3642,9 +3652,9 @@ export default function DashboardAluno() {
       {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            {/* Header do Modal */}
-            <div className="mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5 space-y-2">
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+            {/* Header Fixo do Modal */}
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 space-y-2 box-border">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
@@ -3655,6 +3665,7 @@ export default function DashboardAluno() {
                   </h3>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     setModalSolicitarAberto(false);
                     setEtapaSolicitacao(1);
@@ -3666,7 +3677,7 @@ export default function DashboardAluno() {
               </div>
 
               {/* Barra de Passos Superior Fluida 100% da Largura */}
-              <div className="w-full grid grid-cols-3 gap-1 text-[10px] sm:text-xs font-bold text-center">
+              <div className="w-full grid grid-cols-3 gap-1 text-[10px] sm:text-xs font-bold text-center box-border">
                 <span
                   className={`py-1 px-1 rounded-md border transition truncate ${
                     etapaSolicitacao === 1
@@ -3701,119 +3712,120 @@ export default function DashboardAluno() {
               </div>
             </div>
 
-            {/* ========================================================
-                ETAPA 1: ENDEREÇO DE ENTREGA
-                ======================================================== */}
-            {etapaSolicitacao === 1 && (
-              <div className="space-y-3 animate-in fade-in duration-150">
-                {enderecoSalvo && !editandoEndereco ? (
-                  /* Resumo do Endereço Salvo */
-                  <div className="space-y-3">
-                    <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60 rounded-2xl p-3.5 text-xs space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 flex items-center gap-1.5 text-[11px]">
-                          <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Entregar em:
-                        </span>
-                        <span className="text-[10px] font-mono bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-md">
-                          Cadastrado
-                        </span>
+            {/* Corpo interno com scroll seguro */}
+            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
+              {/* ========================================================
+                  ETAPA 1: ENDEREÇO DE ENTREGA
+                  ======================================================== */}
+              {etapaSolicitacao === 1 && (
+                <div className="w-full box-border animate-in fade-in duration-150">
+                  {enderecoSalvo && !editandoEndereco ? (
+                    /* Resumo do Endereço Salvo */
+                    <div className="space-y-3 w-full box-border">
+                      <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60 rounded-2xl p-3.5 text-xs space-y-1.5 w-full box-border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 flex items-center gap-1.5 text-[11px]">
+                            <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Entregar em:
+                          </span>
+                          <span className="text-[10px] font-mono bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-md">
+                            Cadastrado
+                          </span>
+                        </div>
+
+                        <div className="text-zinc-800 dark:text-neutral-200 space-y-0.5 pt-0.5">
+                          <p className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white">
+                            {enderecoSalvo.logradouro}, {enderecoSalvo.numero}
+                            {enderecoSalvo.complemento ? ` (${enderecoSalvo.complemento})` : ""}
+                          </p>
+                          <p className="text-zinc-600 dark:text-neutral-400 text-xs">
+                            Bairro {enderecoSalvo.bairro} • {enderecoSalvo.cidade} / {enderecoSalvo.estado}
+                          </p>
+                          <p className="font-mono text-[11px] text-zinc-500 dark:text-neutral-500">
+                            CEP: {enderecoSalvo.cep}
+                            {enderecoSalvo.ponto_referencia ? ` • Ref: ${enderecoSalvo.ponto_referencia}` : ""}
+                          </p>
+                        </div>
+
+                        <div className="pt-1.5 border-t border-sky-200/80 dark:border-sky-900/50 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditandoEndereco(true)}
+                            className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Alterar Endereço</span>
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="text-zinc-800 dark:text-neutral-200 space-y-0.5 pt-0.5">
-                        <p className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white">
-                          {enderecoSalvo.logradouro}, {enderecoSalvo.numero}
-                          {enderecoSalvo.complemento ? ` (${enderecoSalvo.complemento})` : ""}
-                        </p>
-                        <p className="text-zinc-600 dark:text-neutral-400 text-xs">
-                          Bairro {enderecoSalvo.bairro} • {enderecoSalvo.cidade} / {enderecoSalvo.estado}
-                        </p>
-                        <p className="font-mono text-[11px] text-zinc-500 dark:text-neutral-500">
-                          CEP: {enderecoSalvo.cep}
-                          {enderecoSalvo.ponto_referencia ? ` • Ref: ${enderecoSalvo.ponto_referencia}` : ""}
-                        </p>
-                      </div>
-
-                      <div className="pt-1.5 border-t border-sky-200/80 dark:border-sky-900/50 flex justify-end">
+                      <div className="pt-1 flex gap-2.5 w-full box-border">
                         <button
                           type="button"
-                          onClick={() => setEditandoEndereco(true)}
-                          className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          onClick={() => setModalSolicitarAberto(false)}
+                          className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
                         >
-                          <Pencil className="w-3 h-3" />
-                          <span>Alterar Endereço</span>
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEtapaSolicitacao(2)}
+                          className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer box-border"
+                        >
+                          <span>Avançar para Escolha do Lote</span>
+                          <ArrowRight className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
+                  ) : (
+                    /* Formulário de Endereço com Busca Automática ViaCEP em Grid de 12 Colunas */
+                    <form onSubmit={handleAvancarParaKits} className="grid grid-cols-12 gap-3 w-full box-border">
+                      {erroEndereco && (
+                        <div className="col-span-12 p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2 box-border">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>{erroEndereco}</span>
+                        </div>
+                      )}
 
-                    <div className="pt-1 flex gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setModalSolicitarAberto(false)}
-                        className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEtapaSolicitacao(2)}
-                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <span>Avançar para Escolha do Lote</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Formulário de Endereço com Busca Automática ViaCEP */
-                  <form onSubmit={handleAvancarParaKits} className="space-y-2.5">
-                    {erroEndereco && (
-                      <div className="p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{erroEndereco}</span>
+                      {/* CEP */}
+                      <div className="col-span-12">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400">
+                            CEP *
+                          </label>
+                          {buscandoCep && (
+                            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin" /> Buscando endereço...
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          placeholder="00000-000"
+                          maxLength={9}
+                          value={cepInput}
+                          onChange={(e) => handleCepChange(e.target.value)}
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          autoFocus
+                        />
                       </div>
-                    )}
 
-                    {/* CEP */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400">
-                          CEP *
+                      {/* Rua / Avenida */}
+                      <div className="col-span-12">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
+                          Rua / Avenida *
                         </label>
-                        {buscandoCep && (
-                          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1">
-                            <Loader2 className="w-3 h-3 animate-spin" /> Buscando endereço...
-                          </span>
-                        )}
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: Av. Paulista ou Rua das Flores"
+                          value={logradouroInput}
+                          onChange={(e) => setLogradouroInput(e.target.value)}
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
                       </div>
-                      <input
-                        type="text"
-                        required
-                        placeholder="00000-000"
-                        maxLength={9}
-                        value={cepInput}
-                        onChange={(e) => handleCepChange(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                        autoFocus
-                      />
-                    </div>
 
-                    {/* Logradouro (Rua / Avenida) */}
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
-                        Rua / Avenida *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ex: Av. Paulista ou Rua das Flores"
-                        value={logradouroInput}
-                        onChange={(e) => setLogradouroInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                      />
-                    </div>
-
-                    {/* Agrupamento Lado a Lado: Número (35%) + Complemento (65%) */}
-                    <div className="grid grid-cols-12 gap-2">
+                      {/* Número: col-span-4 */}
                       <div className="col-span-4">
                         <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
                           Número *
@@ -3824,9 +3836,11 @@ export default function DashboardAluno() {
                           placeholder="123"
                           value={numeroInput}
                           onChange={(e) => setNumeroInput(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
+
+                      {/* Complemento: col-span-8 */}
                       <div className="col-span-8">
                         <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
                           Complemento (Opcional)
@@ -3836,29 +3850,27 @@ export default function DashboardAluno() {
                           placeholder="Apto 42, Bloco B..."
                           value={complementoInput}
                           onChange={(e) => setComplementoInput(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                    </div>
 
-                    {/* Bairro */}
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
-                        Bairro *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Bairro"
-                        value={bairroInput}
-                        onChange={(e) => setBairroInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                      />
-                    </div>
+                      {/* Bairro */}
+                      <div className="col-span-12">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
+                          Bairro *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Bairro"
+                          value={bairroInput}
+                          onChange={(e) => setBairroInput(e.target.value)}
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+                      </div>
 
-                    {/* Agrupamento Lado a Lado: Cidade (75%) + UF (25%) */}
-                    <div className="grid grid-cols-12 gap-2">
-                      <div className="col-span-9">
+                      {/* Cidade: col-span-8 */}
+                      <div className="col-span-8">
                         <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
                           Cidade *
                         </label>
@@ -3868,10 +3880,12 @@ export default function DashboardAluno() {
                           placeholder="Cidade"
                           value={cidadeInput}
                           onChange={(e) => setCidadeInput(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
                         />
                       </div>
-                      <div className="col-span-3">
+
+                      {/* UF: col-span-4 */}
+                      <div className="col-span-4">
                         <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate text-center">
                           UF *
                         </label>
@@ -3882,51 +3896,52 @@ export default function DashboardAluno() {
                           placeholder="SP"
                           value={estadoInput}
                           onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
-                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-1.5 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-1.5 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
                         />
                       </div>
-                    </div>
 
-                    {/* Ponto de Referência */}
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
-                        Ponto de Referência (Opcional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Próximo à padaria, portão branco..."
-                        value={pontoReferenciaInput}
-                        onChange={(e) => setPontoReferenciaInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                      />
-                    </div>
+                      {/* Ponto de Referência */}
+                      <div className="col-span-12">
+                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
+                          Ponto de Referência (Opcional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ex: Próximo à padaria, portão branco..."
+                          value={pontoReferenciaInput}
+                          onChange={(e) => setPontoReferenciaInput(e.target.value)}
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+                      </div>
 
-                    {/* Botões */}
-                    <div className="pt-2 flex gap-2.5">
-                      {enderecoSalvo && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditandoEndereco(false);
-                            setErroEndereco(null);
-                          }}
-                          className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                      )}
-                      <button
-                        type="submit"
-                        className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <span>Avançar para Escolha do Lote</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
+                      {/* Botão de Ação */}
+                      <div className="col-span-12 w-full block box-border mt-4">
+                        <div className="flex gap-2.5 w-full box-border">
+                          {enderecoSalvo && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditandoEndereco(false);
+                                setErroEndereco(null);
+                              }}
+                              className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer box-border shrink-0"
+                            >
+                              Cancelar
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            className="w-full block box-border bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Avançar para Escolha do Lote</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
 
             {/* ========================================================
                 ETAPA 2: CATÁLOGO DE KITS & PREVIEW VISUAL DE CORES
@@ -4595,6 +4610,7 @@ export default function DashboardAluno() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -4602,270 +4618,275 @@ export default function DashboardAluno() {
       {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
       {modalEditarLinkAberto && placaEditando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 dark:border-neutral-800 pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                   <Link2 className="w-3.5 h-3.5" />
                 </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
                     Atualizar Destino • {placaEditando.codigo}
                   </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 truncate">
                     Altere o redirecionamento do QR Code / NFC
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setModalEditarLinkAberto(false);
                   setPlacaEditando(null);
                 }}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSalvarNovoLink} className="space-y-2.5">
-              {/* Nome da Loja / Estabelecimento */}
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                  <Store className="w-3 h-3 text-emerald-500" />
-                  <span>Nome da Loja / Estabelecimento *</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  disabled={salvandoLink}
-                  placeholder="Ex: Pizzaria Bella Roma"
-                  value={editNomeLojaAluno}
-                  onChange={(e) => setEditNomeLojaAluno(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
-                />
-              </div>
-
-              {/* Agrupamento Lado a Lado: Responsável (50%) + WhatsApp (50%) */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                    Responsável
+            {/* Corpo interno com scroll seguro */}
+            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
+              <form onSubmit={handleSalvarNovoLink} className="space-y-2.5 w-full box-border">
+                {/* Nome da Loja / Estabelecimento */}
+                <div className="w-full box-border">
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <Store className="w-3 h-3 text-emerald-500" />
+                    <span>Nome da Loja / Estabelecimento *</span>
                   </label>
                   <input
                     type="text"
+                    required
                     disabled={salvandoLink}
-                    placeholder="Ex: Carlos Eduardo"
-                    value={editResponsavelAluno}
-                    onChange={(e) => setEditResponsavelAluno(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-sky-500 transition"
+                    placeholder="Ex: Pizzaria Bella Roma"
+                    value={editNomeLojaAluno}
+                    onChange={(e) => setEditNomeLojaAluno(e.target.value)}
+                    className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                    WhatsApp Contato
+                {/* Agrupamento Lado a Lado: Responsável (50%) + WhatsApp (50%) */}
+                <div className="grid grid-cols-2 gap-2 w-full box-border">
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      Responsável
+                    </label>
+                    <input
+                      type="text"
+                      disabled={salvandoLink}
+                      placeholder="Ex: Carlos Eduardo"
+                      value={editResponsavelAluno}
+                      onChange={(e) => setEditResponsavelAluno(e.target.value)}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-sky-500 transition"
+                    />
+                  </div>
+
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      WhatsApp Contato
+                    </label>
+                    <input
+                      type="tel"
+                      disabled={salvandoLink}
+                      placeholder="(11) 99999-9999"
+                      value={editWhatsappAluno}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                        let f = digits;
+                        if (digits.length > 2) f = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+                        if (digits.length > 7) f = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+                        setEditWhatsappAluno(f);
+                      }}
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                    />
+                  </div>
+                </div>
+
+                {/* URL de Destino (Google Review / Link) */}
+                <div className="w-full box-border">
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <Link2 className="w-3 h-3 text-sky-500" />
+                    <span>Link de Avaliação Google *</span>
                   </label>
                   <input
-                    type="tel"
-                    disabled={salvandoLink}
-                    placeholder="(11) 99999-9999"
-                    value={editWhatsappAluno}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
-                      let f = digits;
-                      if (digits.length > 2) f = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-                      if (digits.length > 7) f = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-                      setEditWhatsappAluno(f);
-                    }}
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
+                    type="url"
+                    required
+                    placeholder="https://maps.app.goo.gl/... ou https://g.page/r/..."
+                    value={novoLinkDestino}
+                    onChange={(e) => setNovoLinkDestino(e.target.value)}
+                    className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                   />
-                </div>
-              </div>
 
-              {/* URL de Destino (Google Review / Link) */}
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                  <Link2 className="w-3 h-3 text-sky-500" />
-                  <span>Link de Avaliação Google *</span>
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://maps.app.goo.gl/... ou https://g.page/r/..."
-                  value={novoLinkDestino}
-                  onChange={(e) => setNovoLinkDestino(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
-                />
-
-                <div className="mt-1 flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
-                    className="inline-flex items-center justify-start gap-1 w-fit px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold transition active:scale-[0.98] cursor-pointer"
-                  >
-                    <span>🔍 Gerar Link de Avaliação no Google</span>
-                    <ExternalLink className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400 shrink-0" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Valor do Display */}
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                  <DollarSign className="w-3 h-3 text-amber-500" />
-                  <span>Valor do Display (R$)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-2 text-xs text-zinc-500 font-bold">R$</span>
-                  <input
-                    type="text"
-                    disabled={salvandoLink}
-                    value={editValorDisplayAluno}
-                    onChange={(e) => setEditValorDisplayAluno(e.target.value)}
-                    placeholder="80,00"
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs font-bold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-amber-500 transition"
-                  />
-                </div>
-              </div>
-
-              {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
-              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Outras Vendas / Serviços Adicionais</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-400 font-mono">
-                    {editServicosAluno.length} {editServicosAluno.length === 1 ? "adicionado" : "adicionados"}
-                  </span>
+                  <div className="mt-1 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
+                      className="inline-flex items-center justify-start gap-1 w-fit px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <span>🔍 Gerar Link de Avaliação no Google</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                    </button>
+                  </div>
                 </div>
 
-                {editServicosAluno.length === 0 ? (
-                  <p className="text-[10px] text-zinc-500 dark:text-neutral-400 italic py-0.5">
-                    Nenhum serviço adicional vinculado. Adicione caso tenha vendido gestão, fotos, etc.
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
-                    {editServicosAluno.map((servico, idx) => (
-                      <div
-                        key={servico.id || idx}
-                        className="p-2 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-1.5 relative"
-                      >
-                        <div className="flex items-center justify-between gap-1.5">
-                          <input
-                            type="text"
-                            disabled={salvandoLink}
-                            placeholder="Descrição (ex: Gestão GMN, Fotos 360...)"
-                            value={servico.descricao}
-                            onChange={(e) => {
-                              const novaLista = [...editServicosAluno];
-                              novaLista[idx].descricao = e.target.value;
-                              setEditServicosAluno(novaLista);
-                            }}
-                            className="w-full bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-0.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
-                          />
-                          <button
-                            type="button"
-                            disabled={salvandoLink}
-                            onClick={() => {
-                              setEditServicosAluno(editServicosAluno.filter((_, i) => i !== idx));
-                            }}
-                            className="text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 p-1 rounded transition cursor-pointer"
-                            title="Remover serviço"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                {/* Valor do Display */}
+                <div className="w-full box-border">
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3 text-amber-500" />
+                    <span>Valor do Display (R$)</span>
+                  </label>
+                  <div className="relative w-full box-border">
+                    <span className="absolute left-2.5 top-2 text-xs text-zinc-500 font-bold">R$</span>
+                    <input
+                      type="text"
+                      disabled={salvandoLink}
+                      value={editValorDisplayAluno}
+                      onChange={(e) => setEditValorDisplayAluno(e.target.value)}
+                      placeholder="80,00"
+                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs font-bold text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-amber-500 transition"
+                    />
+                  </div>
+                </div>
 
-                        {/* Agrupamento Lado a Lado: Valor (50%) + Tipo Cobrança (50%) */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="relative">
-                            <span className="absolute left-2 top-1 text-[10px] text-zinc-500 font-bold">R$</span>
+                {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
+                <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-2 w-full box-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Outras Vendas / Serviços Adicionais</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono">
+                      {editServicosAluno.length} {editServicosAluno.length === 1 ? "adicionado" : "adicionados"}
+                    </span>
+                  </div>
+
+                  {editServicosAluno.length === 0 ? (
+                    <p className="text-[10px] text-zinc-500 dark:text-neutral-400 italic py-0.5">
+                      Nenhum serviço adicional vinculado. Adicione caso tenha vendido gestão, fotos, etc.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5 w-full box-border">
+                      {editServicosAluno.map((servico, idx) => (
+                        <div
+                          key={servico.id || idx}
+                          className="p-2 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-1.5 relative w-full box-border"
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
                             <input
                               type="text"
                               disabled={salvandoLink}
-                              placeholder="150,00"
-                              value={servico.valor}
+                              placeholder="Descrição (ex: Gestão GMN, Fotos 360...)"
+                              value={servico.descricao}
                               onChange={(e) => {
                                 const novaLista = [...editServicosAluno];
-                                novaLista[idx].valor = e.target.value;
+                                novaLista[idx].descricao = e.target.value;
                                 setEditServicosAluno(novaLista);
                               }}
-                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                              className="w-full min-w-0 box-border bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-0.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
                             />
+                            <button
+                              type="button"
+                              disabled={salvandoLink}
+                              onClick={() => {
+                                setEditServicosAluno(editServicosAluno.filter((_, i) => i !== idx));
+                              }}
+                              className="text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 p-1 rounded transition cursor-pointer shrink-0"
+                              title="Remover serviço"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
 
-                          <div>
-                            <select
-                              disabled={salvandoLink}
-                              value={servico.tipo_cobranca}
-                              onChange={(e) => {
-                                const novaLista = [...editServicosAluno];
-                                novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
-                                setEditServicosAluno(novaLista);
-                              }}
-                              className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                              <option value="unico">Pagamento Único</option>
-                              <option value="recorrente">Mensal / Recorrente</option>
-                            </select>
+                          {/* Agrupamento Lado a Lado: Valor (50%) + Tipo Cobrança (50%) */}
+                          <div className="grid grid-cols-2 gap-2 w-full box-border">
+                            <div className="relative min-w-0">
+                              <span className="absolute left-2 top-1 text-[10px] text-zinc-500 font-bold">R$</span>
+                              <input
+                                type="text"
+                                disabled={salvandoLink}
+                                placeholder="150,00"
+                                value={servico.valor}
+                                onChange={(e) => {
+                                  const novaLista = [...editServicosAluno];
+                                  novaLista[idx].valor = e.target.value;
+                                  setEditServicosAluno(novaLista);
+                                }}
+                                className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                              />
+                            </div>
+
+                            <div className="min-w-0">
+                              <select
+                                disabled={salvandoLink}
+                                value={servico.tipo_cobranca}
+                                onChange={(e) => {
+                                  const novaLista = [...editServicosAluno];
+                                  novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
+                                  setEditServicosAluno(novaLista);
+                                }}
+                                className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                              >
+                                <option value="unico">Pagamento Único</option>
+                                <option value="recorrente">Mensal / Recorrente</option>
+                              </select>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={salvandoLink}
-                  onClick={() => {
-                    setEditServicosAluno([
-                      ...editServicosAluno,
-                      {
-                        id: `serv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-                        descricao: "",
-                        valor: "",
-                        tipo_cobranca: "unico",
-                      },
-                    ]);
-                  }}
-                  className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>👉 + Adicionar Outro Serviço</span>
-                </button>
-              </div>
-
-              {/* Botões de Ação */}
-              <div className="pt-1.5 flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalEditarLinkAberto(false);
-                    setPlacaEditando(null);
-                  }}
-                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvandoLink}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {salvandoLink ? (
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </span>
-                  ) : (
-                    <span>Salvar Alterações</span>
+                      ))}
+                    </div>
                   )}
-                </button>
-              </div>
-            </form>
+
+                  <button
+                    type="button"
+                    disabled={salvandoLink}
+                    onClick={() => {
+                      setEditServicosAluno([
+                        ...editServicosAluno,
+                        {
+                          id: `serv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                          descricao: "",
+                          valor: "",
+                          tipo_cobranca: "unico",
+                        },
+                      ]);
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer box-border"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>👉 + Adicionar Outro Serviço</span>
+                  </button>
+                </div>
+
+                {/* Botões de Ação */}
+                <div className="pt-1.5 flex gap-2.5 w-full box-border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalEditarLinkAberto(false);
+                      setPlacaEditando(null);
+                    }}
+                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoLink}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
+                  >
+                    {salvandoLink ? (
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Salvando...</span>
+                      </span>
+                    ) : (
+                      <span>Salvar Alterações</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -4873,122 +4894,127 @@ export default function DashboardAluno() {
       {/* MODAL DEFINIR META SEMANAL */}
       {modalEditarMetaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-2xl p-4 sm:p-5 shadow-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 animate-in zoom-in-95 duration-150 relative">
-            <button
-              type="button"
-              onClick={() => setModalEditarMetaAberto(false)}
-              className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="p-2 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 rounded-xl">
-                <Target className="w-5 h-5" />
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 rounded-xl shrink-0">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
+                    Definir Meta Semanal
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 truncate">
+                    Configure seu objetivo de ativação de displays
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
-                  Definir Meta Semanal
-                </h3>
-                <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
-                  Configure seu objetivo de ativação de displays
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setModalEditarMetaAberto(false)}
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <form onSubmit={handleSalvarMetaSemanal} className="space-y-2.5">
-              {/* Agrupamento Lado a Lado: Quantidade de Displays (50%) + Preço Unitário (50%) */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                    Meta Displays / sem *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="1"
-                      max="500"
-                      required
-                      value={inputMetaSemanal}
-                      onChange={(e) => setInputMetaSemanal(e.target.value)}
-                      placeholder="20"
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
-                    />
+            {/* Corpo interno com scroll seguro */}
+            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
+              <form onSubmit={handleSalvarMetaSemanal} className="space-y-2.5 w-full box-border">
+                {/* Agrupamento Lado a Lado: Quantidade de Displays (50%) + Preço Unitário (50%) */}
+                <div className="grid grid-cols-2 gap-2.5 w-full box-border">
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      Meta Displays / sem *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        required
+                        value={inputMetaSemanal}
+                        onChange={(e) => setInputMetaSemanal(e.target.value)}
+                        placeholder="20"
+                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                      Valor por display (R$)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={inputPrecoDisplay}
+                        onChange={(e) => setInputPrecoDisplay(e.target.value)}
+                        placeholder="80,00"
+                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-2.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                    Valor por display (R$)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
-                      R$
-                    </span>
-                    <input
-                      type="text"
-                      value={inputPrecoDisplay}
-                      onChange={(e) => setInputPrecoDisplay(e.target.value)}
-                      placeholder="80,00"
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-2.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
-                    />
-                  </div>
+                {/* Prévia do montante total centralizado */}
+                {(() => {
+                  const qtd = Number(inputMetaSemanal.replace(/\D/g, "")) || 0;
+                  const valorUnitario = typeof inputPrecoDisplay === "number"
+                    ? inputPrecoDisplay
+                    : (() => {
+                        const str = String(inputPrecoDisplay).trim();
+                        if (str.includes(",")) {
+                          return parseFloat(str.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+                        }
+                        return parseFloat(str.replace(/[^0-9.-]/g, "")) || 0;
+                      })();
+
+                  const faturamentoEstimado = qtd * valorUnitario;
+                  if (qtd <= 0) return null;
+
+                  return (
+                    <div className="p-2.5 rounded-xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between text-xs w-full box-border">
+                      <span className="text-zinc-600 dark:text-neutral-300 font-medium truncate">
+                        Faturamento estimado com a meta:
+                      </span>
+                      <span className="text-xs font-black text-violet-600 dark:text-violet-400 shrink-0 ml-1">
+                        {faturamentoEstimado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Botões */}
+                <div className="pt-1.5 flex gap-2.5 w-full box-border">
+                  <button
+                    type="button"
+                    onClick={() => setModalEditarMetaAberto(false)}
+                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoMeta}
+                    className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
+                  >
+                    {salvandoMeta ? (
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Salvando...</span>
+                      </span>
+                    ) : (
+                      <span>Salvar Meta</span>
+                    )}
+                  </button>
                 </div>
-              </div>
-
-              {/* Prévia do montante total centralizado */}
-              {(() => {
-                const qtd = Number(inputMetaSemanal.replace(/\D/g, "")) || 0;
-                const valorUnitario = typeof inputPrecoDisplay === "number"
-                  ? inputPrecoDisplay
-                  : (() => {
-                      const str = String(inputPrecoDisplay).trim();
-                      if (str.includes(",")) {
-                        return parseFloat(str.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
-                      }
-                      return parseFloat(str.replace(/[^0-9.-]/g, "")) || 0;
-                    })();
-
-                const faturamentoEstimado = qtd * valorUnitario;
-                if (qtd <= 0) return null;
-
-                return (
-                  <div className="p-2.5 rounded-xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between text-xs">
-                    <span className="text-zinc-600 dark:text-neutral-300 font-medium">
-                      Faturamento estimado com a meta batida:
-                    </span>
-                    <span className="text-xs font-black text-violet-600 dark:text-violet-400">
-                      {faturamentoEstimado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </span>
-                  </div>
-                );
-              })()}
-
-              {/* Botões */}
-              <div className="pt-1.5 flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setModalEditarMetaAberto(false)}
-                  className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvandoMeta}
-                  className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {salvandoMeta ? (
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </span>
-                  ) : (
-                    <span>Salvar Meta</span>
-                  )}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
