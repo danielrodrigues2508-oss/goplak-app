@@ -3341,7 +3341,7 @@ export default function DashboardAluno() {
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
@@ -3526,7 +3526,7 @@ export default function DashboardAluno() {
       {/* MODAL 2: LANÇAR DESPESA DE RUA */}
       {modalDespesaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2 truncate">
@@ -3652,7 +3652,7 @@ export default function DashboardAluno() {
       {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
             {/* Header Fixo do Modal */}
             <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 space-y-2 box-border">
               <div className="flex items-center justify-between gap-2">
@@ -3677,9 +3677,9 @@ export default function DashboardAluno() {
               </div>
 
               {/* Barra de Passos Superior Fluida 100% da Largura */}
-              <div className="w-full grid grid-cols-3 gap-1 text-[10px] sm:text-xs font-bold text-center box-border">
+              <div className="grid grid-cols-3 gap-1.5 w-full box-border">
                 <span
-                  className={`py-1 px-1 rounded-md border transition truncate ${
+                  className={`text-[11px] sm:text-xs px-1 py-1.5 text-center truncate rounded-md border transition font-bold ${
                     etapaSolicitacao === 1
                       ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
                       : etapaSolicitacao > 1
@@ -3690,7 +3690,7 @@ export default function DashboardAluno() {
                   1. Endereço
                 </span>
                 <span
-                  className={`py-1 px-1 rounded-md border transition truncate ${
+                  className={`text-[11px] sm:text-xs px-1 py-1.5 text-center truncate rounded-md border transition font-bold ${
                     etapaSolicitacao === 2
                       ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
                       : etapaSolicitacao > 2
@@ -3698,16 +3698,16 @@ export default function DashboardAluno() {
                       : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
                   }`}
                 >
-                  2. Kits & Cores
+                  2. Kits
                 </span>
                 <span
-                  className={`py-1 px-1 rounded-md border transition truncate ${
+                  className={`text-[11px] sm:text-xs px-1 py-1.5 text-center truncate rounded-md border transition font-bold ${
                     etapaSolicitacao === 3
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
                       : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
                   }`}
                 >
-                  3. Pagamento
+                  3. Pagar
                 </span>
               </div>
             </div>
@@ -3869,35 +3869,35 @@ export default function DashboardAluno() {
                         />
                       </div>
 
-                      {/* Cidade: col-span-8 */}
-                      <div className="col-span-8">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                          Cidade *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Cidade"
-                          value={cidadeInput}
-                          onChange={(e) => setCidadeInput(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                        />
-                      </div>
-
-                      {/* UF: col-span-4 */}
-                      <div className="col-span-4">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate text-center">
-                          UF *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          maxLength={2}
-                          placeholder="SP"
-                          value={estadoInput}
-                          onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-1.5 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
-                        />
+                      {/* Linha da Cidade e UF (Grid Flexível 4 Colunas: 3 + 1) */}
+                      <div className="col-span-12 grid grid-cols-4 gap-2 w-full box-border">
+                        <div className="col-span-3 min-w-0">
+                          <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                            Cidade *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Cidade"
+                            value={cidadeInput}
+                            onChange={(e) => setCidadeInput(e.target.value)}
+                            className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          />
+                        </div>
+                        <div className="col-span-1 min-w-0">
+                          <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate text-center">
+                            UF *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={2}
+                            placeholder="SP"
+                            value={estadoInput}
+                            onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
+                            className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-1 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
+                          />
+                        </div>
                       </div>
 
                       {/* Ponto de Referência */}
@@ -4618,7 +4618,7 @@ export default function DashboardAluno() {
       {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
       {modalEditarLinkAberto && placaEditando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
@@ -4894,7 +4894,7 @@ export default function DashboardAluno() {
       {/* MODAL DEFINIR META SEMANAL */}
       {modalEditarMetaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
