@@ -332,6 +332,7 @@ export default function DashboardAluno() {
   const [novoLinkDestino, setNovoLinkDestino] = useState("");
   const [editValorDisplayAluno, setEditValorDisplayAluno] = useState("80.00");
   const [editServicosAluno, setEditServicosAluno] = useState<ServicoAdicionalItem[]>([]);
+  const [secaoServicosAberta, setSecaoServicosAberta] = useState(false);
   const [salvandoLink, setSalvandoLink] = useState(false);
   const [avisoSucessoLink, setAvisoSucessoLink] = useState<string | null>(null);
 
@@ -1288,8 +1289,8 @@ export default function DashboardAluno() {
   };
 
   // BOTÃO EXPERIMENTAL: Copiar Link Google & Abrir NFC Tools (Isolado e Autocontido)
-  const handleOpenNfcTools = async () => {
-    const link = (formLinkGoogle || "").trim();
+  const handleOpenNfcTools = async (customLink?: string) => {
+    const link = (customLink !== undefined ? customLink : formLinkGoogle || "").trim();
 
     if (!link) {
       setAvisoNaoAutorizado("Preencha ou gere o link do Google primeiro!");
@@ -1313,7 +1314,7 @@ export default function DashboardAluno() {
     }
 
     // 2. Exibir toast
-    setAvisoSucessoAtivacao("Link copiado! Abrindo NFC Tools...");
+    setAvisoSucessoAtivacao("Link copiado! A abrir NFC Tools...");
 
     // 3. Tentar abrir o app NFC Tools
     if (typeof window === "undefined") return;
@@ -1946,6 +1947,7 @@ export default function DashboardAluno() {
     setNovoLinkDestino(placa.link_destino || placa.link_google_review || placa.url_destino || "");
     setEditValorDisplayAluno(placa.valor_venda ? String(placa.valor_venda) : "80.00");
     setEditServicosAluno(servicosRecuperados);
+    setSecaoServicosAberta(servicosRecuperados.length > 0);
     setModalEditarLinkAberto(true);
   };
 
@@ -3525,7 +3527,7 @@ export default function DashboardAluno() {
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl my-auto box-border max-h-[92vh] overflow-y-auto overflow-x-hidden">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl p-4 shadow-2xl my-auto box-border max-h-[92vh] overflow-y-auto overflow-x-hidden">
             {/* Cabeçalho */}
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
               <div className="flex items-center gap-2 min-w-0">
@@ -3639,14 +3641,26 @@ export default function DashboardAluno() {
                     onChange={(e) => setFormLinkGoogle(e.target.value)}
                     className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-zinc-200 text-xs font-mono focus:outline-none focus:border-emerald-500 box-border"
                   />
-                  {/* Botão Experimental: Copiar Link Google & Abrir NFC Tools */}
-                  <button
-                    type="button"
-                    onClick={handleOpenNfcTools}
-                    className="w-full h-9 bg-violet-950/40 border border-violet-500/40 text-violet-300 hover:bg-violet-900/40 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors mt-2 cursor-pointer"
-                  >
-                    <span>📲 Copiar Link Google & Abrir NFC Tools</span>
-                  </button>
+                  {/* Grid 2 colunas: Gerar Link Google & Gravar NFC Tools */}
+                  <div className="grid grid-cols-2 gap-2 mt-1.5 w-full box-border">
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
+                      className="h-8.5 px-2 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 active:scale-[0.98] text-sky-400 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
+                      title="Gerar Link de Avaliação no Google"
+                    >
+                      <span className="truncate">🔍 Gerar Link Google</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-sky-400/80 shrink-0" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenNfcTools(formLinkGoogle)}
+                      className="h-8.5 px-2 rounded-xl border border-violet-500/40 bg-violet-950/40 hover:bg-violet-900/40 active:scale-[0.98] text-violet-300 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
+                      title="Copiar Link e Abrir NFC Tools"
+                    >
+                      <span className="truncate">📲 Gravar NFC Tools</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* WhatsApp da Gerência / Feedback */}
@@ -4775,7 +4789,7 @@ export default function DashboardAluno() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl relative max-h-[92vh] flex flex-col box-border">
             {/* Header Fixo */}
-            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-800 shrink-0 flex items-center justify-between gap-2 box-border">
+            <div className="p-4 pb-2.5 border-b border-zinc-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                   <Link2 className="w-3.5 h-3.5" />
@@ -4802,7 +4816,7 @@ export default function DashboardAluno() {
             </div>
 
             {/* Corpo interno com scroll seguro */}
-            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
+            <div className="w-full overflow-y-auto overflow-x-hidden p-4 box-border flex-1">
               <form onSubmit={handleSalvarNovoLink} className="space-y-2.5 w-full box-border">
                 {/* Nome da Loja / Estabelecimento */}
                 <div className="w-full box-border">
@@ -4873,14 +4887,24 @@ export default function DashboardAluno() {
                     className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
                   />
 
-                  <div className="mt-1 flex flex-col gap-1">
+                  {/* Grid 2 colunas: Gerar Link Google & Gravar NFC Tools */}
+                  <div className="grid grid-cols-2 gap-2 mt-1.5 w-full box-border">
                     <button
                       type="button"
                       onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
-                      className="inline-flex items-center justify-start gap-1 w-fit px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold transition active:scale-[0.98] cursor-pointer"
+                      className="h-8.5 px-2 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 active:scale-[0.98] text-sky-600 dark:text-sky-300 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
+                      title="Gerar Link de Avaliação no Google"
                     >
-                      <span>🔍 Gerar Link de Avaliação no Google</span>
-                      <ExternalLink className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <span className="truncate">🔍 Gerar Link Google</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-sky-500/80 shrink-0" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenNfcTools(novoLinkDestino)}
+                      className="h-8.5 px-2 rounded-xl border border-violet-500/40 bg-violet-950/40 hover:bg-violet-900/40 active:scale-[0.98] text-violet-300 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
+                      title="Copiar Link e Abrir NFC Tools"
+                    >
+                      <span className="truncate">📲 Gravar NFC Tools</span>
                     </button>
                   </div>
                 </div>
@@ -4904,100 +4928,13 @@ export default function DashboardAluno() {
                   </div>
                 </div>
 
-                {/* Bloco de Múltiplos Serviços Adicionais (Dinâmico) */}
-                <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-2 w-full box-border">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      <span>Outras Vendas / Serviços Adicionais</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono">
-                      {editServicosAluno.length} {editServicosAluno.length === 1 ? "adicionado" : "adicionados"}
-                    </span>
-                  </div>
-
-                  {editServicosAluno.length === 0 ? (
-                    <p className="text-[10px] text-zinc-500 dark:text-neutral-400 italic py-0.5">
-                      Nenhum serviço adicional vinculado. Adicione caso tenha vendido gestão, fotos, etc.
-                    </p>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5 w-full box-border">
-                      {editServicosAluno.map((servico, idx) => (
-                        <div
-                          key={servico.id || idx}
-                          className="p-2 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-1.5 relative w-full box-border"
-                        >
-                          <div className="flex items-center justify-between gap-1.5">
-                            <input
-                              type="text"
-                              disabled={salvandoLink}
-                              placeholder="Descrição (ex: Gestão GMN, Fotos 360...)"
-                              value={servico.descricao}
-                              onChange={(e) => {
-                                const novaLista = [...editServicosAluno];
-                                novaLista[idx].descricao = e.target.value;
-                                setEditServicosAluno(novaLista);
-                              }}
-                              className="w-full min-w-0 box-border bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-0.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
-                            />
-                            <button
-                              type="button"
-                              disabled={salvandoLink}
-                              onClick={() => {
-                                setEditServicosAluno(editServicosAluno.filter((_, i) => i !== idx));
-                              }}
-                              className="text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 p-1 rounded transition cursor-pointer shrink-0"
-                              title="Remover serviço"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Agrupamento Lado a Lado: Valor (50%) + Tipo Cobrança (50%) */}
-                          <div className="grid grid-cols-2 gap-2 w-full box-border">
-                            <div className="relative min-w-0">
-                              <span className="absolute left-2 top-1 text-[10px] text-zinc-500 font-bold">R$</span>
-                              <input
-                                type="text"
-                                disabled={salvandoLink}
-                                placeholder="150,00"
-                                value={servico.valor}
-                                onChange={(e) => {
-                                  const novaLista = [...editServicosAluno];
-                                  novaLista[idx].valor = e.target.value;
-                                  setEditServicosAluno(novaLista);
-                                }}
-                                className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                              />
-                            </div>
-
-                            <div className="min-w-0">
-                              <select
-                                disabled={salvandoLink}
-                                value={servico.tipo_cobranca}
-                                onChange={(e) => {
-                                  const novaLista = [...editServicosAluno];
-                                  novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
-                                  setEditServicosAluno(novaLista);
-                                }}
-                                className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                              >
-                                <option value="unico">Pagamento Único</option>
-                                <option value="recorrente">Mensal / Recorrente</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
+                {/* Bloco de Múltiplos Serviços Adicionais (Retrátil / Accordion) */}
+                {!secaoServicosAberta && editServicosAluno.length === 0 ? (
                   <button
                     type="button"
-                    disabled={salvandoLink}
                     onClick={() => {
+                      setSecaoServicosAberta(true);
                       setEditServicosAluno([
-                        ...editServicosAluno,
                         {
                           id: `serv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                           descricao: "",
@@ -5006,12 +4943,145 @@ export default function DashboardAluno() {
                         },
                       ]);
                     }}
-                    className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer box-border"
+                    className="w-full py-2 px-3 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 hover:bg-zinc-900/80 text-zinc-300 text-xs font-semibold flex items-center justify-between transition cursor-pointer box-border"
                   >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>👉 + Adicionar Outro Serviço</span>
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span className="truncate">+ Adicionar Serviços Adicionais (Gestão, Fotos...)</span>
+                    </span>
+                    <Plus className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                   </button>
-                </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 space-y-2 w-full box-border">
+                    <div
+                      className="flex items-center justify-between cursor-pointer select-none"
+                      onClick={() => {
+                        if (editServicosAluno.length === 0) setSecaoServicosAberta(false);
+                      }}
+                    >
+                      <span className="text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>Outras Vendas / Serviços Adicionais</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-zinc-400 font-mono">
+                          {editServicosAluno.length} {editServicosAluno.length === 1 ? "adicionado" : "adicionados"}
+                        </span>
+                        {editServicosAluno.length === 0 && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSecaoServicosAberta(false);
+                            }}
+                            className="text-[10px] text-zinc-400 hover:text-zinc-200 p-0.5 rounded cursor-pointer"
+                          >
+                            Recolher ▲
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {editServicosAluno.length === 0 ? (
+                      <p className="text-[10px] text-zinc-500 dark:text-neutral-400 italic py-0.5">
+                        Nenhum serviço adicional vinculado. Adicione caso tenha vendido gestão, fotos, etc.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-0.5 w-full box-border">
+                        {editServicosAluno.map((servico, idx) => (
+                          <div
+                            key={servico.id || idx}
+                            className="p-2 bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl space-y-1.5 relative w-full box-border"
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <input
+                                type="text"
+                                disabled={salvandoLink}
+                                placeholder="Descrição (ex: Gestão GMN, Fotos 360...)"
+                                value={servico.descricao}
+                                onChange={(e) => {
+                                  const novaLista = [...editServicosAluno];
+                                  novaLista[idx].descricao = e.target.value;
+                                  setEditServicosAluno(novaLista);
+                                }}
+                                className="w-full min-w-0 box-border bg-transparent border-0 border-b border-zinc-200 dark:border-neutral-800 px-1 py-0.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-medium"
+                              />
+                              <button
+                                type="button"
+                                disabled={salvandoLink}
+                                onClick={() => {
+                                  const filtered = editServicosAluno.filter((_, i) => i !== idx);
+                                  setEditServicosAluno(filtered);
+                                  if (filtered.length === 0) {
+                                    setSecaoServicosAberta(false);
+                                  }
+                                }}
+                                className="text-zinc-400 hover:text-rose-500 dark:hover:text-rose-400 p-1 rounded transition cursor-pointer shrink-0"
+                                title="Remover serviço"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Agrupamento Lado a Lado: Valor (50%) + Tipo Cobrança (50%) */}
+                            <div className="grid grid-cols-2 gap-2 w-full box-border">
+                              <div className="relative min-w-0">
+                                <span className="absolute left-2 top-1 text-[10px] text-zinc-500 font-bold">R$</span>
+                                <input
+                                  type="text"
+                                  disabled={salvandoLink}
+                                  placeholder="150,00"
+                                  value={servico.valor}
+                                  onChange={(e) => {
+                                    const novaLista = [...editServicosAluno];
+                                    novaLista[idx].valor = e.target.value;
+                                    setEditServicosAluno(novaLista);
+                                  }}
+                                  className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <select
+                                  disabled={salvandoLink}
+                                  value={servico.tipo_cobranca}
+                                  onChange={(e) => {
+                                    const novaLista = [...editServicosAluno];
+                                    novaLista[idx].tipo_cobranca = e.target.value as "unico" | "recorrente";
+                                    setEditServicosAluno(novaLista);
+                                  }}
+                                  className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                                >
+                                  <option value="unico">Pagamento Único</option>
+                                  <option value="recorrente">Mensal / Recorrente</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={salvandoLink}
+                      onClick={() => {
+                        setEditServicosAluno([
+                          ...editServicosAluno,
+                          {
+                            id: `serv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                            descricao: "",
+                            valor: "",
+                            tipo_cobranca: "unico",
+                          },
+                        ]);
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer box-border"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>👉 + Adicionar Outro Serviço</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Botões de Ação */}
                 <div className="pt-1.5 flex gap-2.5 w-full box-border">
