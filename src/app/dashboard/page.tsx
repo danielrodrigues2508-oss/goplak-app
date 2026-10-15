@@ -3651,297 +3651,269 @@ export default function DashboardAluno() {
 
       {/* MODAL 3: SOLICITAR NOVO LOTE (ETAPA 1: ENDEREÇO & ETAPA 2: CATÁLOGO E CORES) */}
       {modalSolicitarAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
-            {/* Header Fixo do Modal */}
-            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 space-y-2 box-border">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
-                    <Package className="w-3.5 h-3.5" />
-                  </div>
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
-                    Solicitar Lote de Displays
-                  </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl my-auto box-border max-h-[92vh] overflow-y-auto overflow-x-hidden">
+            {/* Cabeçalho com Fechar */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-800/80 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-2 rounded-lg bg-cyan-950/60 border border-cyan-800/40 text-cyan-400 shrink-0">
+                  <Package className="w-5 h-5" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalSolicitarAberto(false);
-                    setEtapaSolicitacao(1);
-                  }}
-                  className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <h3 className="text-base font-bold text-white truncate">Solicitar Lote de Displays</h3>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalSolicitarAberto(false);
+                  setEtapaSolicitacao(1);
+                }}
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 shrink-0 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Barra de Passos Superior Fluida 100% da Largura */}
-              <div className="grid grid-cols-3 gap-1.5 w-full box-border">
-                <span
-                  className={`text-[11px] sm:text-xs px-1 py-1.5 text-center truncate rounded-md border transition font-bold ${
-                    etapaSolicitacao === 1
-                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
-                      : etapaSolicitacao > 1
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                      : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
-                  }`}
-                >
-                  1. Endereço
-                </span>
-                <span
-                  className={`text-[11px] sm:text-xs px-1 py-1.5 text-center truncate rounded-md border transition font-bold ${
-                    etapaSolicitacao === 2
-                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30"
-                      : etapaSolicitacao > 2
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                      : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
-                  }`}
-                >
-                  2. Kits
-                </span>
-                <span
-                  className={`text-[11px] sm:text-xs px-1 py-1.5 text-center truncate rounded-md border transition font-bold ${
-                    etapaSolicitacao === 3
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
-                      : "bg-zinc-100 dark:bg-neutral-800 text-zinc-500 border-zinc-200 dark:border-neutral-700"
-                  }`}
-                >
-                  3. Pagar
-                </span>
+            {/* Barra de Passos Fluida */}
+            <div className="grid grid-cols-3 gap-1.5 mb-4 w-full">
+              <div
+                className={`py-1.5 px-1 text-center rounded-lg font-semibold text-[11px] truncate transition ${
+                  etapaSolicitacao === 1
+                    ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-300"
+                    : etapaSolicitacao > 1
+                    ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
+                    : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                }`}
+              >
+                1. Endereço
+              </div>
+              <div
+                className={`py-1.5 px-1 text-center rounded-lg text-[11px] truncate transition ${
+                  etapaSolicitacao === 2
+                    ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-semibold"
+                    : etapaSolicitacao > 2
+                    ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-semibold"
+                    : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                }`}
+              >
+                2. Kits
+              </div>
+              <div
+                className={`py-1.5 px-1 text-center rounded-lg text-[11px] truncate transition ${
+                  etapaSolicitacao === 3
+                    ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-semibold"
+                    : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                }`}
+              >
+                3. Pagar
               </div>
             </div>
 
-            {/* Corpo interno com scroll seguro */}
-            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
-              {/* ========================================================
-                  ETAPA 1: ENDEREÇO DE ENTREGA
-                  ======================================================== */}
-              {etapaSolicitacao === 1 && (
-                <div className="w-full box-border animate-in fade-in duration-150">
-                  {enderecoSalvo && !editandoEndereco ? (
-                    /* Resumo do Endereço Salvo */
-                    <div className="space-y-3 w-full box-border">
-                      <div className="bg-sky-50/70 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60 rounded-2xl p-3.5 text-xs space-y-1.5 w-full box-border">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 flex items-center gap-1.5 text-[11px]">
-                            <MapPin className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Entregar em:
-                          </span>
-                          <span className="text-[10px] font-mono bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-md">
-                            Cadastrado
-                          </span>
-                        </div>
-
-                        <div className="text-zinc-800 dark:text-neutral-200 space-y-0.5 pt-0.5">
-                          <p className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white">
-                            {enderecoSalvo.logradouro}, {enderecoSalvo.numero}
-                            {enderecoSalvo.complemento ? ` (${enderecoSalvo.complemento})` : ""}
-                          </p>
-                          <p className="text-zinc-600 dark:text-neutral-400 text-xs">
-                            Bairro {enderecoSalvo.bairro} • {enderecoSalvo.cidade} / {enderecoSalvo.estado}
-                          </p>
-                          <p className="font-mono text-[11px] text-zinc-500 dark:text-neutral-500">
-                            CEP: {enderecoSalvo.cep}
-                            {enderecoSalvo.ponto_referencia ? ` • Ref: ${enderecoSalvo.ponto_referencia}` : ""}
-                          </p>
-                        </div>
-
-                        <div className="pt-1.5 border-t border-sky-200/80 dark:border-sky-900/50 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setEditandoEndereco(true)}
-                            className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <Pencil className="w-3 h-3" />
-                            <span>Alterar Endereço</span>
-                          </button>
-                        </div>
+            {/* ETAPA 1: ENDEREÇO DE ENTREGA */}
+            {etapaSolicitacao === 1 && (
+              <div className="w-full box-border">
+                {enderecoSalvo && !editandoEndereco ? (
+                  /* Resumo do Endereço Salvo */
+                  <div className="space-y-3 w-full box-border">
+                    <div className="bg-cyan-950/30 border border-cyan-800/50 rounded-2xl p-3.5 text-xs space-y-1.5 w-full box-border">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5 text-[11px]">
+                          <MapPin className="w-3.5 h-3.5 text-cyan-400" /> Entregar em:
+                        </span>
+                        <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-md">
+                          Cadastrado
+                        </span>
                       </div>
 
-                      <div className="pt-1 flex gap-2.5 w-full box-border">
+                      <div className="text-zinc-200 space-y-0.5 pt-0.5">
+                        <p className="font-semibold text-xs sm:text-sm text-white">
+                          {enderecoSalvo.logradouro}, {enderecoSalvo.numero}
+                          {enderecoSalvo.complemento ? ` (${enderecoSalvo.complemento})` : ""}
+                        </p>
+                        <p className="text-zinc-400 text-xs">
+                          Bairro {enderecoSalvo.bairro} • {enderecoSalvo.cidade} / {enderecoSalvo.estado}
+                        </p>
+                        <p className="font-mono text-[11px] text-zinc-500">
+                          CEP: {enderecoSalvo.cep}
+                          {enderecoSalvo.ponto_referencia ? ` • Ref: ${enderecoSalvo.ponto_referencia}` : ""}
+                        </p>
+                      </div>
+
+                      <div className="pt-1.5 border-t border-cyan-900/50 flex justify-end">
                         <button
                           type="button"
-                          onClick={() => setModalSolicitarAberto(false)}
-                          className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                          onClick={() => setEditandoEndereco(true)}
+                          className="text-xs font-semibold text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEtapaSolicitacao(2)}
-                          className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer box-border"
-                        >
-                          <span>Avançar para Escolha do Lote</span>
-                          <ArrowRight className="w-4 h-4" />
+                          <Pencil className="w-3 h-3" />
+                          <span>Alterar Endereço</span>
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    /* Formulário de Endereço com Busca Automática ViaCEP em Grid de 12 Colunas */
-                    <form onSubmit={handleAvancarParaKits} className="grid grid-cols-12 gap-3 w-full box-border">
-                      {erroEndereco && (
-                        <div className="col-span-12 p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2 box-border">
-                          <AlertCircle className="w-4 h-4 shrink-0" />
-                          <span>{erroEndereco}</span>
-                        </div>
-                      )}
 
-                      {/* CEP */}
-                      <div className="col-span-12">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400">
-                            CEP *
-                          </label>
-                          {buscandoCep && (
-                            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1">
-                              <Loader2 className="w-3 h-3 animate-spin" /> Buscando endereço...
-                            </span>
-                          )}
-                        </div>
-                        <input
-                          type="text"
-                          required
-                          placeholder="00000-000"
-                          maxLength={9}
-                          value={cepInput}
-                          onChange={(e) => handleCepChange(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                          autoFocus
-                        />
+                    <div className="pt-1 flex gap-2.5 w-full box-border">
+                      <button
+                        type="button"
+                        onClick={() => setModalSolicitarAberto(false)}
+                        className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEtapaSolicitacao(2)}
+                        className="flex-1 bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-zinc-950 font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer box-border"
+                      >
+                        <span>Avançar para Escolha do Lote →</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Formulário com Grid Estrita */
+                  <form onSubmit={handleAvancarParaKits} className="w-full space-y-3">
+                    {erroEndereco && (
+                      <div className="p-2.5 bg-rose-950/40 border border-rose-900/60 rounded-xl text-xs text-rose-300 flex items-center gap-2 box-border">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{erroEndereco}</span>
                       </div>
+                    )}
 
-                      {/* Rua / Avenida */}
-                      <div className="col-span-12">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
-                          Rua / Avenida *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Ex: Av. Paulista ou Rua das Flores"
-                          value={logradouroInput}
-                          onChange={(e) => setLogradouroInput(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                        />
+                    {/* CEP */}
+                    <div className="w-full">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-zinc-400">CEP *</label>
+                        {buscandoCep && (
+                          <span className="text-[10px] text-cyan-400 font-medium flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" /> Buscando endereço...
+                          </span>
+                        )}
                       </div>
+                      <input
+                        type="text"
+                        required
+                        maxLength={9}
+                        value={cepInput}
+                        onChange={(e) => handleCepChange(e.target.value)}
+                        className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border font-mono font-bold"
+                        placeholder="00000-000"
+                        autoFocus
+                      />
+                    </div>
 
-                      {/* Número: col-span-4 */}
-                      <div className="col-span-4">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                          Número *
-                        </label>
+                    {/* RUA */}
+                    <div className="w-full">
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Rua / Avenida *</label>
+                      <input
+                        type="text"
+                        required
+                        value={logradouroInput}
+                        onChange={(e) => setLogradouroInput(e.target.value)}
+                        className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border"
+                        placeholder="Ex: Av. Paulista ou Rua das Flores"
+                      />
+                    </div>
+
+                    {/* NÚMERO E COMPLEMENTO */}
+                    <div className="flex gap-2 w-full">
+                      <div className="w-[35%] shrink-0">
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">Número *</label>
                         <input
                           type="text"
                           required
-                          placeholder="123"
                           value={numeroInput}
                           onChange={(e) => setNumeroInput(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border font-bold"
+                          placeholder="123"
                         />
                       </div>
-
-                      {/* Complemento: col-span-8 */}
-                      <div className="col-span-8">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                          Complemento (Opcional)
-                        </label>
+                      <div className="w-[65%] min-w-0">
+                        <label className="block text-xs font-medium text-zinc-400 mb-1 truncate">Complemento (Opcional)</label>
                         <input
                           type="text"
-                          placeholder="Apto 42, Bloco B..."
                           value={complementoInput}
                           onChange={(e) => setComplementoInput(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border"
+                          placeholder="Apto 42, Bloco B..."
                         />
                       </div>
+                    </div>
 
-                      {/* Bairro */}
-                      <div className="col-span-12">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
-                          Bairro *
-                        </label>
+                    {/* BAIRRO */}
+                    <div className="w-full">
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Bairro *</label>
+                      <input
+                        type="text"
+                        required
+                        value={bairroInput}
+                        onChange={(e) => setBairroInput(e.target.value)}
+                        className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border"
+                        placeholder="Bairro"
+                      />
+                    </div>
+
+                    {/* CIDADE E UF */}
+                    <div className="flex gap-2 w-full">
+                      <div className="w-[75%] min-w-0">
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">Cidade *</label>
                         <input
                           type="text"
                           required
-                          placeholder="Bairro"
-                          value={bairroInput}
-                          onChange={(e) => setBairroInput(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          value={cidadeInput}
+                          onChange={(e) => setCidadeInput(e.target.value)}
+                          className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border"
+                          placeholder="Cidade"
                         />
                       </div>
-
-                      {/* Linha da Cidade e UF (Grid Flexível 4 Colunas: 3 + 1) */}
-                      <div className="col-span-12 grid grid-cols-4 gap-2 w-full box-border">
-                        <div className="col-span-3 min-w-0">
-                          <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                            Cidade *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Cidade"
-                            value={cidadeInput}
-                            onChange={(e) => setCidadeInput(e.target.value)}
-                            className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
-                          />
-                        </div>
-                        <div className="col-span-1 min-w-0">
-                          <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate text-center">
-                            UF *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            maxLength={2}
-                            placeholder="SP"
-                            value={estadoInput}
-                            onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
-                            className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-1 py-2 text-xs font-bold text-center text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 uppercase transition"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Ponto de Referência */}
-                      <div className="col-span-12">
-                        <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1">
-                          Ponto de Referência (Opcional)
-                        </label>
+                      <div className="w-[25%] shrink-0">
+                        <label className="block text-xs font-medium text-zinc-400 mb-1 text-center">UF *</label>
                         <input
                           type="text"
-                          placeholder="Ex: Próximo à padaria, portão branco..."
-                          value={pontoReferenciaInput}
-                          onChange={(e) => setPontoReferenciaInput(e.target.value)}
-                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                          required
+                          maxLength={2}
+                          value={estadoInput}
+                          onChange={(e) => setEstadoInput(e.target.value.toUpperCase())}
+                          className="w-full h-10 px-2 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm text-center uppercase focus:outline-none focus:border-cyan-500 box-border font-bold"
+                          placeholder="GO"
                         />
                       </div>
+                    </div>
 
-                      {/* Botão de Ação */}
-                      <div className="col-span-12 w-full block box-border mt-4">
-                        <div className="flex gap-2.5 w-full box-border">
-                          {enderecoSalvo && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditandoEndereco(false);
-                                setErroEndereco(null);
-                              }}
-                              className="bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer box-border shrink-0"
-                            >
-                              Cancelar
-                            </button>
-                          )}
-                          <button
-                            type="submit"
-                            className="w-full block box-border bg-sky-500 hover:bg-sky-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Avançar para Escolha do Lote</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              )}
+                    {/* PONTO DE REFERÊNCIA */}
+                    <div className="w-full">
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Ponto de Referência (Opcional)</label>
+                      <input
+                        type="text"
+                        value={pontoReferenciaInput}
+                        onChange={(e) => setPontoReferenciaInput(e.target.value)}
+                        className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500 box-border"
+                        placeholder="Ex: Próximo à padaria..."
+                      />
+                    </div>
+
+                    {/* BOTÃO AVANÇAR */}
+                    <div className="pt-1 flex gap-2 w-full box-border">
+                      {enderecoSalvo && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditandoEndereco(false);
+                            setErroEndereco(null);
+                          }}
+                          className="h-11 px-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold rounded-xl text-xs sm:text-sm transition cursor-pointer box-border shrink-0"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="w-full mt-1 h-11 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-all box-border cursor-pointer shadow-md"
+                      >
+                        Avançar para Escolha do Lote →
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
 
             {/* ========================================================
                 ETAPA 2: CATÁLOGO DE KITS & PREVIEW VISUAL DE CORES
@@ -4610,7 +4582,6 @@ export default function DashboardAluno() {
                 </div>
               </div>
             )}
-            </div>
           </div>
         </div>
       )}
