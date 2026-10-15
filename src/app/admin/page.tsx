@@ -571,11 +571,13 @@ export default function PainelDistribuidorAdmin() {
         );
       }
 
-      // Priorizar GOPlak no topo da lista
+      // Priorizar GOPlak no topo e ordenar os demais por data/hora de cadastro decrescente (created_at DESC)
       listaAlunos.sort((a, b) => {
         if (a.id === danielId || a.email?.toLowerCase() === danielEmail) return -1;
         if (b.id === danielId || b.email?.toLowerCase() === danielEmail) return 1;
-        return (a.nome || "").localeCompare(b.nome || "");
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
       });
 
       setAlunos(listaAlunos);
@@ -4783,18 +4785,34 @@ export default function PainelDistribuidorAdmin() {
             {/* Tabela de Alunos e Ações */}
             {(() => {
               const termo = buscaAlunoAcesso.trim().toLowerCase();
-              const alunosFiltrados = alunos.filter((aluno) => {
-                const st = aluno.status || "ativo";
-                if (filtroStatusAluno === "pendente" && st !== "pendente") return false;
-                if (filtroStatusAluno === "ativo" && st !== "ativo") return false;
-                if (filtroStatusAluno === "bloqueado" && st !== "bloqueado") return false;
+              const alunosFiltrados = alunos
+                .filter((aluno) => {
+                  const st = aluno.status || "ativo";
+                  if (filtroStatusAluno === "pendente" && st !== "pendente") return false;
+                  if (filtroStatusAluno === "ativo" && st !== "ativo") return false;
+                  if (filtroStatusAluno === "bloqueado" && st !== "bloqueado") return false;
 
-                if (!termo) return true;
-                return (
-                  (aluno.nome && aluno.nome.toLowerCase().includes(termo)) ||
-                  (aluno.email && aluno.email.toLowerCase().includes(termo))
-                );
-              });
+                  if (!termo) return true;
+                  return (
+                    (aluno.nome && aluno.nome.toLowerCase().includes(termo)) ||
+                    (aluno.email && aluno.email.toLowerCase().includes(termo))
+                  );
+                })
+                .sort((a, b) => {
+                  const isMasterA =
+                    a.email === "daniel.rodrigues2508@gmail.com" ||
+                    a.email === "distribuidor@goplacas.com.br" ||
+                    a.email?.includes("admin");
+                  const isMasterB =
+                    b.email === "daniel.rodrigues2508@gmail.com" ||
+                    b.email === "distribuidor@goplacas.com.br" ||
+                    b.email?.includes("admin");
+                  if (isMasterA && !isMasterB) return -1;
+                  if (!isMasterA && isMasterB) return 1;
+                  const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                  const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                  return timeB - timeA;
+                });
 
               if (alunosFiltrados.length === 0) {
                 return (
@@ -4855,10 +4873,26 @@ export default function PainelDistribuidorAdmin() {
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-zinc-500 dark:text-neutral-400 text-[11px]">
-                              {aluno.created_at
-                                ? new Date(aluno.created_at).toLocaleDateString("pt-BR")
-                                : "—"}
+                            <td className="py-2.5 px-3">
+                              {aluno.created_at ? (
+                                <div
+                                  className="flex flex-col"
+                                  title={`${new Date(aluno.created_at).toLocaleDateString("pt-BR")} às ${new Date(aluno.created_at).toLocaleTimeString("pt-BR")}`}
+                                >
+                                  <span className="text-zinc-900 dark:text-zinc-200 text-xs font-medium">
+                                    {new Date(aluno.created_at).toLocaleDateString("pt-BR")}
+                                  </span>
+                                  <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                                    {new Date(aluno.created_at).toLocaleTimeString("pt-BR", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      second: "2-digit",
+                                    })}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-zinc-400 text-xs">—</span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 text-right">
                               {isMaster ? (
