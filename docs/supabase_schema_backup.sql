@@ -130,6 +130,30 @@ TO authenticated, anon
 USING (true)
 WITH CHECK (true);
 
+
+-- 5. TABELA ALUNOS_AUTORIZADOS (WHITELIST DE CADASTRO)
+CREATE TABLE IF NOT EXISTS public.alunos_autorizados (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    nome TEXT,
+    criado_em TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS: Alunos Autorizados
+ALTER TABLE public.alunos_autorizados ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir leitura de alunos autorizados"
+ON public.alunos_autorizados FOR SELECT
+TO authenticated, anon
+USING (true);
+
+CREATE POLICY "Permitir gerenciamento de alunos autorizados"
+ON public.alunos_autorizados FOR ALL
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
 -- ========================================================
 -- FIM DO SCHEMA BACKUP
 -- ========================================================
+

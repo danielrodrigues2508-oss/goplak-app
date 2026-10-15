@@ -200,6 +200,9 @@ export default function DashboardAluno() {
   // Informações do Aluno
   const [alunoId, setAlunoId] = useState<string>("00000000-0000-0000-0000-000000000001");
   const [alunoNome, setAlunoNome] = useState<string>("GOPlak");
+  const [statusAluno, setStatusAluno] = useState<"ativo" | "pendente" | "bloqueado">("ativo");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [verificandoStatus, setVerificandoStatus] = useState(false);
 
   // Métricas Principais
   const [faturamentoHoje, setFaturamentoHoje] = useState(0);
@@ -405,6 +408,7 @@ export default function DashboardAluno() {
 
       const currentUserId = currentUser.id;
       const currentUserEmail = (currentUser.email || "").toLowerCase();
+      setCurrentUserEmail(currentUserEmail);
       const currentUserRole = currentUser.user_metadata?.role || currentUser.app_metadata?.role || "";
       const currentUserName =
         currentUser.user_metadata?.nome ||
@@ -422,6 +426,10 @@ export default function DashboardAluno() {
         currentUserEmail === "distribuidor@goplacas.com.br";
 
       setIsMasterAdmin(isUserAdmin);
+
+      if (isUserAdmin) {
+        setStatusAluno("ativo");
+      }
 
       // Obter ID vinculado na tabela alunos (caso divirja do auth id) e Auto-Registro / Self-Healing
       let alunoDbId = currentUserId;
@@ -441,6 +449,15 @@ export default function DashboardAluno() {
               alunoDbId = a.id;
               if (a.nome) {
                 setAlunoNome(a.nome);
+              }
+              if (!isUserAdmin) {
+                if (a.status) {
+                  setStatusAluno(a.status as "ativo" | "pendente" | "bloqueado");
+                } else if (currentUser.user_metadata?.status) {
+                  setStatusAluno(currentUser.user_metadata.status as "ativo" | "pendente" | "bloqueado");
+                } else {
+                  setStatusAluno("ativo");
+                }
               }
               if (a.cep || a.logradouro || a.cidade) {
                 const endCarregado: EnderecoEntrega = {
@@ -481,6 +498,15 @@ export default function DashboardAluno() {
               encontrouAluno = true;
             }
           });
+        }
+
+        if (!encontrouAluno && !isUserAdmin) {
+          const metaStatus = currentUser.user_metadata?.status;
+          if (metaStatus) {
+            setStatusAluno(metaStatus as "ativo" | "pendente" | "bloqueado");
+          } else {
+            setStatusAluno("pendente");
+          }
         }
 
         // Se não veio do banco, tentar recuperar meta e endereço do localStorage ou metadata
@@ -2329,6 +2355,97 @@ export default function DashboardAluno() {
         )}
       </div>
 
+      {/* SE CONTA ESTIVER PENDENTE DE APROVAÇÃO */}
+      {!isMasterAdmin && statusAluno === "pendente" && (
+        <div className="w-full bg-white dark:bg-neutral-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-xl text-center space-y-4 my-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
+            <Clock className="w-8 h-8 animate-pulse" />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 uppercase tracking-wider">
+              Aguardando Liberação
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white">
+              Cadastro em Análise
+            </h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+              A sua conta de aluno (<strong className="text-zinc-900 dark:text-zinc-200">{currentUserEmail}</strong>) foi recebida com sucesso e está aguardando a liberação manual pelo administrador da Mentoria GOPLAK.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 text-left text-xs text-zinc-600 dark:text-zinc-400 space-y-2 max-w-md mx-auto">
+            <div className="flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <span>Seu e-mail foi validado na lista de alunos autorizados.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <span>Assim que o admin aprovar seu acesso, seu painel operacional completo será liberado automaticamente aqui.</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={async () => {
+                setVerificandoStatus(true);
+                await carregarDadosDoBanco();
+                setVerificandoStatus(false);
+              }}
+              disabled={verificandoStatus}
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            >
+              <RefreshCw className={`w-4 h-4 ${verificandoStatus ? "animate-spin" : ""}`} />
+              <span>{verificandoStatus ? "Consultando..." : "Verificar Liberação Agora"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full sm:w-auto py-3 px-4 rounded-xl bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SE CONTA ESTIVER BLOQUEADA */}
+      {!isMasterAdmin && statusAluno === "bloqueado" && (
+        <div className="w-full bg-white dark:bg-neutral-900 border border-rose-500/30 rounded-3xl p-6 sm:p-8 shadow-xl text-center space-y-4 my-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 uppercase tracking-wider">
+              Acesso Bloqueado
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white">
+              Acesso Temporariamente Suspenso
+            </h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+              O acesso desta conta (<strong className="text-zinc-900 dark:text-zinc-200">{currentUserEmail}</strong>) foi suspenso pela administração da GOPLAK.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xs mx-auto">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full py-3 px-4 rounded-xl bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sair da Conta</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PAINEL OPERACIONAL COMPLETO (LIBERADO APENAS SE ATIVO OU ADMIN) */}
+      {(isMasterAdmin || statusAluno === "ativo") && (
       <div>
         {/* ========================================================
             SESSÃO 1: PERFORMANCE DO DIA
@@ -3326,17 +3443,20 @@ export default function DashboardAluno() {
           )}
         </div>
       </div>
+      )}
       </div>
 
       {/* BOTÃO FLUTUANTE PRINCIPAL (+): EXCLUSIVAMENTE PARA ATIVAR NOVO DISPLAY EM CAMPO */}
-      <button
-        onClick={() => setModalAtivacaoAberto(true)}
-        className="fixed bottom-6 right-6 sm:right-auto sm:left-1/2 sm:translate-x-44 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold p-4 rounded-full shadow-2xl flex items-center justify-center gap-2 border-2 border-emerald-300/40 transition-all z-40 group cursor-pointer"
-        aria-label="Ativar Novo Display em Campo"
-        title="Ativar Novo Display em Campo"
-      >
-        <Plus className="w-6 h-6 stroke-[3] group-hover:rotate-90 transition-transform duration-200" />
-      </button>
+      {(isMasterAdmin || statusAluno === "ativo") && (
+        <button
+          onClick={() => setModalAtivacaoAberto(true)}
+          className="fixed bottom-6 right-6 sm:right-auto sm:left-1/2 sm:translate-x-44 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold p-4 rounded-full shadow-2xl flex items-center justify-center gap-2 border-2 border-emerald-300/40 transition-all z-40 group cursor-pointer"
+          aria-label="Ativar Novo Display em Campo"
+          title="Ativar Novo Display em Campo"
+        >
+          <Plus className="w-6 h-6 stroke-[3] group-hover:rotate-90 transition-transform duration-200" />
+        </button>
+      )}
 
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (

@@ -49,6 +49,10 @@ import {
   Boxes,
   Trash2,
   SlidersHorizontal,
+  ShieldCheck,
+  UserCheck,
+  UserX,
+  Search,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { exportarLoteEmFatiasZip, COST_PER_UNIT, DisplayItem } from "@/lib/exportGraficaZip";
@@ -85,6 +89,15 @@ interface Aluno {
   id: string;
   nome: string;
   email: string;
+  status?: "pendente" | "ativo" | "bloqueado";
+  created_at?: string;
+}
+
+interface AlunoAutorizado {
+  id: string;
+  email: string;
+  nome?: string;
+  criado_em?: string;
 }
 
 interface PodioAluno {
@@ -343,7 +356,19 @@ export default function PainelDistribuidorAdmin() {
   const [salvandoAjusteEstoque, setSalvandoAjusteEstoque] = useState(false);
 
   // Gestão de Placas / Displays Ativados & Modal de Edição pelo Admin
-  const [abaPrincipal, setAbaPrincipal] = useState<"pedidos" | "placas">("pedidos");
+  const [abaPrincipal, setAbaPrincipal] = useState<"pedidos" | "placas" | "alunos">("pedidos");
+
+  // Gestão de Alunos, Acessos & Whitelist
+  const [listaAutorizados, setListaAutorizados] = useState<AlunoAutorizado[]>([]);
+  const [novoEmailAutorizar, setNovoEmailAutorizar] = useState("");
+  const [novoNomeAutorizar, setNovoNomeAutorizar] = useState("");
+  const [buscaAutorizados, setBuscaAutorizados] = useState("");
+  const [salvandoAutorizacao, setSalvandoAutorizacao] = useState(false);
+  const [removendoAutorizadoId, setRemovendoAutorizadoId] = useState<string | null>(null);
+
+  const [filtroStatusAluno, setFiltroStatusAluno] = useState<"todos" | "pendente" | "ativo" | "bloqueado">("todos");
+  const [buscaAlunoAcesso, setBuscaAlunoAcesso] = useState("");
+  const [processandoStatusId, setProcessandoStatusId] = useState<string | null>(null);
   const [filtroPlacaStatus, setFiltroPlacaStatus] = useState<"todas" | "ativas" | "virgens">("todas");
   const [buscaPlaca, setBuscaPlaca] = useState("");
   const [modalEditarPlacaAberto, setModalEditarPlacaAberto] = useState(false);
@@ -447,14 +472,14 @@ export default function PainelDistribuidorAdmin() {
       try {
         const { data: alunosBanco, error: errAlunos } = await supabase
           .from("alunos")
-          .select("id, nome, email")
+          .select("id, nome, email, status, created_at")
           .order("created_at", { ascending: false });
 
         if (!errAlunos && alunosBanco && alunosBanco.length > 0) {
           listaAlunos = alunosBanco;
         } else {
           // Fallback REST direto
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email`, {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,status,created_at`, {
             headers: {
               apikey: SUPABASE_ANON_KEY,
               Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -471,7 +496,7 @@ export default function PainelDistribuidorAdmin() {
         console.warn("Aviso ao buscar alunos:", err);
       }
 
-      // Garantir que o usuário GOPlak esteja na lista
+      // Garantir que o usuário GOPlak esteja na lista e ativo
       const danielId = "403183b5-02f6-46a7-b448-7658c5087ec4";
       const danielEmail = "daniel.rodrigues2508@gmail.com";
       const existsDaniel = listaAlunos.some((a) => a.id === danielId || (a.email && a.email.toLowerCase() === danielEmail));
@@ -480,7 +505,12 @@ export default function PainelDistribuidorAdmin() {
           id: danielId,
           nome: "GOPlak",
           email: danielEmail,
+          status: "ativo",
         });
+      } else {
+        listaAlunos = listaAlunos.map((a) =>
+          a.id === danielId || a.email?.toLowerCase() === danielEmail ? { ...a, status: "ativo" } : a
+        );
       }
 
       // Priorizar GOPlak no topo da lista
@@ -493,6 +523,33 @@ export default function PainelDistribuidorAdmin() {
       setAlunos(listaAlunos);
       if (!alunoSelecionado && listaAlunos.length > 0) {
         setAlunoSelecionado(listaAlunos[0].id);
+      }
+
+      // 1.1 Puxar Alunos Autorizados (Whitelist)
+      try {
+        const { data: authData, error: errAuth } = await supabase
+          .from("alunos_autorizados")
+          .select("*")
+          .order("criado_em", { ascending: false });
+
+        if (!errAuth && authData) {
+          setListaAutorizados(authData);
+        } else {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos_autorizados?select=*&order=criado_em.desc`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              setListaAutorizados(data);
+            }
+          }
+        }
+      } catch (errAuth) {
+        console.warn("Aviso ao buscar alunos_autorizados:", errAuth);
       }
 
       // 2. Query de Placas
@@ -2706,6 +2763,140 @@ export default function PainelDistribuidorAdmin() {
     }
   };
 
+  // Handler para Adicionar Aluno(s) à Whitelist (Suporta único ou lote por vírgula / quebra de linha)
+  const handleAdicionarAutorizados = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novoEmailAutorizar.trim()) return;
+
+    setSalvandoAutorizacao(true);
+    try {
+      const entradas = novoEmailAutorizar
+        .split(/[\n,;]+/)
+        .map((em) => em.trim().toLowerCase())
+        .filter((em) => em.length > 3 && em.includes("@"));
+
+      if (entradas.length === 0) {
+        alert("Nenhum e-mail válido foi identificado. Insira ao menos um e-mail válido.");
+        setSalvandoAutorizacao(false);
+        return;
+      }
+
+      const registrosParaInserir = entradas.map((em) => ({
+        email: em,
+        nome: entradas.length === 1 && novoNomeAutorizar.trim() ? novoNomeAutorizar.trim() : null,
+      }));
+
+      const { error } = await supabase
+        .from("alunos_autorizados")
+        .upsert(registrosParaInserir, { onConflict: "email", ignoreDuplicates: true });
+
+      if (error) {
+        console.warn("Erro upsert alunos_autorizados SDK:", error);
+        await fetch(`${SUPABASE_URL}/rest/v1/alunos_autorizados`, {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "resolution=ignore-duplicates,return=representation",
+          },
+          body: JSON.stringify(registrosParaInserir),
+        });
+      }
+
+      // Recarrega lista de autorizados
+      const { data: recarregados } = await supabase
+        .from("alunos_autorizados")
+        .select("*")
+        .order("criado_em", { ascending: false });
+
+      if (recarregados) {
+        setListaAutorizados(recarregados);
+      }
+
+      setNovoEmailAutorizar("");
+      setNovoNomeAutorizar("");
+      confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+      alert(`Sucesso! ${entradas.length} e-mail(s) adicionado(s) à Whitelist da Mentoria.`);
+    } catch (err: any) {
+      console.error("Erro ao adicionar autorizados:", err);
+      alert(`Erro ao adicionar e-mails: ${err.message || "Tente novamente."}`);
+    } finally {
+      setSalvandoAutorizacao(false);
+    }
+  };
+
+  // Handler para Remover Aluno da Whitelist
+  const handleRemoverAutorizado = async (id: string, email: string) => {
+    if (!confirm(`Deseja realmente remover "${email}" da lista de alunos autorizados?`)) {
+      return;
+    }
+
+    setRemovendoAutorizadoId(id);
+    try {
+      const { error } = await supabase
+        .from("alunos_autorizados")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        await fetch(`${SUPABASE_URL}/rest/v1/alunos_autorizados?id=eq.${id}`, {
+          method: "DELETE",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+        });
+      }
+
+      setListaAutorizados((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      console.error("Erro ao remover autorizado:", err);
+      alert("Não foi possível remover o e-mail da lista.");
+    } finally {
+      setRemovendoAutorizadoId(null);
+    }
+  };
+
+  // Handler para Alterar Status do Aluno (Aprovar / Bloquear / Reativar)
+  const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente") => {
+    setProcessandoStatusId(alunoId);
+    try {
+      const { error } = await supabase
+        .from("alunos")
+        .update({ status: novoStatus })
+        .eq("id", alunoId);
+
+      if (error) {
+        console.warn("Erro ao atualizar status via SDK:", error);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: novoStatus }),
+        });
+        if (!res.ok) throw error;
+      }
+
+      // Atualiza lista local
+      setAlunos((prev) =>
+        prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus } : a))
+      );
+
+      if (novoStatus === "ativo") {
+        confetti({ particleCount: 35, spread: 70, origin: { y: 0.7 } });
+      }
+    } catch (err: any) {
+      console.error("Erro ao atualizar status do aluno:", err);
+      alert(`Erro ao alterar status: ${err.message || "Tente novamente."}`);
+    } finally {
+      setProcessandoStatusId(null);
+    }
+  };
+
   // Abrir modal de Endereço Completo
   const handleAbrirEndereco = (lote: LoteExport) => {
     setEnderecoVisualizando({
@@ -3432,6 +3623,24 @@ export default function PainelDistribuidorAdmin() {
                 <Layers className="w-4 h-4 text-sky-500" />
                 <span>Gestão de Placas / Displays Ativados ({placasCadastradas.length})</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setAbaPrincipal("alunos")}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer relative ${
+                  abaPrincipal === "alunos"
+                    ? "bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white shadow-xs"
+                    : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-900 dark:hover:text-white"
+                }`}
+              >
+                <Users className="w-4 h-4 text-amber-500" />
+                <span>Controle de Alunos & Acessos ({alunos.length})</span>
+                {alunos.filter((a) => a.status === "pendente").length > 0 && (
+                  <span className="flex items-center gap-1 bg-amber-500 text-black px-1.5 py-0.2 rounded-full text-[10px] font-black animate-pulse">
+                    {alunos.filter((a) => a.status === "pendente").length} pendente(s)
+                  </span>
+                )}
+              </button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -3492,7 +3701,7 @@ export default function PainelDistribuidorAdmin() {
             </div>
           </div>
 
-          {abaPrincipal === "pedidos" ? (
+          {abaPrincipal === "pedidos" && (
             <>
               {/* Barra de Filtros por Status */}
               <div className="flex items-center gap-1.5 mb-3 overflow-x-auto scrollbar-none pb-0.5">
@@ -3909,7 +4118,9 @@ export default function PainelDistribuidorAdmin() {
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {abaPrincipal === "placas" && (
         /* ========================================================================= */
         /* ABA 2: GESTÃO DE PLACAS / DISPLAYS ATIVADOS (VISÃO TOTAL DO ADMIN)       */
         /* ========================================================================= */
@@ -4154,6 +4365,402 @@ export default function PainelDistribuidorAdmin() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {abaPrincipal === "alunos" && (
+        /* ========================================================================= */
+        /* ABA 3: CONTROLE DE ALUNOS & ACESSOS (WHITELIST + APROVAÇÃO MANUAL)       */
+        /* ========================================================================= */
+        <div className="space-y-6 pt-2">
+          {/* BLOCO 1: WHITELIST DE E-MAILS AUTORIZADOS */}
+          <div className="bg-zinc-50/80 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-neutral-800/80 pb-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <span>Whitelist de E-mails Autorizados</span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                    {listaAutorizados.length} autorizados
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                  Somente e-mails listados abaixo têm permissão para criar conta na plataforma GOPLAK.
+                </p>
+              </div>
+            </div>
+
+            {/* Formulário de Inclusão (Único ou Lote) */}
+            <form onSubmit={handleAdicionarAutorizados} className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3.5 sm:p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2 space-y-1">
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                    E-mail(s) para Autorizar *
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    disabled={salvandoAutorizacao}
+                    value={novoEmailAutorizar}
+                    onChange={(e) => setNovoEmailAutorizar(e.target.value)}
+                    placeholder="Ex: aluno@gmail.com ou cole múltiplos e-mails separados por vírgula ou linha..."
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-mono transition"
+                  />
+                  <span className="block text-[10px] text-zinc-400 dark:text-neutral-500">
+                    💡 Dica: Cole uma lista do checkout/Hotmart separada por vírgulas ou quebras de linha.
+                  </span>
+                </div>
+
+                <div className="space-y-1 flex flex-col justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                      Nome do Aluno (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      disabled={salvandoAutorizacao}
+                      value={novoNomeAutorizar}
+                      onChange={(e) => setNovoNomeAutorizar(e.target.value)}
+                      placeholder="Ex: Carlos Eduardo"
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={salvandoAutorizacao || !novoEmailAutorizar.trim()}
+                    className="w-full mt-2 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {salvandoAutorizacao ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Autorizando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle className="w-4 h-4" />
+                        <span>+ Autorizar E-mail(s)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Busca e Lista de Autorizados */}
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                  E-mails Cadastrados na Whitelist
+                </span>
+                <div className="w-full sm:w-64 relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={buscaAutorizados}
+                    onChange={(e) => setBuscaAutorizados(e.target.value)}
+                    placeholder="Buscar e-mail ou nome..."
+                    className="w-full bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {(() => {
+                const termo = buscaAutorizados.trim().toLowerCase();
+                const filtrados = listaAutorizados.filter((item) => {
+                  if (!termo) return true;
+                  return (
+                    item.email?.toLowerCase().includes(termo) ||
+                    (item.nome && item.nome.toLowerCase().includes(termo))
+                  );
+                });
+
+                if (filtrados.length === 0) {
+                  return (
+                    <div className="p-6 text-center text-xs text-zinc-500 dark:text-neutral-400 bg-white dark:bg-neutral-900 rounded-xl border border-zinc-200 dark:border-neutral-800">
+                      {listaAutorizados.length === 0
+                        ? "Nenhum e-mail autorizado cadastrado ainda. Adicione acima para iniciar a proteção."
+                        : "Nenhum e-mail encontrado com o termo pesquisado."}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 max-h-72 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-100 dark:bg-neutral-800/80 text-zinc-600 dark:text-neutral-300 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2 px-3">E-mail Autorizado</th>
+                          <th className="py-2 px-3">Nome do Aluno</th>
+                          <th className="py-2 px-3">Data de Inclusão</th>
+                          <th className="py-2 px-3 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 dark:divide-neutral-800 font-medium">
+                        {filtrados.map((item) => (
+                          <tr key={item.id || item.email} className="hover:bg-zinc-50 dark:hover:bg-neutral-800/50 transition">
+                            <td className="py-2 px-3 font-mono text-zinc-900 dark:text-white">
+                              {item.email}
+                            </td>
+                            <td className="py-2 px-3 text-zinc-600 dark:text-neutral-300">
+                              {item.nome || <span className="text-zinc-400 italic">Não informado</span>}
+                            </td>
+                            <td className="py-2 px-3 text-zinc-500 dark:text-neutral-400 text-[11px]">
+                              {item.criado_em
+                                ? new Date(item.criado_em).toLocaleDateString("pt-BR")
+                                : "—"}
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              <button
+                                type="button"
+                                disabled={removendoAutorizadoId === item.id}
+                                onClick={() => handleRemoverAutorizado(item.id, item.email)}
+                                className="p-1 text-zinc-400 hover:text-rose-500 rounded transition cursor-pointer"
+                                title="Remover autorização"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* BLOCO 2: FILA DE APROVAÇÃO & CONTROLE DE ACESSO DOS ALUNOS CADASTRADOS */}
+          <div className="bg-zinc-50/80 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-neutral-800/80 pb-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-amber-500 shrink-0" />
+                  <span>Alunos Cadastrados na Plataforma & Moderação</span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-neutral-800 text-zinc-800 dark:text-neutral-200 font-bold">
+                    {alunos.length} cadastrados
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
+                  Gerencie a liberação de novos cadastros e modere o acesso dos alunos parceiros.
+                </p>
+              </div>
+            </div>
+
+            {/* Filtros e Busca */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setFiltroStatusAluno("todos")}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap ${
+                    filtroStatusAluno === "todos"
+                      ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-xs"
+                      : "bg-white dark:bg-neutral-900 text-zinc-600 dark:text-neutral-400 border-zinc-200 dark:border-neutral-700 hover:bg-zinc-100"
+                  }`}
+                >
+                  Todos ({alunos.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroStatusAluno("pendente")}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    filtroStatusAluno === "pendente"
+                      ? "bg-amber-500 text-black border-amber-400 shadow-xs"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Pendentes ({alunos.filter((a) => a.status === "pendente").length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroStatusAluno("ativo")}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    filtroStatusAluno === "ativo"
+                      ? "bg-emerald-500 text-black border-emerald-400 shadow-xs"
+                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Ativos ({alunos.filter((a) => a.status === "ativo" || !a.status).length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroStatusAluno("bloqueado")}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    filtroStatusAluno === "bloqueado"
+                      ? "bg-rose-500 text-white border-rose-400 shadow-xs"
+                      : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20"
+                  }`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Bloqueados ({alunos.filter((a) => a.status === "bloqueado").length})</span>
+                </button>
+              </div>
+
+              <div className="w-full sm:w-64 relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+                <input
+                  type="text"
+                  value={buscaAlunoAcesso}
+                  onChange={(e) => setBuscaAlunoAcesso(e.target.value)}
+                  placeholder="Buscar aluno ou e-mail..."
+                  className="w-full bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Tabela de Alunos e Ações */}
+            {(() => {
+              const termo = buscaAlunoAcesso.trim().toLowerCase();
+              const alunosFiltrados = alunos.filter((aluno) => {
+                const st = aluno.status || "ativo";
+                if (filtroStatusAluno === "pendente" && st !== "pendente") return false;
+                if (filtroStatusAluno === "ativo" && st !== "ativo") return false;
+                if (filtroStatusAluno === "bloqueado" && st !== "bloqueado") return false;
+
+                if (!termo) return true;
+                return (
+                  (aluno.nome && aluno.nome.toLowerCase().includes(termo)) ||
+                  (aluno.email && aluno.email.toLowerCase().includes(termo))
+                );
+              });
+
+              if (alunosFiltrados.length === 0) {
+                return (
+                  <div className="p-8 text-center text-xs text-zinc-500 dark:text-neutral-400 bg-white dark:bg-neutral-900 rounded-xl border border-zinc-200 dark:border-neutral-800">
+                    Nenhum aluno encontrado para este filtro.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-100 dark:bg-neutral-800/80 text-zinc-600 dark:text-neutral-300 font-bold uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="py-2.5 px-3">Aluno</th>
+                        <th className="py-2.5 px-3">E-mail</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3">Cadastro</th>
+                        <th className="py-2.5 px-3 text-right">Ação de Acesso</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-neutral-800 font-medium">
+                      {alunosFiltrados.map((aluno) => {
+                        const isMaster =
+                          aluno.email === "daniel.rodrigues2508@gmail.com" ||
+                          aluno.email?.includes("admin") ||
+                          aluno.email === "distribuidor@goplacas.com.br";
+                        const statusEfetivo = isMaster ? "ativo" : (aluno.status || "ativo");
+                        const isProcessando = processandoStatusId === aluno.id;
+
+                        return (
+                          <tr key={aluno.id} className="hover:bg-zinc-50 dark:hover:bg-neutral-800/50 transition">
+                            <td className="py-2.5 px-3 font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+                              <span>{aluno.nome || "Aluno"}</span>
+                              {isMaster && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                  👑 Admin
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-zinc-600 dark:text-neutral-300">
+                              {aluno.email}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {statusEfetivo === "pendente" && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                                  <Clock className="w-3 h-3" /> Aguardando Liberação
+                                </span>
+                              )}
+                              {statusEfetivo === "ativo" && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                                  <CheckCircle2 className="w-3 h-3" /> Acesso Ativo
+                                </span>
+                              )}
+                              {statusEfetivo === "bloqueado" && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                                  <AlertCircle className="w-3 h-3" /> Acesso Bloqueado
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-zinc-500 dark:text-neutral-400 text-[11px]">
+                              {aluno.created_at
+                                ? new Date(aluno.created_at).toLocaleDateString("pt-BR")
+                                : "—"}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              {isMaster ? (
+                                <span className="text-[10px] text-zinc-400 font-bold italic">
+                                  Permanente
+                                </span>
+                              ) : isProcessando ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400 font-bold">
+                                  <Loader2 className="w-3 h-3 animate-spin" /> Atualizando...
+                                </span>
+                              ) : (
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  {statusEfetivo === "pendente" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAlterarStatusAluno(aluno.id, "ativo")}
+                                        className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-[11px] shadow-xs transition flex items-center gap-1 cursor-pointer"
+                                        title="Aprovar e liberar acesso operacional"
+                                      >
+                                        <UserCheck className="w-3.5 h-3.5" />
+                                        <span>Aprovar</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAlterarStatusAluno(aluno.id, "bloqueado")}
+                                        className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                        title="Bloquear cadastro"
+                                      >
+                                        <UserX className="w-3.5 h-3.5" />
+                                        <span>Bloquear</span>
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {statusEfetivo === "ativo" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAlterarStatusAluno(aluno.id, "bloqueado")}
+                                      className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-rose-500/10 hover:text-rose-600 dark:bg-neutral-800 dark:hover:bg-rose-950/40 text-zinc-600 dark:text-neutral-400 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                      title="Suspender acesso deste aluno"
+                                    >
+                                      <UserX className="w-3.5 h-3.5" />
+                                      <span>Suspender</span>
+                                    </button>
+                                  )}
+
+                                  {statusEfetivo === "bloqueado" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAlterarStatusAluno(aluno.id, "ativo")}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-extrabold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                      title="Reativar acesso do aluno"
+                                    >
+                                      <UserCheck className="w-3.5 h-3.5" />
+                                      <span>Reativar Acesso</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
     </section>

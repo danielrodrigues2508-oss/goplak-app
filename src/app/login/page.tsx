@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   User,
   Eye,
-  EyeOff
+  EyeOff,
+  Clock,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -63,6 +64,7 @@ function LoginForm() {
   const messageParam = searchParams.get("message");
 
   const [isSignUp, setIsSignUp] = useState(false);
+  const [cadastroPendenteInfo, setCadastroPendenteInfo] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -76,12 +78,52 @@ function LoginForm() {
   const [infoMsg, setInfoMsg] = useState<string | null>(messageParam || null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Se já houver sessão ativa, redireciona para a rota apropriada
+  // Se já houver sessão ativa, valida se a conta está ativa antes de redirecionar
   useEffect(() => {
     async function checkCurrentSession() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          const userEmail = (session.user.email || "").toLowerCase();
+          const userRole = session.user.user_metadata?.role || session.user.app_metadata?.role || "";
+          const isAdmin =
+            userEmail === "daniel@goplacas.com.br" ||
+            userEmail === "admin@goplacas.com.br" ||
+            userEmail === "distribuidor@goplacas.com.br" ||
+            userEmail === "daniel.rodrigues2508@gmail.com" ||
+            userRole === "admin";
+
+          if (isAdmin) {
+            router.push(redirectTo && redirectTo !== "/login" ? redirectTo : "/admin");
+            return;
+          }
+
+          // Checa se o aluno está pendente ou bloqueado
+          let statusAluno = session.user.user_metadata?.status || "ativo";
+          try {
+            const { data: aDb } = await supabase
+              .from("alunos")
+              .select("status")
+              .eq("id", session.user.id)
+              .maybeSingle();
+
+            if (aDb && aDb.status) {
+              statusAluno = aDb.status;
+            }
+          } catch (eDb) {
+            console.warn("Aviso ao validar status de sessão:", eDb);
+          }
+
+          if (statusAluno === "pendente") {
+            setInfoMsg("A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve.");
+            return;
+          }
+
+          if (statusAluno === "bloqueado") {
+            setErrorMsg("Seu acesso está suspenso ou bloqueado pelo administrador. Entre em contato com o suporte.");
+            return;
+          }
+
           router.push(redirectTo);
         }
       } catch (err) {
@@ -101,14 +143,35 @@ function LoginForm() {
 
     try {
       if (isSignUp) {
-        // REGRA DE ADMIN RESTRITO: Todo cadastro público é estritamente Aluno/Vendedor
+        // 1. CHECAGEM OBRIGATÓRIA NA WHITELIST DE ALUNOS AUTORIZADOS
+        try {
+          const { data: authRecord, error: authCheckErr } = await supabase
+            .from("alunos_autorizados")
+            .select("id, email, nome")
+            .eq("email", emailTrim)
+            .maybeSingle();
+
+          if (!authCheckErr && !authRecord) {
+            // O e-mail NÃO está na lista de alunos autorizados
+            setErrorMsg(
+              "Este e-mail não consta na lista de alunos da Mentoria GOPLAK. Use o mesmo e-mail informado na compra ou entre em contato com o suporte."
+            );
+            setLoading(false);
+            return;
+          }
+        } catch (errWhitelist) {
+          console.warn("Aviso na checagem da whitelist de alunos:", errWhitelist);
+        }
+
+        // 2. REGRA DE ADMIN RESTRITO: Todo cadastro público é estritamente Aluno com status 'pendente'
         const { data, error } = await supabase.auth.signUp({
           email: emailTrim,
           password,
           options: {
             data: {
               nome: nome.trim() || emailTrim.split("@")[0],
-              role: "aluno", // Restrito exclusivamente a aluno
+              role: "aluno",
+              status: "pendente",
             },
           },
         });
@@ -116,26 +179,27 @@ function LoginForm() {
         if (error) {
           setErrorMsg(traduzirErroSupabase(error.message));
         } else if (data.user) {
-          // Registrar na tabela de alunos
+          // Registrar na tabela de alunos com status 'pendente'
           try {
             await supabase.from("alunos").upsert({
               id: data.user.id,
               nome: nome.trim() || emailTrim.split("@")[0],
               email: emailTrim,
+              status: "pendente",
             });
           } catch (errAluno) {
             console.warn("Aviso ao salvar aluno no banco:", errAluno);
           }
 
-          if (data.session) {
-            setSuccessMsg("Conta criada com sucesso! Entrando no sistema...");
-            setTimeout(() => {
-              router.push(redirectTo);
-            }, 800);
-          } else {
-            setSuccessMsg("Conta criada com sucesso! Por favor, verifique seu e-mail para confirmar seu acesso ou realize o login.");
-            setIsSignUp(false);
+          // Se auto-confirm logou o usuário, desloga imediatamente para que não acesse sem aprovação
+          try {
+            await supabase.auth.signOut();
+          } catch (eSo) {
+            console.warn("SignOut pós-cadastro:", eSo);
           }
+
+          // Exibe tela informativa pós-cadastro
+          setCadastroPendenteInfo(true);
         }
       } else {
         // Login com E-mail e Senha
@@ -147,22 +211,65 @@ function LoginForm() {
         if (error) {
           setErrorMsg(traduzirErroSupabase(error.message));
         } else if (data.session) {
-          setSuccessMsg("Login realizado com sucesso! Redirecionando...");
           const userEmail = (data.user.email || "").toLowerCase();
           const userRole = data.user.user_metadata?.role || data.user.app_metadata?.role || "";
 
-          // Verificação de Admin Oficial
+          // Verificação de Administrador Master Oficial
           const isAdmin =
             userEmail === "daniel@goplacas.com.br" ||
             userEmail === "admin@goplacas.com.br" ||
+            userEmail === "distribuidor@goplacas.com.br" ||
+            userEmail === "daniel.rodrigues2508@gmail.com" ||
             userRole === "admin";
 
+          if (isAdmin) {
+            setSuccessMsg("Login de Administrador realizado com sucesso! Redirecionando...");
+            const destinoFinal = redirectTo && redirectTo !== "/login" ? redirectTo : "/admin";
+            setTimeout(() => {
+              router.push(destinoFinal);
+            }, 600);
+            return;
+          }
+
+          // Checar status da conta do aluno
+          let statusAluno = data.user.user_metadata?.status || "ativo";
+          try {
+            const { data: aDb } = await supabase
+              .from("alunos")
+              .select("status")
+              .eq("id", data.user.id)
+              .maybeSingle();
+
+            if (aDb && aDb.status) {
+              statusAluno = aDb.status;
+            }
+          } catch (eDb) {
+            console.warn("Aviso ao validar status do aluno no login:", eDb);
+          }
+
+          if (statusAluno === "pendente") {
+            setErrorMsg(
+              "A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve."
+            );
+            try {
+              await supabase.auth.signOut();
+            } catch (eSo) {}
+            return;
+          }
+
+          if (statusAluno === "bloqueado") {
+            setErrorMsg(
+              "Seu acesso está suspenso ou bloqueado pelo administrador. Entre em contato com o suporte."
+            );
+            try {
+              await supabase.auth.signOut();
+            } catch (eSo) {}
+            return;
+          }
+
+          setSuccessMsg("Login realizado com sucesso! Redirecionando...");
           const destinoFinal =
-            redirectTo && redirectTo !== "/login"
-              ? redirectTo
-              : isAdmin
-              ? "/admin"
-              : "/dashboard";
+            redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard";
 
           setTimeout(() => {
             router.push(destinoFinal);
@@ -180,60 +287,108 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-xl transition-colors animate-in fade-in zoom-in-95 duration-200">
-      {/* Brand Header */}
-      <div className="text-center mb-6">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 mb-3 shadow-sm">
-          <ShieldCheck className="w-6 h-6" />
-        </div>
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            GOPLAK • Acesso Seguro
-          </span>
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-        </div>
-        <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white mt-1">
-          {isSignUp ? "Criar Minha Conta" : "Entrar no GOPLAK"}
-        </h1>
-        <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-1">
-          {isSignUp
-            ? "Cadastre-se para gerenciar seus displays e ativações em campo"
-            : "Acesse seu dashboard de campo com suas credenciais"}
-        </p>
-      </div>
+      {cadastroPendenteInfo ? (
+        <div className="text-center py-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto shadow-sm">
+            <Clock className="w-8 h-8" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
+              Cadastro em Análise
+            </span>
+            <h2 className="text-xl font-black text-zinc-900 dark:text-white mt-2">
+              Cadastro recebido com sucesso!
+            </h2>
+            <p className="text-xs text-zinc-600 dark:text-neutral-300 mt-2 leading-relaxed max-w-sm mx-auto">
+              A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve.
+            </p>
+          </div>
 
-      {/* Tabs Entrar / Cadastrar */}
-      <div className="grid grid-cols-2 p-1 bg-zinc-100 dark:bg-neutral-950 rounded-2xl mb-5 border border-zinc-200 dark:border-neutral-800">
-        <button
-          type="button"
-          onClick={() => {
-            setIsSignUp(false);
-            setErrorMsg(null);
-            setSuccessMsg(null);
-          }}
-          className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-            !isSignUp
-              ? "bg-white dark:bg-neutral-800 text-zinc-900 dark:text-white shadow-sm"
-              : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-          }`}
-        >
-          Entrar (Login)
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setIsSignUp(true);
-            setErrorMsg(null);
-            setSuccessMsg(null);
-          }}
-          className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-            isSignUp
-              ? "bg-white dark:bg-neutral-800 text-zinc-900 dark:text-white shadow-sm"
-              : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-          }`}
-        >
-          Novo Cadastro
-        </button>
-      </div>
+          <div className="bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-3.5 text-left text-xs space-y-1.5">
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400">
+              <span>E-mail informado:</span>
+              <span className="font-mono font-bold text-zinc-900 dark:text-white truncate max-w-[200px]">
+                {email.trim().toLowerCase()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-zinc-500 dark:text-neutral-400">
+              <span>Status do acesso:</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" /> Aguardando Liberação
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCadastroPendenteInfo(false);
+              setIsSignUp(false);
+              setPassword("");
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+            className="w-full py-3 px-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-xs hover:opacity-90 transition cursor-pointer shadow-md"
+          >
+            Voltar para a Tela de Login
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Brand Header */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 mb-3 shadow-sm">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                GOPLAK • Acesso Seguro
+              </span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white mt-1">
+              {isSignUp ? "Criar Minha Conta" : "Entrar no GOPLAK"}
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-1">
+              {isSignUp
+                ? "Cadastre-se para gerenciar seus displays e ativações em campo"
+                : "Acesse seu dashboard de campo com suas credenciais"}
+            </p>
+          </div>
+
+          {/* Tabs Entrar / Cadastrar */}
+          <div className="grid grid-cols-2 p-1 bg-zinc-100 dark:bg-neutral-950 rounded-2xl mb-5 border border-zinc-200 dark:border-neutral-800">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(false);
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+              className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                !isSignUp
+                  ? "bg-white dark:bg-neutral-800 text-zinc-900 dark:text-white shadow-sm"
+                  : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              Entrar (Login)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(true);
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+              className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                isSignUp
+                  ? "bg-white dark:bg-neutral-800 text-zinc-900 dark:text-white shadow-sm"
+                  : "text-zinc-500 dark:text-neutral-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              Novo Cadastro
+            </button>
+          </div>
 
       {/* Mensagens de Alerta com Tradução em Português */}
       {infoMsg && !errorMsg && !successMsg && (
@@ -334,6 +489,8 @@ function LoginForm() {
           )}
         </button>
       </form>
+        </>
+      )}
     </div>
   );
 }
