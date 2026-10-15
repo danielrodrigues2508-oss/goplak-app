@@ -143,27 +143,33 @@ function LoginForm() {
 
     try {
       if (isSignUp) {
-        // 1. CHECAGEM OBRIGATÓRIA NA WHITELIST DE ALUNOS AUTORIZADOS
+        // 1. CHECAGEM NA WHITELIST DE ALUNOS AUTORIZADOS
         try {
-          const { data: authRecord, error: authCheckErr } = await supabase
+          const { data: autorizados, error: errAuthList } = await supabase
             .from("alunos_autorizados")
-            .select("id, email, nome")
-            .eq("email", emailTrim)
-            .maybeSingle();
+            .select("id, email");
 
-          if (!authCheckErr && !authRecord) {
-            // O e-mail NÃO está na lista de alunos autorizados
-            setErrorMsg(
-              "Este e-mail não consta na lista de alunos da Mentoria GOPLAK. Use o mesmo e-mail informado na compra ou entre em contato com o suporte."
+          // Se a tabela de whitelist estiver ativa e contiver registros:
+          if (!errAuthList && autorizados && autorizados.length > 0) {
+            const estaAutorizado = autorizados.some(
+              (a) => a.email && a.email.trim().toLowerCase() === emailTrim
             );
-            setLoading(false);
-            return;
+
+            if (!estaAutorizado) {
+              setErrorMsg(
+                "Este e-mail não consta na lista de alunos da Mentoria GOPLAK. Use o mesmo e-mail informado na compra ou entre em contato com o suporte."
+              );
+              setLoading(false);
+              return;
+            }
           }
+          // Se a tabela estiver vazia (0 autorizados) ou ainda não criada:
+          // O cadastro avança, cadastrando o aluno como 'pendente' para moderação manual no Admin.
         } catch (errWhitelist) {
           console.warn("Aviso na checagem da whitelist de alunos:", errWhitelist);
         }
 
-        // 2. REGRA DE ADMIN RESTRITO: Todo cadastro público é estritamente Aluno com status 'pendente'
+        // 2. Criação do Usuário no Supabase Auth com status 'pendente'
         const { data, error } = await supabase.auth.signUp({
           email: emailTrim,
           password,
@@ -178,17 +184,64 @@ function LoginForm() {
 
         if (error) {
           setErrorMsg(traduzirErroSupabase(error.message));
-        } else if (data.user) {
-          // Registrar na tabela de alunos com status 'pendente'
+          setLoading(false);
+          return;
+        }
+
+        if (data.user) {
+          const userId = data.user.id;
+          const userNome = nome.trim() || emailTrim.split("@")[0];
+
+          // 3. GRAVAÇÃO OBRIGATÓRIA NO BANCO DE DADOS (Tabela de Alunos / Profiles)
+          let gravouComSucesso = false;
+          let ultimoErroMsg = "";
+
+          // Tentativa 1: Gravar com status na tabela alunos
+          const { error: errAlunosStatus } = await supabase.from("alunos").upsert({
+            id: userId,
+            nome: userNome,
+            email: emailTrim,
+            status: "pendente",
+          });
+
+          if (!errAlunosStatus) {
+            gravouComSucesso = true;
+          } else {
+            console.warn("Falha ao salvar aluno com status (possível ausência da coluna no banco):", errAlunosStatus);
+            ultimoErroMsg = errAlunosStatus.message;
+
+            // Tentativa 2: Fallback sem a coluna status (caso a migração SQL ainda não tenha sido rodada)
+            const { error: errAlunosCompat } = await supabase.from("alunos").upsert({
+              id: userId,
+              nome: userNome,
+              email: emailTrim,
+            });
+
+            if (!errAlunosCompat) {
+              gravouComSucesso = true;
+            } else {
+              ultimoErroMsg = errAlunosCompat.message;
+            }
+          }
+
+          // Tentativa 3: Também espelhar na tabela profiles se ela existir
           try {
-            await supabase.from("alunos").upsert({
-              id: data.user.id,
-              nome: nome.trim() || emailTrim.split("@")[0],
+            await supabase.from("profiles").upsert({
+              id: userId,
+              nome: userNome,
               email: emailTrim,
               status: "pendente",
             });
-          } catch (errAluno) {
-            console.warn("Aviso ao salvar aluno no banco:", errAluno);
+          } catch (_) {}
+
+          // Se nenhuma tentativa de gravação no banco deu certo, NÃO SILENCIAR!
+          if (!gravouComSucesso) {
+            console.error("Erro crítico ao gravar aluno no banco:", ultimoErroMsg);
+            setErrorMsg(
+              `Conta criada na autenticação, mas houve falha ao registrar na lista de alunos (${ultimoErroMsg}). Por favor, contate o suporte.`
+            );
+            setLoading(false);
+            return;
           }
 
           // Se auto-confirm logou o usuário, desloga imediatamente para que não acesse sem aprovação

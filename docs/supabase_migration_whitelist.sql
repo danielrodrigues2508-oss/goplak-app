@@ -2,6 +2,7 @@
 -- GOPLAK - MIGRATION: SEGURANÇA NO CADASTRO DE ALUNOS
 -- 1. Whitelist de E-mails Autorizados (alunos_autorizados)
 -- 2. Controle de Status de Acesso na Tabela alunos
+-- 3. View/Alias profiles para compatibilidade total
 -- ==============================================================================
 
 -- 1. TABELA DE ALUNOS AUTORIZADOS (WHITELIST)
@@ -46,7 +47,33 @@ WHERE status IS NULL
        'daniel.rodrigues2508@gmail.com'
    );
 
--- 3. ÍNDICES DE BUSCA RÁPIDA
+-- Garantir RLS aberto e permissivo na tabela alunos para leitura e cadastro
+ALTER TABLE public.alunos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir leitura publica de alunos" ON public.alunos;
+CREATE POLICY "Permitir leitura publica de alunos"
+ON public.alunos FOR SELECT
+TO authenticated, anon
+USING (true);
+
+DROP POLICY IF EXISTS "Permitir insercao e edicao de alunos" ON public.alunos;
+CREATE POLICY "Permitir insercao e edicao de alunos"
+ON public.alunos FOR ALL
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+-- 3. COMPATIBILIDADE: CRIAR VIEW PROFILES APONTANDO PARA ALUNOS
+CREATE OR REPLACE VIEW public.profiles AS
+SELECT 
+  id,
+  nome,
+  email,
+  status,
+  created_at
+FROM public.alunos;
+
+-- 4. ÍNDICES DE BUSCA RÁPIDA
 CREATE INDEX IF NOT EXISTS idx_alunos_autorizados_email ON public.alunos_autorizados(email);
 CREATE INDEX IF NOT EXISTS idx_alunos_status ON public.alunos(status);
 CREATE INDEX IF NOT EXISTS idx_alunos_email ON public.alunos(email);

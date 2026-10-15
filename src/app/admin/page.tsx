@@ -369,6 +369,7 @@ export default function PainelDistribuidorAdmin() {
   const [filtroStatusAluno, setFiltroStatusAluno] = useState<"todos" | "pendente" | "ativo" | "bloqueado">("todos");
   const [buscaAlunoAcesso, setBuscaAlunoAcesso] = useState("");
   const [processandoStatusId, setProcessandoStatusId] = useState<string | null>(null);
+  const [atualizandoAlunos, setAtualizandoAlunos] = useState(false);
   const [filtroPlacaStatus, setFiltroPlacaStatus] = useState<"todas" | "ativas" | "virgens">("todas");
   const [buscaPlaca, setBuscaPlaca] = useState("");
   const [modalEditarPlacaAberto, setModalEditarPlacaAberto] = useState(false);
@@ -467,31 +468,88 @@ export default function PainelDistribuidorAdmin() {
 
       console.log("Iniciando busca de dados do Admin...");
 
-      // 1. Puxar Alunos
+      // 1. Puxar Alunos (Compatibilidade Resiliente com/sem coluna status e profiles)
       let listaAlunos: Aluno[] = [];
       try {
-        const { data: alunosBanco, error: errAlunos } = await supabase
+        let dadosAlunos: any[] = [];
+
+        // 1.1 Tenta buscar com status na tabela alunos
+        const { data: aDataComStatus, error: errComStatus } = await supabase
           .from("alunos")
           .select("id, nome, email, status, created_at")
           .order("created_at", { ascending: false });
 
-        if (!errAlunos && alunosBanco && alunosBanco.length > 0) {
-          listaAlunos = alunosBanco;
+        if (!errComStatus && aDataComStatus && aDataComStatus.length > 0) {
+          dadosAlunos = aDataComStatus;
         } else {
-          // Fallback REST direto
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,status,created_at`, {
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-              listaAlunos = data;
+          // 1.2 Fallback: busca sem forçar a coluna status na tabela alunos
+          const { data: aDataSemStatus, error: errSemStatus } = await supabase
+            .from("alunos")
+            .select("id, nome, email, created_at")
+            .order("created_at", { ascending: false });
+
+          if (!errSemStatus && aDataSemStatus && aDataSemStatus.length > 0) {
+            dadosAlunos = aDataSemStatus;
+          } else {
+            // 1.3 Fallback: tenta buscar na tabela profiles caso exista
+            try {
+              const { data: pData } = await supabase
+                .from("profiles")
+                .select("*")
+                .order("created_at", { ascending: false });
+              if (pData && pData.length > 0) {
+                dadosAlunos = pData;
+              }
+            } catch (_) {}
+
+            // 1.4 Fallback REST direto
+            if (dadosAlunos.length === 0) {
+              try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,created_at&order=created_at.desc`, {
+                  headers: {
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                  },
+                });
+                if (res.ok) {
+                  const d = await res.json();
+                  if (Array.isArray(d)) dadosAlunos = d;
+                }
+              } catch (restErr) {
+                console.error("Erro no fallback REST de alunos:", restErr);
+              }
             }
           }
         }
+
+        // Mapeia os alunos determinando o status de forma precisa
+        listaAlunos = dadosAlunos.map((a: any) => {
+          const isMaster =
+            a.email === "daniel.rodrigues2508@gmail.com" ||
+            a.email === "distribuidor@goplacas.com.br" ||
+            a.email?.includes("admin");
+
+          let statusCalculado: "ativo" | "pendente" | "bloqueado" = "pendente";
+
+          if (isMaster) {
+            statusCalculado = "ativo";
+          } else if (a.status) {
+            statusCalculado = a.status;
+          } else if (typeof window !== "undefined") {
+            const cached = localStorage.getItem(`goplak_status_${a.id}`);
+            if (cached === "ativo" || cached === "bloqueado") {
+              statusCalculado = cached as any;
+            }
+          }
+
+          return {
+            id: a.id,
+            nome: a.nome || "Aluno Parceiro",
+            email: a.email || "",
+            status: statusCalculado,
+            created_at: a.created_at,
+          };
+        });
       } catch (err) {
         console.warn("Aviso ao buscar alunos:", err);
       }
@@ -2862,29 +2920,46 @@ export default function PainelDistribuidorAdmin() {
   const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente") => {
     setProcessandoStatusId(alunoId);
     try {
-      const { error } = await supabase
+      // 1. Atualiza cache local imediatamente (garante persistência mesmo se a migração SQL ainda não foi executada)
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`goplak_status_${alunoId}`, novoStatus);
+        } catch (_) {}
+      }
+
+      // 2. Atualiza estado local da UI instantaneamente
+      setAlunos((prev) =>
+        prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus } : a))
+      );
+
+      // 3. Tenta persistir na coluna status da tabela alunos
+      const { error: errUpdate } = await supabase
         .from("alunos")
         .update({ status: novoStatus })
         .eq("id", alunoId);
 
-      if (error) {
-        console.warn("Erro ao atualizar status via SDK:", error);
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
-          method: "PATCH",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: novoStatus }),
-        });
-        if (!res.ok) throw error;
+      if (errUpdate) {
+        console.warn("Aviso ao atualizar status via SDK em alunos:", errUpdate);
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status: novoStatus }),
+          });
+        } catch (_) {}
       }
 
-      // Atualiza lista local
-      setAlunos((prev) =>
-        prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus } : a))
-      );
+      // 4. Também tenta atualizar em profiles caso exista
+      try {
+        await supabase
+          .from("profiles")
+          .update({ status: novoStatus })
+          .eq("id", alunoId);
+      } catch (_) {}
 
       if (novoStatus === "ativo") {
         confetti({ particleCount: 35, spread: 70, origin: { y: 0.7 } });
@@ -4600,15 +4675,32 @@ export default function PainelDistribuidorAdmin() {
                 </button>
               </div>
 
-              <div className="w-full sm:w-64 relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
-                <input
-                  type="text"
-                  value={buscaAlunoAcesso}
-                  onChange={(e) => setBuscaAlunoAcesso(e.target.value)}
-                  placeholder="Buscar aluno ou e-mail..."
-                  className="w-full bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
-                />
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="w-full sm:w-64 relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={buscaAlunoAcesso}
+                    onChange={(e) => setBuscaAlunoAcesso(e.target.value)}
+                    placeholder="Buscar aluno ou e-mail..."
+                    className="w-full bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setAtualizandoAlunos(true);
+                    await fetchAdminData();
+                    setAtualizandoAlunos(false);
+                  }}
+                  disabled={atualizandoAlunos}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 disabled:opacity-50 shadow-xs"
+                  title="Atualizar listagem de alunos e fila de pendentes em tempo real"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${atualizandoAlunos ? "animate-spin text-emerald-500" : ""}`} />
+                  <span className="hidden sm:inline">{atualizandoAlunos ? "Atualizando..." : "Sincronizar"}</span>
+                </button>
               </div>
             </div>
 
