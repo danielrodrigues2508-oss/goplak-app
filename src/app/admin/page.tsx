@@ -2972,6 +2972,82 @@ export default function PainelDistribuidorAdmin() {
     }
   };
 
+  // Handler para Excluir Aluno Permanentemente
+  const handleExcluirAluno = async (alunoId: string, email: string, nome?: string) => {
+    const isMaster =
+      email === "daniel.rodrigues2508@gmail.com" ||
+      email === "distribuidor@goplacas.com.br" ||
+      email?.includes("admin");
+
+    if (isMaster) {
+      alert("A conta do Administrador Master não pode ser excluída.");
+      return;
+    }
+
+    if (!window.confirm(`Deseja realmente excluir este cadastro (${nome || email})? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    setProcessandoStatusId(alunoId);
+    try {
+      // 1. Remover do cache local
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem(`goplak_status_${alunoId}`);
+        } catch (_) {}
+      }
+
+      // 2. Atualizar estado local instantaneamente para feedback imediato
+      setAlunos((prev) => prev.filter((a) => a.id !== alunoId));
+
+      // 3. Deletar do Supabase (tabela alunos)
+      const { error: errDel } = await supabase
+        .from("alunos")
+        .delete()
+        .eq("id", alunoId);
+
+      if (errDel) {
+        console.warn("Aviso ao deletar aluno via SDK:", errDel);
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+            method: "DELETE",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+        } catch (_) {}
+      }
+
+      // 4. Também deletar de profiles se existir
+      try {
+        await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", alunoId);
+      } catch (_) {}
+
+      // 5. Chamar API route para deletar do Supabase Auth
+      try {
+        await fetch("/api/admin-delete-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: alunoId, email }),
+        });
+      } catch (apiErr) {
+        console.warn("Aviso na chamada da rota de exclusão:", apiErr);
+      }
+
+      alert(`Cadastro de ${nome || email} excluído com sucesso.`);
+    } catch (err: any) {
+      console.error("Erro ao excluir aluno:", err);
+      alert(`Erro ao excluir aluno: ${err.message || "Tente novamente."}`);
+      await fetchAdminData();
+    } finally {
+      setProcessandoStatusId(null);
+    }
+  };
+
   // Abrir modal de Endereço Completo
   const handleAbrirEndereco = (lote: LoteExport) => {
     setEnderecoVisualizando({
@@ -4841,6 +4917,16 @@ export default function PainelDistribuidorAdmin() {
                                       <span>Reativar Acesso</span>
                                     </button>
                                   )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExcluirAluno(aluno.id, aluno.email, aluno.nome)}
+                                    className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500 hover:text-white active:scale-95 text-red-600 dark:text-red-400 border border-red-500/30 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                    title="Excluir cadastro permanentemente"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Excluir</span>
+                                  </button>
                                 </div>
                               )}
                             </td>
