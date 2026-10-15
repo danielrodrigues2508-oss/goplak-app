@@ -3340,311 +3340,303 @@ export default function DashboardAluno() {
 
       {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
       {modalAtivacaoAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
-            {/* Header Fixo */}
-            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl my-auto box-border max-h-[92vh] overflow-y-auto overflow-x-hidden">
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                  <QrCode className="w-3.5 h-3.5" />
+                <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 shrink-0">
+                  <QrCode className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
+                  <h3 className="text-base font-bold text-white truncate">
                     Ativar Display em Campo
                   </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 truncate">
-                    Vincule a placa virgem ao estabelecimento do cliente
+                  <p className="text-[11px] text-zinc-400 truncate">
+                    Vincule a placa virgem ao cliente
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setModalAtivacaoAberto(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 shrink-0 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Corpo interno com scroll seguro */}
-            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
-              {placasVirgensDisponiveis.length === 0 ? (
-                <div className="text-center py-5 space-y-2.5">
-                  <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
-                    <Package className="w-5 h-5" />
+            {/* Conteúdo */}
+            {placasVirgensDisponiveis.length === 0 ? (
+              <div className="text-center py-5 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+                  <Package className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-white text-sm sm:text-base">Sem displays virgens em estoque</h4>
+                  <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
+                    Você não possui placas virgens disponíveis no momento. Solicite um novo lote de displays para continuar ativando.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalAtivacaoAberto(false);
+                    setModalSolicitarAberto(true);
+                  }}
+                  className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer"
+                >
+                  Solicitar Displays (+)
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleAtivarDisplay} className="space-y-3 w-full box-border">
+                {/* Linha Display (55%) + Valor (45%) */}
+                <div className="flex gap-2 w-full">
+                  <div className="w-[55%] min-w-0">
+                    <label className="block text-xs font-medium text-zinc-400 mb-1 truncate">
+                      Display ({placasVirgensDisponiveis.length} un) *
+                    </label>
+                    <select
+                      value={placaSelecionadaId}
+                      onChange={(e) => setPlacaSelecionadaId(e.target.value)}
+                      required
+                      className="w-full h-10 px-2.5 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500 box-border cursor-pointer truncate"
+                    >
+                      {placasVirgensDisponiveis.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-zinc-900 text-white">
+                          {p.codigo}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-zinc-900 dark:text-white text-xs sm:text-sm">Sem displays virgens em estoque</h4>
-                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400 mt-0.5 max-w-xs mx-auto">
-                      Você não possui placas virgens disponíveis no momento. Solicite um novo lote de displays para continuar ativando.
-                    </p>
+
+                  <div className="w-[45%] shrink-0">
+                    <label className="block text-xs font-medium text-zinc-400 mb-1 truncate flex items-center gap-1">
+                      <DollarSign className="w-3 h-3 text-zinc-500" /> Valor (R$) *
+                    </label>
+                    <input
+                      type="number"
+                      step="5.00"
+                      required
+                      placeholder="80.00"
+                      value={formValorVenda}
+                      onChange={(e) => setFormValorVenda(e.target.value)}
+                      className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-emerald-400 font-bold text-sm focus:outline-none focus:border-emerald-500 box-border"
+                    />
                   </div>
+                </div>
+
+                {/* Nome do Estabelecimento */}
+                <div className="w-full">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1">
+                    <Store className="w-3 h-3 text-zinc-500" /> Nome do Estabelecimento / Cliente *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Barbearia VIP, Padaria Central..."
+                    value={formNomeEmpresa}
+                    onChange={(e) => setFormNomeEmpresa(e.target.value)}
+                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 box-border"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Link Google Review */}
+                <div className="w-full">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1">
+                    <Link2 className="w-3 h-3 text-zinc-500" /> Link de Avaliação Google (Google Review)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="Ex: https://g.page/r/... ou https://maps.app.goo.gl/..."
+                    value={formLinkGoogle}
+                    onChange={(e) => setFormLinkGoogle(e.target.value)}
+                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-zinc-200 text-xs font-mono focus:outline-none focus:border-emerald-500 box-border"
+                  />
+                </div>
+
+                {/* WhatsApp da Gerência / Feedback */}
+                <div className="w-full">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-zinc-500" /> WhatsApp do Proprietário / Gerência
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: (11) 99999-8888"
+                    value={formatarWhatsapp(formWhatsappFeedback)}
+                    onChange={(e) => setFormWhatsappFeedback(e.target.value)}
+                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 box-border"
+                  />
+                </div>
+
+                {/* Escudo Anti-Golpe Ativo */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 flex items-start gap-2.5 box-border">
+                  <input
+                    type="checkbox"
+                    id="escudoAtivoCheck"
+                    checked={formEscudoAtivo}
+                    onChange={(e) => setFormEscudoAtivo(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer accent-emerald-500 shrink-0"
+                  />
+                  <label htmlFor="escudoAtivoCheck" className="text-xs text-zinc-300 cursor-pointer select-none leading-snug">
+                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 inline text-emerald-400 shrink-0" />
+                      Escudo de Reputação Ativo
+                    </span>
+                    <span className="text-[11px] text-zinc-400 block mt-0.5">
+                      Filtra notas 1 a 3 estrelas para WhatsApp privado e 4 a 5 para Google Oficial.
+                    </span>
+                  </label>
+                </div>
+
+                {/* Botões Cancelar e Ativar */}
+                <div className="grid grid-cols-2 gap-2 w-full pt-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      setModalAtivacaoAberto(false);
-                      setModalSolicitarAberto(true);
-                    }}
-                    className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
+                    onClick={() => setModalAtivacaoAberto(false)}
+                    className="w-full h-11 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 font-semibold rounded-xl text-sm box-border cursor-pointer"
                   >
-                    Solicitar Displays (+)
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={ativandoDisplay}
+                    className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold rounded-xl text-sm box-border cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                  >
+                    {ativandoDisplay ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                        <span>Ativando...</span>
+                      </>
+                    ) : (
+                      <span>Ativar Display 🚀</span>
+                    )}
                   </button>
                 </div>
-              ) : (
-                <form onSubmit={handleAtivarDisplay} className="space-y-2.5 w-full box-border">
-                  {/* Agrupamento Lado a Lado: Display Virgem (55%) + Valor Cobrado (45%) */}
-                  <div className="grid grid-cols-12 gap-2 w-full box-border">
-                    <div className="col-span-7">
-                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                        Display ({placasVirgensDisponiveis.length} un) *
-                      </label>
-                      <select
-                        value={placaSelecionadaId}
-                        onChange={(e) => setPlacaSelecionadaId(e.target.value)}
-                        required
-                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition cursor-pointer truncate"
-                      >
-                        {placasVirgensDisponiveis.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.codigo}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="col-span-5">
-                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate flex items-center gap-1">
-                        <DollarSign className="w-3 h-3 text-zinc-400" /> Valor (R$) *
-                      </label>
-                      <input
-                        type="number"
-                        step="5.00"
-                        required
-                        placeholder="80.00"
-                        value={formValorVenda}
-                        onChange={(e) => setFormValorVenda(e.target.value)}
-                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500 transition"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Nome do Estabelecimento */}
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                      <Store className="w-3 h-3 text-zinc-400" /> Nome do Estabelecimento / Cliente *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Barbearia VIP, Padaria Central..."
-                      value={formNomeEmpresa}
-                      onChange={(e) => setFormNomeEmpresa(e.target.value)}
-                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
-                      autoFocus
-                    />
-                  </div>
-
-                  {/* Link Google Review */}
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                      <Link2 className="w-3 h-3 text-zinc-400" /> Link de Avaliação Google (Google Review)
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="Ex: https://g.page/r/... ou https://maps.app.goo.gl/..."
-                      value={formLinkGoogle}
-                      onChange={(e) => setFormLinkGoogle(e.target.value)}
-                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-emerald-500 transition"
-                    />
-                  </div>
-
-                  {/* WhatsApp da Gerência / Feedback */}
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-zinc-400" /> WhatsApp do Proprietário / Gerência
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: (11) 99999-8888"
-                      value={formatarWhatsapp(formWhatsappFeedback)}
-                      onChange={(e) => setFormWhatsappFeedback(e.target.value)}
-                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
-                    />
-                  </div>
-
-                  {/* Escudo Anti-Golpe Ativo */}
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      id="escudoAtivoCheck"
-                      checked={formEscudoAtivo}
-                      onChange={(e) => setFormEscudoAtivo(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer"
-                    />
-                    <label htmlFor="escudoAtivoCheck" className="text-xs text-zinc-700 dark:text-neutral-300 cursor-pointer select-none">
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                        <ShieldCheck className="w-3.5 h-3.5 inline" />
-                        Escudo de Reputação Ativo
-                      </span>
-                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400 block mt-0.5">
-                        Filtra notas 1 a 3 estrelas para WhatsApp privado e 4 a 5 para Google Oficial.
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Botões de Ação */}
-                  <div className="pt-1.5 flex gap-2.5 w-full box-border">
-                    <button
-                      type="button"
-                      onClick={() => setModalAtivacaoAberto(false)}
-                      className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={ativandoDisplay}
-                      className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
-                    >
-                      {ativandoDisplay ? (
-                        <span className="inline-flex items-center justify-center gap-1.5">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Ativando...</span>
-                        </span>
-                      ) : (
-                        <span>Ativar Display 🚀</span>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
+              </form>
+            )}
           </div>
         </div>
       )}
 
       {/* MODAL 2: LANÇAR DESPESA DE RUA */}
       {modalDespesaAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
-            {/* Header Fixo */}
-            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
-              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2 truncate">
-                <Plus className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" /> Lançar Despesa de Rua
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl my-auto box-border overflow-hidden">
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span className="text-rose-500 font-extrabold">+</span> Lançar Despesa de Rua
               </h3>
               <button
                 type="button"
                 onClick={() => setModalDespesaAberto(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg cursor-pointer shrink-0"
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 shrink-0 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Corpo interno com scroll seguro */}
-            <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
-              <form onSubmit={handleSalvarDespesa} className="space-y-2.5 w-full box-border">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                    Selecione a Categoria
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 w-full box-border">
-                    <button
-                      type="button"
-                      onClick={() => setNovaCategoria("transporte")}
-                      className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer min-w-0 box-border ${
-                        novaCategoria === "transporte"
-                          ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
-                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      <span className="text-base">🚗</span>
-                      <span className="truncate text-[10px] sm:text-[11px]">Transporte</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNovaCategoria("alimentacao")}
-                      className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer min-w-0 box-border ${
-                        novaCategoria === "alimentacao"
-                          ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
-                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      <span className="text-base">🍔</span>
-                      <span className="truncate text-[10px] sm:text-[11px]">Alimentação</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNovaCategoria("outros")}
-                      className={`text-xs py-2 px-1.5 rounded-xl font-semibold border transition flex flex-col items-center justify-center gap-0.5 cursor-pointer min-w-0 box-border ${
-                        novaCategoria === "outros"
-                          ? "bg-rose-500 text-white border-rose-400 shadow-md ring-2 ring-rose-500/30"
-                          : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      <span className="text-base">🔧</span>
-                      <span className="truncate text-[10px] sm:text-[11px]">Outros</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Agrupamento Lado a Lado: Valor R$ (40%) + Descrição Rápida (60%) */}
-                <div className="grid grid-cols-12 gap-2 w-full box-border">
-                  <div className="col-span-5 min-w-0">
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                      Valor (R$) *
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      required
-                      placeholder="25,00"
-                      value={novoValor}
-                      onChange={(e) => setNovoValor(e.target.value)}
-                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500 transition"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="col-span-7 min-w-0">
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                      Descrição (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Uber, Almoço..."
-                      value={novaDescricao}
-                      onChange={(e) => setNovaDescricao(e.target.value)}
-                      className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-zinc-900 dark:text-neutral-200 focus:outline-none focus:border-rose-500 transition"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-1.5 flex gap-2.5 w-full box-border">
+            <form onSubmit={handleSalvarDespesa}>
+              {/* Categorias (Grid 3 colunas fluida com gap compacto) */}
+              <div className="w-full mb-3">
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                  Selecione a Categoria
+                </label>
+                <div className="grid grid-cols-3 gap-2 w-full">
                   <button
                     type="button"
-                    onClick={() => setModalDespesaAberto(false)}
-                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                    onClick={() => setNovaCategoria("transporte")}
+                    className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border text-xs font-medium w-full truncate cursor-pointer transition ${
+                      novaCategoria === "transporte"
+                        ? "border-rose-500 bg-rose-500/10 text-rose-400 font-bold"
+                        : "border-zinc-800 bg-zinc-900/60 text-zinc-300"
+                    }`}
                   >
-                    Cancelar
+                    <span className="text-lg mb-1">🚗</span>
+                    <span className="truncate">Transporte</span>
                   </button>
                   <button
-                    type="submit"
-                    disabled={salvandoDespesa}
-                    className="flex-1 bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
+                    type="button"
+                    onClick={() => setNovaCategoria("alimentacao")}
+                    className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border text-xs font-medium w-full truncate cursor-pointer transition ${
+                      novaCategoria === "alimentacao"
+                        ? "border-rose-500 bg-rose-500/10 text-rose-400 font-bold"
+                        : "border-zinc-800 bg-zinc-900/60 text-zinc-300"
+                    }`}
                   >
-                    {salvandoDespesa ? (
-                      <span className="inline-flex items-center justify-center gap-1.5">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Salvando...</span>
-                      </span>
-                    ) : (
-                      <span>Confirmar Gasto</span>
-                    )}
+                    <span className="text-lg mb-1">🍔</span>
+                    <span className="truncate">Alimentação</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNovaCategoria("outros")}
+                    className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl border text-xs font-medium w-full truncate cursor-pointer transition ${
+                      novaCategoria === "outros"
+                        ? "border-rose-500 bg-rose-500/10 text-rose-400 font-bold"
+                        : "border-zinc-800 bg-zinc-900/60 text-zinc-300"
+                    }`}
+                  >
+                    <span className="text-lg mb-1">📦</span>
+                    <span className="truncate">Outros</span>
                   </button>
                 </div>
-              </form>
-            </div>
+              </div>
+
+              {/* Linha Valor + Descrição */}
+              <div className="flex gap-2 w-full mb-4">
+                <div className="w-[35%] shrink-0">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Valor (R$) *</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    placeholder="0,00"
+                    value={novoValor}
+                    onChange={(e) => setNovoValor(e.target.value)}
+                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-rose-500 box-border font-bold"
+                    autoFocus
+                  />
+                </div>
+                <div className="w-[65%] min-w-0">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1 truncate">Descrição (Opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Uber, Almoço..."
+                    value={novaDescricao}
+                    onChange={(e) => setNovaDescricao(e.target.value)}
+                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-rose-500 box-border"
+                  />
+                </div>
+              </div>
+
+              {/* Botões Cancelar e Confirmar */}
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => setModalDespesaAberto(false)}
+                  className="w-full h-11 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 font-semibold rounded-xl text-sm box-border cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoDespesa}
+                  className="w-full h-11 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-sm box-border cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {salvandoDespesa ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <span>Confirmar</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -4588,19 +4580,19 @@ export default function DashboardAluno() {
 
       {/* MODAL 4: EDITAR LINK DE DESTINO DA PLACA */}
       {modalEditarLinkAberto && placaEditando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl relative max-h-[92vh] flex flex-col box-border">
             {/* Header Fixo */}
-            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                   <Link2 className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
                     Atualizar Destino • {placaEditando.codigo}
                   </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 truncate">
+                  <p className="text-[11px] text-zinc-400 truncate">
                     Altere o redirecionamento do QR Code / NFC
                   </p>
                 </div>
@@ -4864,19 +4856,19 @@ export default function DashboardAluno() {
 
       {/* MODAL DEFINIR META SEMANAL */}
       {modalEditarMetaAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-[calc(100vw-24px)] max-w-lg mx-auto overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 shadow-2xl relative max-h-[90vh] flex flex-col box-border animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl relative max-h-[92vh] flex flex-col box-border">
             {/* Header Fixo */}
-            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-200 dark:border-neutral-800 shrink-0 flex items-center justify-between gap-2 box-border">
+            <div className="p-4 sm:p-5 pb-3 border-b border-zinc-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="p-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 rounded-xl shrink-0">
+                <div className="p-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 rounded-xl shrink-0">
                   <Target className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
                     Definir Meta Semanal
                   </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400 truncate">
+                  <p className="text-[11px] text-zinc-400 truncate">
                     Configure seu objetivo de ativação de displays
                   </p>
                 </div>
