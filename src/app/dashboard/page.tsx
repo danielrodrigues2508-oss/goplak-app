@@ -1290,29 +1290,6 @@ export default function DashboardAluno() {
     return raw.slice(0, 13);
   };
 
-  // Disparo direto do app NFC Tools (compatível com Safari / WebKit e Android)
-  const handleAbrirAppNfcDireto = () => {
-    if (typeof window === "undefined") return;
-
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
-    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    const isAndroid = /android/i.test(ua);
-
-    if (isIOS) {
-      // Disparo limpo no iOS sem alerta de página inválida no Safari
-      const linkEl = document.createElement("a");
-      linkEl.href = "nfctools://";
-      linkEl.rel = "noopener noreferrer";
-      document.body.appendChild(linkEl);
-      linkEl.click();
-      document.body.removeChild(linkEl);
-    } else if (isAndroid) {
-      window.location.href = "intent://#Intent;package=com.wakdev.wdnfc;end";
-    } else {
-      window.open("https://play.google.com/store/apps/details?id=com.wakdev.wdnfc", "_blank");
-    }
-  };
-
   // Copiar Link para NFC & Abrir Modal de Guia Visual Rápido
   const handleCopiarLinkNfc = async (customLink?: string) => {
     const link = (customLink !== undefined ? customLink : formLinkGoogle || "").trim();
@@ -5336,19 +5313,11 @@ export default function DashboardAluno() {
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleAbrirAppNfcDireto()}
-                className="flex-1 h-10 px-3 rounded-xl bg-violet-950/50 hover:bg-violet-900/50 border border-violet-500/40 text-violet-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                title="Abrir o aplicativo NFC Tools instalado"
-              >
-                <span>📲 Abrir NFC Tools</span>
-              </button>
+            <div className="pt-2 border-t border-zinc-800/80">
               <button
                 type="button"
                 onClick={() => setModalGuiaNfcAberto(false)}
-                className="flex-1 h-10 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold flex items-center justify-center transition active:scale-[0.98] cursor-pointer shadow-md shadow-emerald-500/20"
+                className="w-full h-10 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold flex items-center justify-center transition active:scale-[0.98] cursor-pointer shadow-md shadow-emerald-500/20"
               >
                 <span>Concluir / Fechar</span>
               </button>
