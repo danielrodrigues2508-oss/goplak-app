@@ -1287,6 +1287,70 @@ export default function DashboardAluno() {
     return raw.slice(0, 13);
   };
 
+  // BOTÃO EXPERIMENTAL: Copiar Link Google & Abrir NFC Tools (Isolado e Autocontido)
+  const handleOpenNfcTools = async () => {
+    const link = (formLinkGoogle || "").trim();
+
+    if (!link) {
+      setAvisoNaoAutorizado("Preencha ou gere o link do Google primeiro!");
+      return;
+    }
+
+    // 1. Copiar link para a área de transferência
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const input = document.createElement("input");
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+    } catch (err) {
+      console.warn("Erro ao copiar link:", err);
+    }
+
+    // 2. Exibir toast
+    setAvisoSucessoAtivacao("Link copiado! Abrindo NFC Tools...");
+
+    // 3. Tentar abrir o app NFC Tools
+    if (typeof window === "undefined") return;
+
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const isAndroid = /android/i.test(ua);
+
+    if (isIOS) {
+      const appStoreUrl = "https://apps.apple.com/app/nfc-tools/id1252962749";
+      const customScheme = "nfctools://";
+
+      const start = Date.now();
+      window.location.href = customScheme;
+
+      setTimeout(() => {
+        if (Date.now() - start < 3000 && !document.hidden) {
+          window.open(appStoreUrl, "_blank");
+        }
+      }, 2500);
+    } else if (isAndroid) {
+      const playStoreUrl = "https://play.google.com/store/apps/details?id=com.wakdev.wdnfc";
+      const androidIntent = "intent://#Intent;package=com.wakdev.wdnfc;end";
+
+      const start = Date.now();
+      window.location.href = androidIntent;
+
+      setTimeout(() => {
+        if (Date.now() - start < 3000 && !document.hidden) {
+          window.open(playStoreUrl, "_blank");
+        }
+      }, 2500);
+    } else {
+      window.open("https://play.google.com/store/apps/details?id=com.wakdev.wdnfc", "_blank");
+    }
+  };
+
   // 1. ATIVAR NOVO DISPLAY EM CAMPO (Atualiza placa virgem para ativa)
   const handleAtivarDisplay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3575,6 +3639,14 @@ export default function DashboardAluno() {
                     onChange={(e) => setFormLinkGoogle(e.target.value)}
                     className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-zinc-200 text-xs font-mono focus:outline-none focus:border-emerald-500 box-border"
                   />
+                  {/* Botão Experimental: Copiar Link Google & Abrir NFC Tools */}
+                  <button
+                    type="button"
+                    onClick={handleOpenNfcTools}
+                    className="w-full h-9 bg-violet-950/40 border border-violet-500/40 text-violet-300 hover:bg-violet-900/40 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors mt-2 cursor-pointer"
+                  >
+                    <span>📲 Copiar Link Google & Abrir NFC Tools</span>
+                  </button>
                 </div>
 
                 {/* WhatsApp da Gerência / Feedback */}
