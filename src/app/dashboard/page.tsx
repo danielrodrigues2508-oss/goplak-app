@@ -1324,29 +1324,15 @@ export default function DashboardAluno() {
     const isAndroid = /android/i.test(ua);
 
     if (isIOS) {
-      const appStoreUrl = "https://apps.apple.com/app/nfc-tools/id1252962749";
-      const customScheme = "nfctools://";
-
-      const start = Date.now();
-      window.location.href = customScheme;
-
-      setTimeout(() => {
-        if (Date.now() - start < 3000 && !document.hidden) {
-          window.open(appStoreUrl, "_blank");
-        }
-      }, 2500);
+      // Disparo limpo no iOS sem alerta de página inválida no Safari
+      const linkEl = document.createElement("a");
+      linkEl.href = "nfctools://";
+      linkEl.rel = "noopener noreferrer";
+      document.body.appendChild(linkEl);
+      linkEl.click();
+      document.body.removeChild(linkEl);
     } else if (isAndroid) {
-      const playStoreUrl = "https://play.google.com/store/apps/details?id=com.wakdev.wdnfc";
-      const androidIntent = "intent://#Intent;package=com.wakdev.wdnfc;end";
-
-      const start = Date.now();
-      window.location.href = androidIntent;
-
-      setTimeout(() => {
-        if (Date.now() - start < 3000 && !document.hidden) {
-          window.open(playStoreUrl, "_blank");
-        }
-      }, 2500);
+      window.location.href = "intent://#Intent;package=com.wakdev.wdnfc;end";
     } else {
       window.open("https://play.google.com/store/apps/details?id=com.wakdev.wdnfc", "_blank");
     }
