@@ -212,8 +212,13 @@ export default function DashboardAluno() {
   const [displaysVendidosSemana, setDisplaysVendidosSemana] = useState(0);
   const [metaSemanalDisplays, setMetaSemanalDisplays] = useState(20);
 
-  // Modal de Edição de Meta Semanal
+  // Modal de Edição de Meta Semanal e Desempenho Mensal
   const [modalEditarMetaAberto, setModalEditarMetaAberto] = useState(false);
+  const [abaModalMeta, setAbaModalMeta] = useState<"meta" | "desempenho">("meta");
+  const [mesSelecionadoDesempenho, setMesSelecionadoDesempenho] = useState<string>(() => {
+    const agora = new Date();
+    return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [inputMetaSemanal, setInputMetaSemanal] = useState("20");
   const [inputPrecoDisplay, setInputPrecoDisplay] = useState("80,00");
   const [salvandoMeta, setSalvandoMeta] = useState(false);
@@ -1355,6 +1360,127 @@ export default function DashboardAluno() {
     };
   }, [placasAtivas]);
 
+  // Meses disponíveis para o modal de Metas & Desempenho Mensal
+  const mesesDesempenho = useMemo(() => {
+    const agora = new Date();
+    const anoAtual = agora.getFullYear();
+    const mesAtual = String(agora.getMonth() + 1).padStart(2, "0");
+    const chaveAtual = `${anoAtual}-${mesAtual}`;
+
+    const mesesMap = new Map<string, string>();
+
+    // Garante mês atual sempre presente
+    const nomeMesAtual = agora.toLocaleDateString("pt-BR", { month: "long" });
+    const capAtual = nomeMesAtual.charAt(0).toUpperCase() + nomeMesAtual.slice(1);
+    mesesMap.set(chaveAtual, `${capAtual}/${anoAtual}`);
+
+    // Extrai meses das ativações das placas
+    placasAtivas.forEach((p) => {
+      const dtStr = p.activated_at || p.data_ativacao || p.created_at || p.updated_at;
+      if (dtStr) {
+        const d = new Date(dtStr);
+        if (!isNaN(d.getTime())) {
+          const ano = d.getFullYear();
+          const mes = String(d.getMonth() + 1).padStart(2, "0");
+          const chave = `${ano}-${mes}`;
+          if (!mesesMap.has(chave)) {
+            const dataRef = new Date(ano, d.getMonth(), 1);
+            const nomeMes = dataRef.toLocaleDateString("pt-BR", { month: "long" });
+            const cap = nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1);
+            mesesMap.set(chave, `${cap}/${ano}`);
+          }
+        }
+      }
+    });
+
+    const chaves = Array.from(mesesMap.keys()).sort().reverse();
+    return chaves.map((chave) => ({
+      valor: chave,
+      label: mesesMap.get(chave)!,
+    }));
+  }, [placasAtivas]);
+
+  // Cálculos Consolidados de Desempenho Mensal (Grelha de Calendário + Estatísticas)
+  const dadosDesempenhoMensal = useMemo(() => {
+    const partes = (mesSelecionadoDesempenho || "").split("-");
+    const agora = new Date();
+    const ano = partes.length >= 2 ? parseInt(partes[0], 10) || agora.getFullYear() : agora.getFullYear();
+    const mesIndex = partes.length >= 2 ? (parseInt(partes[1], 10) - 1) : agora.getMonth();
+
+    // Total de dias no mês
+    const totalDiasNoMes = new Date(ano, mesIndex + 1, 0).getDate();
+
+    // Dia da semana do 1º dia (0 = Dom, 1 = Seg, ..., 6 = Sáb)
+    const primeiroDiaSemana = new Date(ano, mesIndex, 1).getDay();
+
+    // Filtrar placas ativadas no mês selecionado com base na data real
+    const placasDoMes = placasAtivas.filter((p) => {
+      const dtStr = p.activated_at || p.data_ativacao || p.created_at || p.updated_at;
+      if (!dtStr) return false;
+      const d = new Date(dtStr);
+      if (isNaN(d.getTime())) return false;
+      return d.getFullYear() === ano && d.getMonth() === mesIndex;
+    });
+
+    // Mapeamento diário (1 a totalDiasNoMes)
+    const diasMap = new Map<number, { total: number; faturamento: number; placas: PlacaAtivaItem[] }>();
+    for (let dia = 1; dia <= totalDiasNoMes; dia++) {
+      diasMap.set(dia, { total: 0, faturamento: 0, placas: [] });
+    }
+
+    let faturamentoTotalMes = 0;
+
+    placasDoMes.forEach((p) => {
+      const dtStr = p.activated_at || p.data_ativacao || p.created_at || p.updated_at;
+      if (dtStr) {
+        const d = new Date(dtStr);
+        const diaNum = d.getDate();
+        if (diasMap.has(diaNum)) {
+          const entry = diasMap.get(diaNum)!;
+          entry.total += 1;
+          const valor = calcularFaturamentoTotalPlaca(p);
+          entry.faturamento += valor;
+          entry.placas.push(p);
+          faturamentoTotalMes += valor;
+        }
+      }
+    });
+
+    const listaDias = Array.from(diasMap.entries()).map(([dia, dados]) => ({
+      dia,
+      ...dados,
+    }));
+
+    const maxAtivacoesDia = Math.max(0, ...listaDias.map((d) => d.total));
+
+    let diaMaiorAtivacao: { dia: number; total: number } | null = null;
+    if (placasDoMes.length > 0 && maxAtivacoesDia > 0) {
+      const melhor = [...listaDias].sort((a, b) => b.total - a.total)[0];
+      if (melhor && melhor.total > 0) {
+        diaMaiorAtivacao = {
+          dia: melhor.dia,
+          total: melhor.total,
+        };
+      }
+    }
+
+    const isMesAtual = agora.getFullYear() === ano && agora.getMonth() === mesIndex;
+    const diaHoje = isMesAtual ? agora.getDate() : null;
+
+    return {
+      ano,
+      mesIndex,
+      totalDiasNoMes,
+      primeiroDiaSemana,
+      totalDisplaysMes: placasDoMes.length,
+      faturamentoTotalMes,
+      diaMaiorAtivacao,
+      maxAtivacoesDia,
+      listaDias,
+      diaHoje,
+    };
+  }, [mesSelecionadoDesempenho, placasAtivas]);
+
   // Formatação de WhatsApp
   const formatarWhatsapp = (val: string) => {
     const raw = val.replace(/\D/g, "");
@@ -2188,9 +2314,10 @@ export default function DashboardAluno() {
     });
   };
 
-  const handleAbrirEditarMeta = () => {
+  const handleAbrirEditarMeta = (aba: "meta" | "desempenho" = "meta") => {
     setInputMetaSemanal(String(metaSemanalDisplays));
     setInputPrecoDisplay(precoPorDisplay.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    setAbaModalMeta(aba);
     setModalEditarMetaAberto(true);
   };
 
@@ -2811,7 +2938,16 @@ export default function DashboardAluno() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
-                      onClick={handleAbrirEditarMeta}
+                      onClick={() => handleAbrirEditarMeta("desempenho")}
+                      className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border border-zinc-300 dark:border-neutral-800 bg-zinc-100 dark:bg-neutral-800/80 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-zinc-300 transition active:scale-95 cursor-pointer"
+                      title="Ver histórico e desempenho detalhado do mês"
+                    >
+                      <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-violet-500" />
+                      <span>Desempenho</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAbrirEditarMeta("meta")}
                       className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 transition active:scale-95 cursor-pointer"
                       title="Definir meta semanal de displays"
                     >
@@ -3115,24 +3251,24 @@ export default function DashboardAluno() {
                             </div>
                           </div>
 
-                          {/* Botões de Ação do Card: Copiar Link p/ NFC + Editar Link + Excluir */}
-                          <div className="flex items-center gap-2 pt-1 w-full box-border">
+                          {/* Botões de Ação do Card: Copiar Link NFC + Editar Link + Excluir */}
+                          <div className="flex items-center gap-1.5 sm:gap-2 pt-1 w-full box-border">
                             <button
                               type="button"
                               onClick={() => handleCopiarLinkNfc(rawLink)}
-                              className="flex-1 h-8 px-2 rounded-xl border border-violet-500/30 hover:border-violet-500/60 bg-violet-950/20 hover:bg-violet-900/30 active:scale-95 text-violet-300 text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
+                              className="flex-1 min-w-0 h-8 px-2 py-1.5 rounded-xl border border-violet-500/30 hover:border-violet-500/60 bg-violet-950/20 hover:bg-violet-900/30 active:scale-95 text-violet-300 text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer whitespace-nowrap"
                               title="Copiar link e abrir guia visual do NFC Tools"
                             >
                               <Copy className="w-3 h-3 shrink-0" />
-                              <span className="truncate">📋 Copiar Link p/ NFC</span>
+                              <span>Copiar Link NFC</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => handleAbrirEditarLink(placa)}
-                              className="flex-1 h-8 px-2 rounded-xl border border-zinc-300 dark:border-neutral-700 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-neutral-900 text-zinc-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer truncate shadow-xs"
+                              className="flex-1 min-w-0 h-8 px-2 py-1.5 rounded-xl border border-zinc-300 dark:border-neutral-700 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-neutral-900 text-zinc-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer whitespace-nowrap shadow-xs"
                             >
                               <Pencil className="w-3 h-3 shrink-0" />
-                              <span className="truncate">Editar Link</span>
+                              <span>Editar Link</span>
                             </button>
                             <button
                               type="button"
@@ -5327,7 +5463,7 @@ export default function DashboardAluno() {
         </div>
       )}
 
-      {/* MODAL DEFINIR META SEMANAL */}
+      {/* MODAL DEFINIR META SEMANAL & DESEMPENHO MENSAL */}
       {modalEditarMetaAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl relative max-h-[92vh] flex flex-col box-border">
@@ -5335,14 +5471,18 @@ export default function DashboardAluno() {
             <div className="p-4 sm:p-5 pb-3 border-b border-zinc-800 shrink-0 flex items-center justify-between gap-2 box-border">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="p-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 rounded-xl shrink-0">
-                  <Target className="w-4 h-4" />
+                  {abaModalMeta === "desempenho" ? (
+                    <Calendar className="w-4 h-4" />
+                  ) : (
+                    <Target className="w-4 h-4" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                    Definir Meta Semanal
+                    {abaModalMeta === "desempenho" ? "Desempenho Mensal de Ativações" : "Definir Meta Semanal"}
                   </h3>
                   <p className="text-[11px] text-zinc-400 truncate">
-                    Configure seu objetivo de ativação de displays
+                    {abaModalMeta === "desempenho" ? "Análise diária e faturamento consolidado por mês" : "Configure seu objetivo de ativação de displays"}
                   </p>
                 </div>
               </div>
@@ -5355,101 +5495,271 @@ export default function DashboardAluno() {
               </button>
             </div>
 
+            {/* Abas de Navegação no Topo do Modal */}
+            <div className="flex border-b border-zinc-800 bg-zinc-900/60 p-1.5 gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setAbaModalMeta("meta")}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  abaModalMeta === "meta"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                }`}
+              >
+                <Target className="w-3.5 h-3.5" />
+                <span>Configurar Meta</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbaModalMeta("desempenho")}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  abaModalMeta === "desempenho"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Desempenho do Mês</span>
+              </button>
+            </div>
+
             {/* Corpo interno com scroll seguro */}
             <div className="w-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 box-border flex-1">
-              <form onSubmit={handleSalvarMetaSemanal} className="space-y-2.5 w-full box-border">
-                {/* Agrupamento Lado a Lado: Quantidade de Displays (50%) + Preço Unitário (50%) */}
-                <div className="grid grid-cols-2 gap-2.5 w-full box-border">
-                  <div className="min-w-0">
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                      Meta Displays / sem *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="1"
-                        max="500"
-                        required
-                        value={inputMetaSemanal}
-                        onChange={(e) => setInputMetaSemanal(e.target.value)}
-                        placeholder="20"
-                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
-                      />
+              {abaModalMeta === "meta" ? (
+                <form onSubmit={handleSalvarMetaSemanal} className="space-y-2.5 w-full box-border">
+                  {/* Agrupamento Lado a Lado: Quantidade de Displays (50%) + Preço Unitário (50%) */}
+                  <div className="grid grid-cols-2 gap-2.5 w-full box-border">
+                    <div className="min-w-0">
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                        Meta Displays / sem *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          max="500"
+                          required
+                          value={inputMetaSemanal}
+                          onChange={(e) => setInputMetaSemanal(e.target.value)}
+                          placeholder="20"
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
+                        Valor por display (R$)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
+                          R$
+                        </span>
+                        <input
+                          type="text"
+                          value={inputPrecoDisplay}
+                          onChange={(e) => setInputPrecoDisplay(e.target.value)}
+                          placeholder="80,00"
+                          className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-2.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <label className="block text-xs font-medium text-zinc-500 dark:text-neutral-400 mb-1 truncate">
-                      Valor por display (R$)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-2 text-xs font-bold text-zinc-400 dark:text-neutral-500">
-                        R$
+                  {/* Prévia do montante total centralizado */}
+                  {(() => {
+                    const qtd = Number(inputMetaSemanal.replace(/\D/g, "")) || 0;
+                    const valorUnitario = typeof inputPrecoDisplay === "number"
+                      ? inputPrecoDisplay
+                      : (() => {
+                          const str = String(inputPrecoDisplay).trim();
+                          if (str.includes(",")) {
+                            return parseFloat(str.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+                          }
+                          return parseFloat(str.replace(/[^0-9.-]/g, "")) || 0;
+                        })();
+
+                    const faturamentoEstimado = qtd * valorUnitario;
+                    if (qtd <= 0) return null;
+
+                    return (
+                      <div className="p-2.5 rounded-xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between text-xs w-full box-border">
+                        <span className="text-zinc-600 dark:text-neutral-300 font-medium truncate">
+                          Faturamento estimado com a meta:
+                        </span>
+                        <span className="text-xs font-black text-violet-600 dark:text-violet-400 shrink-0 ml-1">
+                          {faturamentoEstimado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Botões */}
+                  <div className="pt-1.5 flex gap-2.5 w-full box-border">
+                    <button
+                      type="button"
+                      onClick={() => setModalEditarMetaAberto(false)}
+                      className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={salvandoMeta}
+                      className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
+                    >
+                      {salvandoMeta ? (
+                        <span className="inline-flex items-center justify-center gap-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Salvando...</span>
+                        </span>
+                      ) : (
+                        <span>Salvar Meta</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* ABA DESEMPENHO DO MÊS */
+                <div className="space-y-3.5 w-full box-border">
+                  {/* Seletor de Mês Dinâmico */}
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Calendar className="w-4 h-4 text-violet-400 shrink-0" />
+                      <span className="text-xs font-semibold text-zinc-300 truncate">Mês de Análise:</span>
+                    </div>
+                    <select
+                      value={mesSelecionadoDesempenho}
+                      onChange={(e) => setMesSelecionadoDesempenho(e.target.value)}
+                      className="bg-zinc-950 border border-zinc-700/80 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                    >
+                      {mesesDesempenho.map((m) => (
+                        <option key={m.valor} value={m.valor}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Totais Consolidados do Mês */}
+                  <div className="grid grid-cols-3 gap-2 w-full box-border">
+                    <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
+                      <span className="text-[10px] text-zinc-400 block font-medium">Displays Ativados</span>
+                      <span className="text-base sm:text-lg font-black text-white block mt-0.5">
+                        {dadosDesempenhoMensal.totalDisplaysMes}
                       </span>
-                      <input
-                        type="text"
-                        value={inputPrecoDisplay}
-                        onChange={(e) => setInputPrecoDisplay(e.target.value)}
-                        placeholder="80,00"
-                        className="w-full min-w-0 box-border bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl pl-8 pr-2.5 py-2 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500 transition"
-                      />
+                      <span className="text-[9px] text-zinc-500 block truncate">no mês selecionado</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
+                      <span className="text-[10px] text-zinc-400 block font-medium">Faturamento Estimado</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-400 block mt-1 truncate">
+                        {dadosDesempenhoMensal.faturamentoTotalMes.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                      <span className="text-[9px] text-zinc-500 block truncate">soma dos displays</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
+                      <span className="text-[10px] text-zinc-400 block font-medium">Melhor Dia</span>
+                      <span className="text-xs sm:text-sm font-black text-violet-400 block mt-1 truncate">
+                        {dadosDesempenhoMensal.diaMaiorAtivacao
+                          ? `Dia ${dadosDesempenhoMensal.diaMaiorAtivacao.dia}`
+                          : "—"}
+                      </span>
+                      <span className="text-[9px] text-zinc-500 block truncate">
+                        {dadosDesempenhoMensal.diaMaiorAtivacao
+                          ? `${dadosDesempenhoMensal.diaMaiorAtivacao.total} ativações`
+                          : "sem ativações"}
+                      </span>
                     </div>
                   </div>
-                </div>
 
-                {/* Prévia do montante total centralizado */}
-                {(() => {
-                  const qtd = Number(inputMetaSemanal.replace(/\D/g, "")) || 0;
-                  const valorUnitario = typeof inputPrecoDisplay === "number"
-                    ? inputPrecoDisplay
-                    : (() => {
-                        const str = String(inputPrecoDisplay).trim();
-                        if (str.includes(",")) {
-                          return parseFloat(str.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
-                        }
-                        return parseFloat(str.replace(/[^0-9.-]/g, "")) || 0;
-                      })();
-
-                  const faturamentoEstimado = qtd * valorUnitario;
-                  if (qtd <= 0) return null;
-
-                  return (
-                    <div className="p-2.5 rounded-xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-between text-xs w-full box-border">
-                      <span className="text-zinc-600 dark:text-neutral-300 font-medium truncate">
-                        Faturamento estimado com a meta:
+                  {/* Calendário Visual dos Dias do Mês */}
+                  <div className="p-3 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                        <span>📅</span> Calendário de Ativações Diárias
                       </span>
-                      <span className="text-xs font-black text-violet-600 dark:text-violet-400 shrink-0 ml-1">
-                        {faturamentoEstimado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      <span className="text-[10px] text-zinc-500">
+                        {dadosDesempenhoMensal.totalDisplaysMes} {dadosDesempenhoMensal.totalDisplaysMes === 1 ? "display" : "displays"}
                       </span>
                     </div>
-                  );
-                })()}
 
-                {/* Botões */}
-                <div className="pt-1.5 flex gap-2.5 w-full box-border">
-                  <button
-                    type="button"
-                    onClick={() => setModalEditarMetaAberto(false)}
-                    className="flex-1 bg-zinc-100 dark:bg-neutral-800 hover:bg-zinc-200 dark:hover:bg-neutral-700 text-zinc-700 dark:text-neutral-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer box-border"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={salvandoMeta}
-                    className="flex-1 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 box-border"
-                  >
-                    {salvandoMeta ? (
-                      <span className="inline-flex items-center justify-center gap-1.5">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Salvando...</span>
-                      </span>
-                    ) : (
-                      <span>Salvar Meta</span>
-                    )}
-                  </button>
+                    {/* Cabeçalho dos Dias da Semana */}
+                    <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
+                      {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                        <span key={i} className="text-[10px] font-bold text-zinc-500">
+                          {d}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Grade de Dias */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {/* Células vazias antes do dia 1 */}
+                      {Array.from({ length: dadosDesempenhoMensal.primeiroDiaSemana }).map((_, i) => (
+                        <div key={`empty-${i}`} className="h-9 rounded-lg opacity-0 pointer-events-none" />
+                      ))}
+
+                      {/* Dias do Mês (1 ao último) */}
+                      {dadosDesempenhoMensal.listaDias.map((d) => {
+                        const temAtivacao = d.total > 0;
+                        const ehHoje = d.dia === dadosDesempenhoMensal.diaHoje;
+
+                        return (
+                          <div
+                            key={d.dia}
+                            title={`Dia ${d.dia}: ${d.total} display(s) ativado(s)${temAtivacao ? ` (R$ ${d.faturamento.toFixed(2)})` : ""}${ehHoje ? " • Hoje" : ""}`}
+                            className={`h-9 rounded-lg flex flex-col items-center justify-center p-0.5 relative transition-all duration-200 cursor-default ${
+                              temAtivacao
+                                ? "bg-violet-950/70 border border-violet-500/50 text-white shadow-xs shadow-violet-500/20"
+                                : "bg-zinc-900/40 border border-zinc-800/40 text-zinc-500 hover:border-zinc-700/60"
+                            } ${ehHoje ? "ring-1 ring-violet-400" : ""}`}
+                          >
+                            <span className={`text-[11px] leading-none ${temAtivacao ? "font-bold text-white" : "font-medium"}`}>
+                              {d.dia}
+                            </span>
+                            {temAtivacao ? (
+                              <span className="text-[9px] font-black bg-cyan-400 text-zinc-950 px-1 rounded-full leading-tight mt-0.5">
+                                +{d.total}
+                              </span>
+                            ) : (
+                              <span className="text-[8px] opacity-0 leading-tight mt-0.5">•</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Legenda Discreta */}
+                    <div className="mt-2.5 pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-500">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-violet-950 border border-violet-500/50" />
+                        <span>Com ativação</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm ring-1 ring-violet-400 bg-zinc-900" />
+                        <span>Dia atual</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-zinc-900/40 border border-zinc-800/40" />
+                        <span>Sem ativação</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botão Fechar no rodapé da aba de desempenho */}
+                  <div className="pt-2 border-t border-zinc-800 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setModalEditarMetaAberto(false)}
+                      className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-bold py-2 rounded-xl text-xs transition cursor-pointer"
+                    >
+                      Fechar Desempenho
+                    </button>
+                  </div>
                 </div>
-              </form>
+              )}
             </div>
           </div>
         </div>
