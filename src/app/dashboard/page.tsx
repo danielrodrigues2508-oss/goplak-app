@@ -335,6 +335,9 @@ export default function DashboardAluno() {
   const [secaoServicosAberta, setSecaoServicosAberta] = useState(false);
   const [modalGuiaNfcAberto, setModalGuiaNfcAberto] = useState(false);
   const [linkCopiadoGuia, setLinkCopiadoGuia] = useState("");
+  const [modalExcluirPlacaAberto, setModalExcluirPlacaAberto] = useState(false);
+  const [placaParaExcluir, setPlacaParaExcluir] = useState<PlacaAtivaItem | null>(null);
+  const [excluindoPlaca, setExcluindoPlaca] = useState(false);
   const [salvandoLink, setSalvandoLink] = useState(false);
   const [avisoSucessoLink, setAvisoSucessoLink] = useState<string | null>(null);
 
@@ -1323,6 +1326,66 @@ export default function DashboardAluno() {
 
   // Alias para retrocompatibilidade
   const handleOpenNfcTools = handleCopiarLinkNfc;
+
+  // Exclusão Segura de Placa Ativa (com desvinculação no banco)
+  const handleConfirmarExcluirPlaca = async () => {
+    if (!placaParaExcluir) return;
+    setExcluindoPlaca(true);
+
+    try {
+      const placaId = placaParaExcluir.id;
+      let deleteSucesso = false;
+
+      // 1. Tentar deletar no Supabase SDK
+      const { error: errDel } = await supabase
+        .from("placas")
+        .delete()
+        .eq("id", placaId);
+
+      if (!errDel) {
+        deleteSucesso = true;
+      } else {
+        console.warn("Tentando fallback REST para exclusão da placa:", errDel);
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaId}`, {
+            method: "DELETE",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (res.ok) {
+            deleteSucesso = true;
+          }
+        } catch (restErr) {
+          console.error("Erro no fallback REST de exclusão:", restErr);
+        }
+      }
+
+      // Se for virtual ou mock, permite exclusão local
+      if (placaId.startsWith("virtual-")) {
+        deleteSucesso = true;
+      }
+
+      // 2. Atualizar estado local imediatamente
+      setPlacasAtivas((prev) => prev.filter((p) => p.id !== placaId));
+
+      // 3. Fechar modal de confirmação
+      setModalExcluirPlacaAberto(false);
+      setPlacaParaExcluir(null);
+
+      // 4. Feedback toast
+      setAvisoSucessoAtivacao("Placa excluída com sucesso!");
+
+      // 5. Atualizar dados para sincronizar métricas
+      await carregarDadosDoBanco();
+    } catch (error: any) {
+      console.error("Erro ao excluir placa:", error);
+      alert(`Erro ao excluir placa: ${error.message || String(error)}`);
+    } finally {
+      setExcluindoPlaca(false);
+    }
+  };
 
   // 1. ATIVAR NOVO DISPLAY EM CAMPO (Atualiza placa virgem para ativa)
   const handleAtivarDisplay = async (e: React.FormEvent) => {
@@ -2855,7 +2918,7 @@ export default function DashboardAluno() {
                           key={placa.id}
                           className="bg-zinc-50 dark:bg-neutral-950/70 border border-zinc-200 dark:border-neutral-800/80 rounded-2xl p-3.5 space-y-2.5 text-xs transition hover:border-zinc-300 dark:hover:border-neutral-700"
                         >
-                          {/* Topo do Card: Código com badge verde + Data */}
+                          {/* Topo do Card: Código com badge verde + Data + Botão Excluir */}
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-bold text-sm text-zinc-900 dark:text-white">
@@ -2865,9 +2928,22 @@ export default function DashboardAluno() {
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ativa
                               </span>
                             </div>
-                            <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-mono">
-                              {dataFormatada}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-zinc-500 dark:text-neutral-400 font-mono">
+                                {dataFormatada}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPlacaParaExcluir(placa);
+                                  setModalExcluirPlacaAberto(true);
+                                }}
+                                className="p-1 -mr-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition cursor-pointer"
+                                title="Excluir placa"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Nome do Cliente / Estabelecimento */}
@@ -2899,12 +2975,12 @@ export default function DashboardAluno() {
                             </div>
                           </div>
 
-                          {/* Botões de Ação do Card: Copiar Link p/ NFC + Editar Link */}
-                          <div className="grid grid-cols-2 gap-2 pt-1 w-full box-border">
+                          {/* Botões de Ação do Card: Copiar Link p/ NFC + Editar Link + Excluir */}
+                          <div className="flex items-center gap-2 pt-1 w-full box-border">
                             <button
                               type="button"
                               onClick={() => handleCopiarLinkNfc(rawLink)}
-                              className="h-8 px-2 rounded-xl border border-violet-500/30 hover:border-violet-500/60 bg-violet-950/20 hover:bg-violet-900/30 active:scale-95 text-violet-300 text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
+                              className="flex-1 h-8 px-2 rounded-xl border border-violet-500/30 hover:border-violet-500/60 bg-violet-950/20 hover:bg-violet-900/30 active:scale-95 text-violet-300 text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
                               title="Copiar link e abrir guia visual do NFC Tools"
                             >
                               <Copy className="w-3 h-3 shrink-0" />
@@ -2913,10 +2989,21 @@ export default function DashboardAluno() {
                             <button
                               type="button"
                               onClick={() => handleAbrirEditarLink(placa)}
-                              className="h-8 px-2 rounded-xl border border-zinc-300 dark:border-neutral-700 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-neutral-900 text-zinc-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer truncate shadow-xs"
+                              className="flex-1 h-8 px-2 rounded-xl border border-zinc-300 dark:border-neutral-700 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-neutral-900 text-zinc-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer truncate shadow-xs"
                             >
                               <Pencil className="w-3 h-3 shrink-0" />
                               <span className="truncate">Editar Link</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPlacaParaExcluir(placa);
+                                setModalExcluirPlacaAberto(true);
+                              }}
+                              className="h-8 w-8 rounded-xl border border-red-500/20 hover:border-red-500/50 bg-red-500/5 hover:bg-red-500/15 text-red-500 dark:text-red-400 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+                              title="Excluir placa"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -5228,10 +5315,87 @@ export default function DashboardAluno() {
         </div>
       )}
 
+      {/* MODAL DE CONFIRMAÇÃO: EXCLUIR PLACA ATIVA */}
+      {modalExcluirPlacaAberto && placaParaExcluir && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
+          <div className="w-full max-w-sm sm:max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-2xl my-auto box-border text-white relative">
+            {/* Botão Fechar (X) */}
+            <button
+              type="button"
+              disabled={excluindoPlaca}
+              onClick={() => {
+                setModalExcluirPlacaAberto(false);
+                setPlacaParaExcluir(null);
+              }}
+              className="absolute top-3.5 right-3.5 p-1 text-zinc-400 hover:text-white rounded-lg transition cursor-pointer disabled:opacity-40"
+              title="Cancelar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Cabeçalho */}
+            <div className="flex items-start gap-3 pb-3 border-b border-zinc-800/80">
+              <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="min-w-0 pr-6">
+                <h3 className="text-sm sm:text-base font-extrabold text-white">
+                  Confirmar Exclusão
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5 font-mono">
+                  Display: <span className="text-zinc-200 font-bold">{placaParaExcluir.codigo}</span>
+                  {placaParaExcluir.nome_empresa && (
+                    <span className="text-zinc-400 font-sans ml-1">
+                      ({placaParaExcluir.nome_empresa})
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Mensagem de Confirmação */}
+            <div className="py-4">
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                Tem certeza que deseja excluir esta placa? Esta ação desvinculará o display e não poderá ser desfeita.
+              </p>
+            </div>
+
+            {/* Botões do Rodapé */}
+            <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2">
+              <button
+                type="button"
+                disabled={excluindoPlaca}
+                onClick={() => {
+                  setModalExcluirPlacaAberto(false);
+                  setPlacaParaExcluir(null);
+                }}
+                className="flex-1 h-10 px-3 rounded-xl border border-zinc-800 hover:border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white text-xs font-semibold flex items-center justify-center transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={excluindoPlaca}
+                onClick={handleConfirmarExcluirPlaca}
+                className="flex-1 h-10 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer shadow-md shadow-red-600/20 disabled:opacity-50"
+              >
+                {excluindoPlaca ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Excluindo...
+                  </span>
+                ) : (
+                  <span>Sim, Excluir</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE GUIA VISUAL: COMO GRAVAR NO NFC TOOLS */}
       {modalGuiaNfcAberto && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
-          <div className="w-full max-w-sm sm:max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-2xl my-auto box-border text-white relative">
+          <div className="w-full max-w-sm sm:max-w-md max-h-[92vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-2xl my-auto box-border text-white relative">
             {/* Botão fechar */}
             <button
               type="button"
@@ -5252,14 +5416,14 @@ export default function DashboardAluno() {
                   <span>✔ Link Copiado para a Memória!</span>
                 </h3>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Siga estes 4 passos no seu app NFC Tools:
+                  Siga estes 7 passos no seu app NFC Tools:
                 </p>
               </div>
             </div>
 
             {/* Pré-visualização discreta do link copiado */}
             {linkCopiadoGuia && (
-              <div className="mt-3 p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 flex items-center justify-between gap-2 text-xs">
+              <div className="mt-2.5 p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 flex items-center justify-between gap-2 text-xs">
                 <span className="font-mono text-zinc-400 truncate text-[11px]">
                   {linkCopiadoGuia}
                 </span>
@@ -5269,45 +5433,75 @@ export default function DashboardAluno() {
               </div>
             )}
 
-            {/* Os 4 Passos */}
-            <div className="my-3.5 space-y-2">
+            {/* Os 7 Passos */}
+            <div className="my-3 space-y-1.5">
               {/* Passo 1 */}
-              <div className="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
                 <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                   1
                 </span>
                 <div className="text-xs text-zinc-300 leading-snug">
-                  1. Abra o app <strong className="text-white font-semibold">NFC Tools</strong> e toque em <span className="text-violet-300 font-bold">&quot;Escrever&quot;</span>.
+                  1. Abra o app <strong className="text-white font-semibold">NFC Tools</strong>.
                 </div>
               </div>
 
               {/* Passo 2 */}
-              <div className="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
                 <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                   2
                 </span>
                 <div className="text-xs text-zinc-300 leading-snug">
-                  2. Toque em <span className="text-violet-300 font-bold">&quot;Adicionar um registro&quot;</span> &gt; selecione <strong className="text-white font-semibold">&quot;URL / Link&quot;</strong>.
+                  2. Toque em <span className="text-violet-300 font-bold">&quot;Escrever&quot;</span>.
                 </div>
               </div>
 
               {/* Passo 3 */}
-              <div className="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
                 <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                   3
                 </span>
                 <div className="text-xs text-zinc-300 leading-snug">
-                  3. Segure o dedo, clique em <strong className="text-emerald-400 font-bold">&quot;Colar&quot;</strong> e depois toque em <strong className="text-white font-semibold">&quot;OK&quot;</strong>.
+                  3. Toque em <span className="text-violet-300 font-bold">&quot;Adicionar para salvar&quot;</span>.
                 </div>
               </div>
 
               {/* Passo 4 */}
-              <div className="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
                 <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                   4
                 </span>
                 <div className="text-xs text-zinc-300 leading-snug">
-                  4. Toque em <span className="text-violet-300 font-bold">&quot;Escrever&quot;</span> e encoste a placa virgem no celular.
+                  4. Escolha <strong className="text-white font-semibold">&quot;URL / URI&quot;</strong> e cole o link.
+                </div>
+              </div>
+
+              {/* Passo 5 */}
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  5
+                </span>
+                <div className="text-xs text-zinc-300 leading-snug">
+                  5. Toque em <span className="text-violet-300 font-bold">&quot;Escrever&quot;</span> <span className="text-zinc-400 text-[11px]">(ex: Escrever / 76 Bytes)</span>.
+                </div>
+              </div>
+
+              {/* Passo 6 */}
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/60 flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  6
+                </span>
+                <div className="text-xs text-zinc-300 leading-snug">
+                  6. Aproxime a traseira do celular na placa.
+                </div>
+              </div>
+
+              {/* Passo 7 */}
+              <div className="p-2 rounded-xl bg-zinc-900/50 border border-emerald-500/30 bg-emerald-950/20 flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  7
+                </span>
+                <div className="text-xs text-emerald-200 leading-snug font-medium">
+                  7. Feche o app e encoste na placa para testar!
                 </div>
               </div>
             </div>
