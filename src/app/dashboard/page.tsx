@@ -1282,6 +1282,79 @@ export default function DashboardAluno() {
   const displaysFaltantesMeta = Math.max(0, metaSemanalDisplays - displaysVendidosSemana);
   const percentualMeta = Math.min(100, Math.round((displaysVendidosSemana / metaSemanalDisplays) * 100));
 
+  // Mini Gráfico de Barras Semanal (Segunda a Domingo)
+  const dadosSemanais = useMemo(() => {
+    const agora = new Date();
+    const diaSemanaIndex = agora.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    const diasAteSegunda = diaSemanaIndex === 0 ? 6 : diaSemanaIndex - 1;
+
+    const segundaFeira = new Date(agora);
+    segundaFeira.setDate(agora.getDate() - diasAteSegunda);
+    segundaFeira.setHours(0, 0, 0, 0);
+
+    const configDias = [
+      { key: "seg", sigla: "S", nome: "Segunda-feira" },
+      { key: "ter", sigla: "T", nome: "Terça-feira" },
+      { key: "qua", sigla: "Q", nome: "Quarta-feira" },
+      { key: "qui", sigla: "Q", nome: "Quinta-feira" },
+      { key: "sex", sigla: "S", nome: "Sexta-feira" },
+      { key: "sab", sigla: "S", nome: "Sábado" },
+      { key: "dom", sigla: "D", nome: "Domingo" },
+    ];
+
+    const dias = configDias.map((cfg, i) => {
+      const dataDia = new Date(segundaFeira);
+      dataDia.setDate(segundaFeira.getDate() + i);
+
+      const isHoje =
+        dataDia.getDate() === agora.getDate() &&
+        dataDia.getMonth() === agora.getMonth() &&
+        dataDia.getFullYear() === agora.getFullYear();
+
+      // Contagem de placas ativadas no dia correspondente
+      const total = placasAtivas.filter((p) => {
+        const dtRef = p.activated_at || p.data_ativacao || p.created_at || p.updated_at;
+        if (!dtRef) return false;
+        const d = new Date(dtRef);
+        if (isNaN(d.getTime())) return false;
+        return (
+          d.getDate() === dataDia.getDate() &&
+          d.getMonth() === dataDia.getMonth() &&
+          d.getFullYear() === dataDia.getFullYear()
+        );
+      }).length;
+
+      return {
+        ...cfg,
+        data: dataDia,
+        isHoje,
+        total,
+      };
+    });
+
+    const maxAtivacoes = Math.max(1, ...dias.map((d) => d.total));
+    const totalSemana = dias.reduce((acc, curr) => acc + curr.total, 0);
+
+    let melhorDia: { nome: string; total: number } | null = null;
+    if (totalSemana > 0) {
+      const diasComAtivacao = dias.filter((d) => d.total > 0);
+      if (diasComAtivacao.length > 0) {
+        const sorted = [...diasComAtivacao].sort((a, b) => b.total - a.total);
+        melhorDia = {
+          nome: sorted[0].nome,
+          total: sorted[0].total,
+        };
+      }
+    }
+
+    return {
+      dias,
+      maxAtivacoes,
+      totalSemana,
+      melhorDia,
+    };
+  }, [placasAtivas]);
+
   // Formatação de WhatsApp
   const formatarWhatsapp = (val: string) => {
     const raw = val.replace(/\D/g, "");
@@ -2784,6 +2857,73 @@ export default function DashboardAluno() {
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <strong className="text-emerald-600 dark:text-emerald-400">Parabéns! Meta semanal superada! 🚀</strong>
                       </>
+                    )}
+                  </div>
+
+                  {/* Mini Gráfico Semanal (7 Dias) */}
+                  <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-neutral-800/80">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2 items-end">
+                      {dadosSemanais.dias.map((dia) => {
+                        const alturaPorcentagem =
+                          dia.total > 0
+                            ? Math.max(25, Math.round((dia.total / dadosSemanais.maxAtivacoes) * 100))
+                            : 0;
+
+                        return (
+                          <div
+                            key={dia.key}
+                            className="flex flex-col items-center gap-1 group cursor-default"
+                            title={`${dia.nome}: ${dia.total} ${
+                              dia.total === 1 ? "display ativado" : "displays ativados"
+                            }${dia.isHoje ? " (Hoje)" : ""}`}
+                          >
+                            {/* Quantidade no dia */}
+                            <span
+                              className={`text-[10px] font-bold leading-none ${
+                                dia.total > 0
+                                  ? "text-violet-600 dark:text-cyan-400"
+                                  : "text-zinc-400/50 dark:text-neutral-600"
+                              }`}
+                            >
+                              {dia.total}
+                            </span>
+
+                            {/* Barra vertical compacta */}
+                            <div className="w-full max-w-[26px] h-7 bg-zinc-100 dark:bg-neutral-950/80 rounded-md p-0.5 flex flex-col justify-end border border-zinc-200/60 dark:border-neutral-800/80">
+                              <div
+                                className={`w-full rounded-xs transition-all duration-500 ${
+                                  dia.total > 0
+                                    ? "bg-gradient-to-t from-violet-600 via-indigo-500 to-cyan-400 shadow-xs shadow-violet-500/20"
+                                    : "h-1 bg-zinc-200 dark:bg-neutral-800/60"
+                                }`}
+                                style={{
+                                  height: dia.total > 0 ? `${alturaPorcentagem}%` : "4px",
+                                }}
+                              />
+                            </div>
+
+                            {/* Inicial do Dia (S, T, Q, Q, S, S, D) */}
+                            <span
+                              className={`text-[10px] leading-none ${
+                                dia.isHoje
+                                  ? "font-bold text-violet-600 dark:text-violet-400"
+                                  : "text-zinc-500 font-medium"
+                              }`}
+                            >
+                              {dia.sigla}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Destaque do Melhor Dia */}
+                    {dadosSemanais.melhorDia && (
+                      <div className="mt-2.5 pt-2 border-t border-zinc-100 dark:border-neutral-800/60 flex items-center text-[11px] text-zinc-500 dark:text-neutral-400">
+                        <span>
+                          🔥 Melhor dia: <strong className="text-zinc-900 dark:text-white font-semibold">{dadosSemanais.melhorDia.nome}</strong> ({dadosSemanais.melhorDia.total} {dadosSemanais.melhorDia.total === 1 ? "display ativado" : "displays ativados"})
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
