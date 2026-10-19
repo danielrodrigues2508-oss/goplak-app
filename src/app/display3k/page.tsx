@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Volume2, Check, ShieldCheck, Zap, Lock } from 'lucide-react';
 
 const BASE_CHECKOUT_URL = 'https://pay.cakto.com.br/zinqjoq_1217460';
@@ -11,6 +11,8 @@ export default function Display3KLaunch() {
   const VIDEO_DURATION_SECONDS: number = 518;
 
   const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
+  const [isAudioActive, setIsAudioActive] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Controle do Delay da Oferta via Timer
   useEffect(() => {
@@ -22,6 +24,21 @@ export default function Display3KLaunch() {
 
     return () => clearTimeout(timer);
   }, [VIDEO_DURATION_SECONDS]);
+
+  // Ativa o áudio via postMessage para o player do YouTube
+  const handleUnmute = () => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        '{"event":"command","func":"unMute","args":""}',
+        '*'
+      );
+      iframeRef.current.contentWindow.postMessage(
+        '{"event":"command","func":"playVideo","args":""}',
+        '*'
+      );
+    }
+    setIsAudioActive(true);
+  };
 
   // Preserva e repassa parâmetros de rastreamento (UTMs, SRC, SCK) para o checkout
   const handleCheckoutClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -47,19 +64,42 @@ export default function Display3KLaunch() {
         <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800/50 flex flex-col items-center justify-center">
           
           <iframe
-            className="w-full h-full rounded-2xl border-0"
-            src="https://www.youtube.com/embed/ryzldjAvKVo?rel=0&modestbranding=1&cc_load_policy=0&cc_lang_pref=none"
+            ref={iframeRef}
+            className="w-full h-full rounded-2xl border-0 pointer-events-none"
+            src="https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
             title="Vídeo de Apresentação Display 3K"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
+
+          {/* Bloqueio total de toque no YouTube: impede pausar, adiantar ou ver a barra de progresso */}
+          <div
+            onClick={!isAudioActive ? handleUnmute : undefined}
+            className={`absolute inset-0 z-10 bg-transparent select-none ${
+              !isAudioActive ? 'cursor-pointer' : 'cursor-default'
+            }`}
+            aria-hidden="true"
+          />
+
+          {/* Botão de Ativar Áudio */}
+          {!isAudioActive && (
+            <div className="absolute inset-x-3 top-6 sm:top-8 z-20 flex justify-center">
+              <button
+                type="button"
+                onClick={handleUnmute}
+                className="w-full max-w-[320px] px-4 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-black text-xs sm:text-[13px] tracking-wide uppercase shadow-[0_0_35px_rgba(16,185,129,0.85)] border-2 border-emerald-300 transition-all cursor-pointer flex items-center justify-center gap-2 text-center animate-pulse"
+              >
+                <span>🔊 Seu vídeo já começou! Toque aqui para ouvir</span>
+              </button>
+            </div>
+          )}
 
         </div>
 
         {/* Indicador de Som */}
         <p className="text-center text-[11px] text-zinc-400 mt-2.5 flex items-center justify-center gap-1.5 pb-1">
           <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-          Assista até o final com o som ativado
+          {isAudioActive ? "Vídeo em reprodução com som" : "Assista até o final com o som ativado"}
         </p>
       </div>
 
