@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Volume2, ShieldCheck, Zap, Lock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Volume2, Play, Check, ShieldCheck, Zap, Lock } from 'lucide-react';
 
 const BASE_CHECKOUT_URL = 'https://pay.cakto.com.br/zinqjoq_1217460';
 
@@ -12,6 +12,8 @@ export default function Display3KLaunch() {
 
   const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
   const [isPlayingWithSound, setIsPlayingWithSound] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Controle do Delay da Oferta via Timer (sincronizado com o início do áudio)
   useEffect(() => {
@@ -24,6 +26,25 @@ export default function Display3KLaunch() {
 
     return () => clearTimeout(timer);
   }, [VIDEO_DURATION_SECONDS, isPlayingWithSound]);
+
+  // Alterna exclusivamente Pausar/Reproduzir mantendo a barra de tempo bloqueada
+  const togglePlayPause = () => {
+    if (!iframeRef.current?.contentWindow) return;
+
+    if (isPaused) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+        '*'
+      );
+      setIsPaused(false);
+    } else {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+        '*'
+      );
+      setIsPaused(true);
+    }
+  };
 
   // Preserva e repassa parâmetros de rastreamento (UTMs, SRC, SCK) para o checkout
   const handleCheckoutClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -49,23 +70,27 @@ export default function Display3KLaunch() {
         <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800/50 flex flex-col items-center justify-center">
           
           <iframe
+            ref={iframeRef}
             key={isPlayingWithSound ? 'sound-on' : 'sound-muted'}
             className="w-full h-full rounded-2xl border-0 pointer-events-none"
             src={
               isPlayingWithSound
-                ? "https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1"
-                : "https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1"
+                ? "https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1&cc_load_policy=0&enablejsapi=1"
+                : "https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1&cc_load_policy=0&enablejsapi=1"
             }
             title="Vídeo de Apresentação Display 3K"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
 
-          {/* Camada interativa de início ou de bloqueio */}
+          {/* Camada interativa: Iniciar com som ou Alternar Pausa/Reprodução */}
           {!isPlayingWithSound ? (
             <button
               type="button"
-              onClick={() => setIsPlayingWithSound(true)}
+              onClick={() => {
+                setIsPlayingWithSound(true);
+                setIsPaused(false);
+              }}
               className="absolute inset-0 z-20 w-full h-full flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all hover:bg-black/30 cursor-pointer p-6 group text-center"
               aria-label="Ativar som do vídeo"
             >
@@ -80,16 +105,35 @@ export default function Display3KLaunch() {
               </p>
             </button>
           ) : (
-            /* Sobreposição invisível após iniciar para impedir pause ou avanço */
-            <div className="absolute inset-0 z-10 bg-transparent select-none cursor-default" aria-hidden="true" />
+            /* Botão de sobreposição invisível: permite APENAS pausar/reproduzir */
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="absolute inset-0 z-10 w-full h-full flex flex-col items-center justify-center bg-transparent cursor-pointer select-none"
+              aria-label={isPaused ? "Continuar vídeo" : "Pausar vídeo"}
+            >
+              {isPaused && (
+                <div className="flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-5 rounded-2xl border border-zinc-700/80 shadow-2xl">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/90 border border-emerald-300 flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.6)] mb-2">
+                    <Play className="w-8 h-8 text-black fill-black ml-1" />
+                  </div>
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Vídeo Pausado</span>
+                  <span className="text-[11px] text-zinc-300 mt-0.5">Toque para continuar</span>
+                </div>
+              )}
+            </button>
           )}
 
         </div>
 
-        {/* Indicador de Som */}
+        {/* Indicador de Som / Status */}
         <p className="text-center text-[11px] text-zinc-400 mt-2.5 flex items-center justify-center gap-1.5 pb-1">
           <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-          {isPlayingWithSound ? "Vídeo em reprodução com som" : "Clique no vídeo para assistir com som"}
+          {!isPlayingWithSound
+            ? "Clique no vídeo para assistir com som"
+            : isPaused
+            ? "Vídeo pausado • Toque para continuar"
+            : "Toque no vídeo para pausar / continuar"}
         </p>
       </div>
 
@@ -121,49 +165,45 @@ export default function Display3KLaunch() {
               Tudo o que você recebe ao entrar hoje:
             </h3>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {/* Item 1 */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
-                <span className="text-base mt-0.5">📦</span>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Acesso à Esteira Industrial GOPLAK</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                    Direito de repor displays direto da fábrica com tabela de atacado progressiva e margem real.
-                  </p>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
                 </div>
+                <h4 className="text-xs font-bold text-white">Mentoria Ao vivo Display 3K</h4>
               </div>
 
               {/* Item 2 */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
-                <span className="text-base mt-0.5">🚀</span>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Comunidade & Mentoria Display 3K</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                    4 semanas de acompanhamento prático para tirar dúvidas e destravar as primeiras vendas.
-                  </p>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
                 </div>
+                <h4 className="text-xs font-bold text-white">Grupo Exclusivo da Comunidade</h4>
               </div>
 
               {/* Item 3 */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
-                <span className="text-base mt-0.5">⚡</span>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Plataforma GOPLAK de Gestão</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                    Painel para apontar, ativar e alterar os links dinâmicos das placas com agilidade.
-                  </p>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
                 </div>
+                <h4 className="text-xs font-bold text-white">Suporte e Acompanhamento</h4>
               </div>
 
               {/* Item 4 */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
-                <span className="text-base mt-0.5">📝</span>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Kit de Scripts e Abordagem de Campo</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                    Roteiro validado de 30 segundos no balcão do comerciante para fechar pedidos na hora.
-                  </p>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
                 </div>
+                <h4 className="text-xs font-bold text-white">App gestão plaquinhas</h4>
+              </div>
+
+              {/* Item 5 */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                </div>
+                <h4 className="text-xs font-bold text-white">Fornecedor a R$16 e R$17 reais a unidade</h4>
               </div>
             </div>
 
