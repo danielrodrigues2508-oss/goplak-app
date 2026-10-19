@@ -7,8 +7,8 @@ const BASE_CHECKOUT_URL = 'https://pay.cakto.com.br/zinqjoq_1217460';
 
 export default function Display3KLaunch() {
   // CONFIGURAÇÃO DO DELAY:
-  // Tempo de liberação da oferta: 389 segundos (6 minutos e 29 segundos de reprodução)
-  const VIDEO_DURATION_SECONDS: number = 389;
+  // Tempo de liberação da oferta: 407 segundos (6 minutos e 47 segundos de reprodução)
+  const VIDEO_DURATION_SECONDS: number = 407;
 
   const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
   const [isAudioActive, setIsAudioActive] = useState(false);
