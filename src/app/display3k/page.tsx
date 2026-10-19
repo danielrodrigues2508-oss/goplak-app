@@ -8,9 +8,9 @@ const BASE_CHECKOUT_URL = 'https://pay.cakto.com.br/zinqjoq_1217460';
 export default function Display3KLaunch() {
   // CONFIGURAÇÃO DO DELAY:
   // Vídeo de 8m48s (528s) - Oferta revelada aos 518s (faltando 10 segundos para o término)
-  const VIDEO_DURATION_SECONDS = 518;
+  const VIDEO_DURATION_SECONDS: number = 518;
 
-  const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS === 0);
+  const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
 
   // Controle do Delay da Oferta via Timer
   useEffect(() => {
