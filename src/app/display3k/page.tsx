@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Volume2, Check, ShieldCheck, Zap, Lock } from 'lucide-react';
+import { Volume2, Play, Check, ShieldCheck, Zap, Lock } from 'lucide-react';
 
 const BASE_CHECKOUT_URL = 'https://pay.cakto.com.br/zinqjoq_1217460';
 
@@ -12,24 +12,30 @@ export default function Display3KLaunch() {
 
   const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
   const [isAudioActive, setIsAudioActive] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Controle do Delay da Oferta via Timer
+  // Controle do Delay da Oferta via Timer (inicia a contagem quando o áudio é ativado)
   useEffect(() => {
     if (VIDEO_DURATION_SECONDS <= 0) return;
+    if (!isAudioActive) return;
 
     const timer = setTimeout(() => {
       setShowOffer(true);
     }, VIDEO_DURATION_SECONDS * 1000);
 
     return () => clearTimeout(timer);
-  }, [VIDEO_DURATION_SECONDS]);
+  }, [VIDEO_DURATION_SECONDS, isAudioActive]);
 
-  // Ativa o áudio via postMessage para o player do YouTube
+  // Ativa o áudio via postMessage para o player do YouTube e inicia reprodução
   const handleUnmute = () => {
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
         '{"event":"command","func":"unMute","args":""}',
+        '*'
+      );
+      iframeRef.current.contentWindow.postMessage(
+        '{"event":"command","func":"setVolume","args":[100]}',
         '*'
       );
       iframeRef.current.contentWindow.postMessage(
@@ -38,6 +44,31 @@ export default function Display3KLaunch() {
       );
     }
     setIsAudioActive(true);
+    setIsPlaying(true);
+  };
+
+  // Alterna entre pausar e despausar o vídeo com um toque
+  const togglePlayPause = () => {
+    if (!isAudioActive) {
+      handleUnmute();
+      return;
+    }
+
+    if (!iframeRef.current?.contentWindow) return;
+
+    if (isPlaying) {
+      iframeRef.current.contentWindow.postMessage(
+        '{"event":"command","func":"pauseVideo","args":""}',
+        '*'
+      );
+      setIsPlaying(false);
+    } else {
+      iframeRef.current.contentWindow.postMessage(
+        '{"event":"command","func":"playVideo","args":""}',
+        '*'
+      );
+      setIsPlaying(true);
+    }
   };
 
   // Preserva e repassa parâmetros de rastreamento (UTMs, SRC, SCK) para o checkout
@@ -72,34 +103,48 @@ export default function Display3KLaunch() {
             allowFullScreen
           />
 
-          {/* Bloqueio total de toque no YouTube: impede pausar, adiantar ou ver a barra de progresso */}
-          <div
-            onClick={!isAudioActive ? handleUnmute : undefined}
-            className={`absolute inset-0 z-10 bg-transparent select-none ${
-              !isAudioActive ? 'cursor-pointer' : 'cursor-default'
-            }`}
-            aria-hidden="true"
-          />
+          {/* Camada invisível sobre o vídeo (z-10): pausa e despausa com um toque */}
+          <button
+            type="button"
+            onClick={togglePlayPause}
+            className="absolute inset-0 z-10 w-full h-full bg-transparent select-none cursor-pointer border-0 p-0 m-0"
+            aria-label={isPlaying ? "Pausar vídeo" : "Reproduzir vídeo"}
+          >
+            {/* Indicador sutil de pausa quando pausado */}
+            {!isPlaying && isAudioActive && (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] transition-all">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/90 border border-emerald-300 flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.6)] mb-2">
+                  <Play className="w-8 h-8 text-black fill-black ml-1" />
+                </div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider drop-shadow">Vídeo Pausado</span>
+                <span className="text-[10px] text-zinc-300 mt-0.5">Toque para continuar</span>
+              </div>
+            )}
+          </button>
 
-          {/* Botão de Ativar Áudio */}
+          {/* Botão de Áudio Centralizado exatamente no centro absoluto do vídeo */}
           {!isAudioActive && (
-            <div className="absolute inset-x-3 top-6 sm:top-8 z-20 flex justify-center">
+            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none p-4">
               <button
                 type="button"
                 onClick={handleUnmute}
-                className="w-full max-w-[320px] px-4 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-black text-xs sm:text-[13px] tracking-wide uppercase shadow-[0_0_35px_rgba(16,185,129,0.85)] border-2 border-emerald-300 transition-all cursor-pointer flex items-center justify-center gap-2 text-center animate-pulse"
+                className="pointer-events-auto px-6 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-black text-sm tracking-wide uppercase shadow-[0_0_40px_rgba(16,185,129,0.85)] border-2 border-emerald-300 transition-all cursor-pointer flex items-center justify-center gap-2 text-center animate-pulse"
               >
-                <span>🔊 Seu vídeo já começou! Toque aqui para ouvir</span>
+                <span>🔊 Toque para ativar o som</span>
               </button>
             </div>
           )}
 
         </div>
 
-        {/* Indicador de Som */}
+        {/* Indicador de Som / Status */}
         <p className="text-center text-[11px] text-zinc-400 mt-2.5 flex items-center justify-center gap-1.5 pb-1">
           <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-          {isAudioActive ? "Vídeo em reprodução com som" : "Assista até o final com o som ativado"}
+          {!isAudioActive
+            ? "Toque no vídeo para ativar o som"
+            : !isPlaying
+            ? "Vídeo pausado • Toque para continuar"
+            : "Assista até o final com o som ativado"}
         </p>
       </div>
 
