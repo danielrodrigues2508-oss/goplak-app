@@ -11,17 +11,19 @@ export default function Display3KLaunch() {
   const VIDEO_DURATION_SECONDS: number = 518;
 
   const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
+  const [isPlayingWithSound, setIsPlayingWithSound] = useState(false);
 
-  // Controle do Delay da Oferta via Timer
+  // Controle do Delay da Oferta via Timer (sincronizado com o início do áudio)
   useEffect(() => {
     if (VIDEO_DURATION_SECONDS <= 0) return;
+    if (!isPlayingWithSound) return;
 
     const timer = setTimeout(() => {
       setShowOffer(true);
     }, VIDEO_DURATION_SECONDS * 1000);
 
     return () => clearTimeout(timer);
-  }, [VIDEO_DURATION_SECONDS]);
+  }, [VIDEO_DURATION_SECONDS, isPlayingWithSound]);
 
   // Preserva e repassa parâmetros de rastreamento (UTMs, SRC, SCK) para o checkout
   const handleCheckoutClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -47,22 +49,47 @@ export default function Display3KLaunch() {
         <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800/50 flex flex-col items-center justify-center">
           
           <iframe
+            key={isPlayingWithSound ? 'sound-on' : 'sound-muted'}
             className="w-full h-full rounded-2xl border-0 pointer-events-none"
-            src="https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1"
+            src={
+              isPlayingWithSound
+                ? "https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1"
+                : "https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1"
+            }
             title="Vídeo de Apresentação Display 3K"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
 
-          {/* Sobreposição invisível para impedir pause ou avanço do vídeo */}
-          <div className="absolute inset-0 z-10 bg-transparent select-none cursor-default" aria-hidden="true" />
+          {/* Camada interativa de início ou de bloqueio */}
+          {!isPlayingWithSound ? (
+            <button
+              type="button"
+              onClick={() => setIsPlayingWithSound(true)}
+              className="absolute inset-0 z-20 w-full h-full flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all hover:bg-black/30 cursor-pointer p-6 group text-center"
+              aria-label="Ativar som do vídeo"
+            >
+              <div className="w-20 h-20 rounded-full bg-emerald-500 group-hover:bg-emerald-400 border-2 border-emerald-300/80 flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.7)] transform group-hover:scale-105 group-active:scale-95 transition-all mb-4">
+                <Volume2 className="w-10 h-10 text-black fill-black animate-pulse" />
+              </div>
+              <span className="bg-emerald-500 group-hover:bg-emerald-400 text-black font-black text-sm px-5 py-2.5 rounded-full uppercase tracking-wider shadow-lg">
+                Toque para Ouvir
+              </span>
+              <p className="text-xs text-zinc-300 mt-2.5 font-medium drop-shadow">
+                O seu vídeo já começou • Clique para ativar o som
+              </p>
+            </button>
+          ) : (
+            /* Sobreposição invisível após iniciar para impedir pause ou avanço */
+            <div className="absolute inset-0 z-10 bg-transparent select-none cursor-default" aria-hidden="true" />
+          )}
 
         </div>
 
         {/* Indicador de Som */}
         <p className="text-center text-[11px] text-zinc-400 mt-2.5 flex items-center justify-center gap-1.5 pb-1">
           <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-          Assista até o final com o som ativado
+          {isPlayingWithSound ? "Vídeo em reprodução com som" : "Clique no vídeo para assistir com som"}
         </p>
       </div>
 
