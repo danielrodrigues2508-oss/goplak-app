@@ -47,12 +47,15 @@ export default function Display3KLaunch() {
         <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800/50 flex flex-col items-center justify-center">
           
           <iframe
-            className="w-full h-full rounded-2xl border-0"
-            src="https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&rel=0&modestbranding=1"
+            className="w-full h-full rounded-2xl border-0 pointer-events-none"
+            src="https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&loop=1&playlist=ryzldjAvKVo&playsinline=1&rel=0&modestbranding=1"
             title="Vídeo de Apresentação Display 3K"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
+
+          {/* Sobreposição invisível para impedir pause ou avanço do vídeo */}
+          <div className="absolute inset-0 z-10 bg-transparent select-none cursor-default" aria-hidden="true" />
 
         </div>
 
