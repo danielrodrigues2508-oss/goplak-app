@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GOPLAK - Gestão de Displays",
-  description: "Plataforma de gestão de displays e inteligência de vendas GOPLAK",
+  title: "Comunidade Display 3K",
+  description: "Plataforma e Comunidade Display 3K",
 };
 
 export default function RootLayout({

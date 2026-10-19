@@ -62,7 +62,7 @@ export default function Home() {
         </div>
         <div>
           <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
-            GOPLAK
+            Comunidade Display 3K
           </h1>
           <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-1 flex items-center justify-center gap-1.5">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
