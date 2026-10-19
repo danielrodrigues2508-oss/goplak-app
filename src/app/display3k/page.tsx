@@ -7,8 +7,8 @@ const BASE_CHECKOUT_URL = 'https://pay.cakto.com.br/zinqjoq_1217460';
 
 export default function Display3KLaunch() {
   // CONFIGURAÇÃO DO DELAY:
-  // Vídeo de 8m48s (528s) - Oferta revelada aos 518s (faltando 10 segundos para o término)
-  const VIDEO_DURATION_SECONDS: number = 518;
+  // Tempo de liberação da oferta: 389 segundos (6 minutos e 29 segundos de reprodução)
+  const VIDEO_DURATION_SECONDS: number = 389;
 
   const [showOffer, setShowOffer] = useState(() => VIDEO_DURATION_SECONDS <= 0);
   const [isAudioActive, setIsAudioActive] = useState(false);
@@ -97,7 +97,7 @@ export default function Display3KLaunch() {
           <iframe
             ref={iframeRef}
             className="w-full h-full rounded-2xl border-0 pointer-events-none"
-            src="https://www.youtube.com/embed/ryzldjAvKVo?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
+            src="https://www.youtube.com/embed/9K5AdmRNs9k?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
             title="Vídeo de Apresentação Display 3K"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
