@@ -16,6 +16,7 @@ import {
   Eye,
   EyeOff,
   Clock,
+  RefreshCw,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -430,19 +431,42 @@ function LoginForm() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setCadastroPendenteInfo(false);
-              setIsSignUp(false);
-              setPassword("");
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-            className="w-full py-3 px-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-xs hover:opacity-90 transition cursor-pointer shadow-md"
-          >
-            Voltar para a Tela de Login
-          </button>
+          <div className="space-y-2 pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                const st = await verificarStatusAlunoNoBanco("", email.trim().toLowerCase());
+                setLoading(false);
+                if (st === "ativo") {
+                  setCadastroPendenteInfo(false);
+                  setIsSignUp(false);
+                  setSuccessMsg("Conta aprovada com sucesso! Digite sua senha para acessar o painel.");
+                } else {
+                  setErrorMsg("Seu cadastro ainda está em análise pelo administrador. Tente novamente em instantes.");
+                }
+              }}
+              disabled={loading}
+              className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold rounded-xl text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <span>{loading ? "Verificando aprovação..." : "Já fui aprovado / Atualizar status"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCadastroPendenteInfo(false);
+                setIsSignUp(false);
+                setPassword("");
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+              className="w-full py-2.5 px-4 bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl text-xs hover:bg-zinc-200 dark:hover:bg-neutral-700 transition cursor-pointer"
+            >
+              Voltar para a Tela de Login
+            </button>
+          </div>
         </div>
       ) : (
         <>

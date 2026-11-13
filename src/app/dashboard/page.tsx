@@ -508,6 +508,10 @@ export default function DashboardAluno() {
 
             if (st === "ativo" || st === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
               setStatusAluno("ativo");
+              // Sincroniza user_metadata no Supabase Auth caso ainda conste como pendente
+              if (currentUser.user_metadata?.status !== "ativo") {
+                supabase.auth.updateUser({ data: { status: "ativo" } }).catch(() => {});
+              }
             } else if (st === "bloqueado" || whats.startsWith("bloqueado")) {
               setStatusAluno("bloqueado");
             } else if (st === "pendente" || whats.startsWith("pendente")) {
@@ -2812,10 +2816,10 @@ export default function DashboardAluno() {
                 setVerificandoStatus(false);
               }}
               disabled={verificandoStatus}
-              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              className="w-full sm:flex-1 py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
             >
               <RefreshCw className={`w-4 h-4 ${verificandoStatus ? "animate-spin" : ""}`} />
-              <span>{verificandoStatus ? "Consultando..." : "Verificar Liberação Agora"}</span>
+              <span>{verificandoStatus ? "Verificando aprovação..." : "Já fui aprovado / Atualizar status"}</span>
             </button>
 
             <button
