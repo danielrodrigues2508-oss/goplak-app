@@ -2910,16 +2910,28 @@ export default function PainelDistribuidorAdmin() {
   const handleCriarNovoAluno = async (e: React.FormEvent) => {
     e.preventDefault();
     const nome = novoAlunoNome.trim();
-    const email = novoAlunoEmail.trim().toLowerCase();
+    let email = novoAlunoEmail.trim().toLowerCase();
 
-    if (!nome || !email) {
-      alert("Por favor, preencha o Nome e o E-mail do aluno.");
+    if (!nome) {
+      alert("Por favor, preencha o Nome do aluno.");
       return;
     }
 
-    if (!email.includes("@") || !email.includes(".")) {
+    if (email && (!email.includes("@") || !email.includes("."))) {
       alert("Por favor, informe um e-mail válido.");
       return;
+    }
+
+    const codigo = gerarCodigoGPUnico();
+
+    // Se o e-mail não for informado, gera identificador automático seguro
+    if (!email) {
+      const slug = nome
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
+      email = `${slug || "aluno"}.${codigo.toLowerCase().replace("gp-", "")}@goplak.com.br`;
     }
 
     const jaExiste = alunos.some((a) => a.email && a.email.toLowerCase() === email);
@@ -2929,7 +2941,6 @@ export default function PainelDistribuidorAdmin() {
     }
 
     setSalvandoNovoAluno(true);
-    const codigo = gerarCodigoGPUnico();
     const novoWhatsapp = `aprovado|${codigo}`;
     const novoId = crypto.randomUUID ? crypto.randomUUID() : `aluno-${Date.now()}`;
 
@@ -4641,73 +4652,72 @@ export default function PainelDistribuidorAdmin() {
         /* ABA 3: CONTROLE DE ALUNOS & ACESSOS (WHITELIST + APROVAÇÃO MANUAL)       */
         /* ========================================================================= */
         <div className="space-y-6 pt-2">
-          {/* BLOCO 1: WHITELIST DE E-MAILS AUTORIZADOS */}
+          {/* BLOCO 1: CADASTRO RÁPIDO DE ALUNO COM GERAÇÃO AUTOMÁTICA DE CÓDIGO GP-XXXX */}
           <div className="bg-zinc-50/80 dark:bg-neutral-950/60 border border-zinc-200 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-neutral-800/80 pb-3">
               <div>
                 <h3 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
-                  <span>Whitelist de E-mails Autorizados</span>
+                  <KeyRound className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <span>Cadastrar Novo Aluno & Gerar Código GP-XXXX</span>
                   <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
-                    {listaAutorizados.length} autorizados
+                    Acesso Imediato
                   </span>
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5">
-                  Somente e-mails listados abaixo têm permissão para criar conta na plataforma GOPLAK.
+                  Preencha o nome do aluno para gerar automaticamente o código único de 4 dígitos e liberar o acesso na hora.
                 </p>
               </div>
             </div>
 
-            {/* Formulário de Inclusão (Único ou Lote) */}
-            <form onSubmit={handleAdicionarAutorizados} className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3.5 sm:p-4 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Formulário de Cadastro Rápido Inline */}
+            <form onSubmit={handleCriarNovoAluno} className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl p-3.5 sm:p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="md:col-span-2 space-y-1">
                   <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                    E-mail(s) para Autorizar *
+                    Nome do Aluno *
                   </label>
-                  <textarea
-                    rows={2}
+                  <input
+                    type="text"
                     required
-                    disabled={salvandoAutorizacao}
-                    value={novoEmailAutorizar}
-                    onChange={(e) => setNovoEmailAutorizar(e.target.value)}
-                    placeholder="Ex: aluno@gmail.com ou cole múltiplos e-mails separados por vírgula ou linha..."
-                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl p-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 font-mono transition"
+                    id="input-novo-aluno-nome"
+                    disabled={salvandoNovoAluno}
+                    value={novoAlunoNome}
+                    onChange={(e) => setNovoAlunoNome(e.target.value)}
+                    placeholder="Ex: Carlos Eduardo"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 transition"
                   />
-                  <span className="block text-[10px] text-zinc-400 dark:text-neutral-500">
-                    💡 Dica: Cole uma lista do checkout/Hotmart separada por vírgulas ou quebras de linha.
-                  </span>
                 </div>
 
-                <div className="space-y-1 flex flex-col justify-between">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                      Nome do Aluno (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      disabled={salvandoAutorizacao}
-                      value={novoNomeAutorizar}
-                      onChange={(e) => setNovoNomeAutorizar(e.target.value)}
-                      placeholder="Ex: Carlos Eduardo"
-                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 transition"
-                    />
-                  </div>
+                <div className="md:col-span-2 space-y-1">
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 flex items-center justify-between">
+                    <span>E-mail do Aluno</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">opcional</span>
+                  </label>
+                  <input
+                    type="email"
+                    disabled={salvandoNovoAluno}
+                    value={novoAlunoEmail}
+                    onChange={(e) => setNovoAlunoEmail(e.target.value)}
+                    placeholder="Ex: carlos@exemplo.com (ou deixe em branco)"
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 transition font-mono"
+                  />
+                </div>
 
+                <div className="md:col-span-1 flex items-end">
                   <button
                     type="submit"
-                    disabled={salvandoAutorizacao || !novoEmailAutorizar.trim()}
-                    className="w-full mt-2 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={salvandoNovoAluno || !novoAlunoNome.trim()}
+                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   >
-                    {salvandoAutorizacao ? (
+                    {salvandoNovoAluno ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Autorizando...</span>
+                        <span>Gerando...</span>
                       </>
                     ) : (
                       <>
-                        <PlusCircle className="w-4 h-4" />
-                        <span>+ Autorizar E-mail(s)</span>
+                        <KeyRound className="w-4 h-4" />
+                        <span>+ Gerar Acesso (GP-XXXX)</span>
                       </>
                     )}
                   </button>
@@ -4715,88 +4725,49 @@ export default function PainelDistribuidorAdmin() {
               </div>
             </form>
 
-            {/* Busca e Lista de Autorizados */}
-            <div className="space-y-2.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-xs font-bold text-zinc-700 dark:text-neutral-300">
-                  E-mails Cadastrados na Whitelist
-                </span>
-                <div className="w-full sm:w-64 relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
-                  <input
-                    type="text"
-                    value={buscaAutorizados}
-                    onChange={(e) => setBuscaAutorizados(e.target.value)}
-                    placeholder="Buscar e-mail ou nome..."
-                    className="w-full bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
-                  />
+            {/* Alerta de Sucesso com o Código Gerado Recente */}
+            {novoAlunoCriadoSucesso && (
+              <div className="bg-emerald-500/10 border-2 border-emerald-500/30 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in zoom-in-95">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      Aluno cadastrado e liberado com sucesso!
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-600 dark:text-neutral-300">
+                    Aluno: <strong>{novoAlunoCriadoSucesso.nome}</strong> • E-mail: <span className="font-mono">{novoAlunoCriadoSucesso.email}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500 text-black font-mono font-black text-sm tracking-wider shadow-sm">
+                    {novoAlunoCriadoSucesso.codigo}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const msg = `Olá ${novoAlunoCriadoSucesso.nome}! Seu acesso à plataforma GOPLAK foi liberado.\n\n🔑 Seu Código de Acesso: *${novoAlunoCriadoSucesso.codigo}*\n🌐 Acesse: https://goplak.com.br/login`;
+                      navigator.clipboard.writeText(msg);
+                      setCopiadoMensagemSucesso(true);
+                      setTimeout(() => setCopiadoMensagemSucesso(false), 2500);
+                    }}
+                    className="py-1.5 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-zinc-200 dark:border-neutral-700 text-zinc-800 dark:text-white font-bold text-xs hover:bg-zinc-100 dark:hover:bg-neutral-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    {copiadoMensagemSucesso ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copiar Mensagem WhatsApp</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-
-              {(() => {
-                const termo = buscaAutorizados.trim().toLowerCase();
-                const filtrados = listaAutorizados.filter((item) => {
-                  if (!termo) return true;
-                  return (
-                    item.email?.toLowerCase().includes(termo) ||
-                    (item.nome && item.nome.toLowerCase().includes(termo))
-                  );
-                });
-
-                if (filtrados.length === 0) {
-                  return (
-                    <div className="p-6 text-center text-xs text-zinc-500 dark:text-neutral-400 bg-white dark:bg-neutral-900 rounded-xl border border-zinc-200 dark:border-neutral-800">
-                      {listaAutorizados.length === 0
-                        ? "Nenhum e-mail autorizado cadastrado ainda. Adicione acima para iniciar a proteção."
-                        : "Nenhum e-mail encontrado com o termo pesquisado."}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 max-h-72 overflow-y-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-zinc-100 dark:bg-neutral-800/80 text-zinc-600 dark:text-neutral-300 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
-                        <tr>
-                          <th className="py-2 px-3">E-mail Autorizado</th>
-                          <th className="py-2 px-3">Nome do Aluno</th>
-                          <th className="py-2 px-3">Data de Inclusão</th>
-                          <th className="py-2 px-3 text-right">Ação</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200 dark:divide-neutral-800 font-medium">
-                        {filtrados.map((item) => (
-                          <tr key={item.id || item.email} className="hover:bg-zinc-50 dark:hover:bg-neutral-800/50 transition">
-                            <td className="py-2 px-3 font-mono text-zinc-900 dark:text-white">
-                              {item.email}
-                            </td>
-                            <td className="py-2 px-3 text-zinc-600 dark:text-neutral-300">
-                              {item.nome || <span className="text-zinc-400 italic">Não informado</span>}
-                            </td>
-                            <td className="py-2 px-3 text-zinc-500 dark:text-neutral-400 text-[11px]">
-                              {item.criado_em
-                                ? new Date(item.criado_em).toLocaleDateString("pt-BR")
-                                : "—"}
-                            </td>
-                            <td className="py-2 px-3 text-right">
-                              <button
-                                type="button"
-                                disabled={removendoAutorizadoId === item.id}
-                                onClick={() => handleRemoverAutorizado(item.id, item.email)}
-                                className="p-1 text-zinc-400 hover:text-rose-500 rounded transition cursor-pointer"
-                                title="Remover autorização"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-            </div>
+            )}
           </div>
 
           {/* BLOCO 2: FILA DE APROVAÇÃO & CONTROLE DE ACESSO DOS ALUNOS CADASTRADOS */}
@@ -4872,10 +4843,13 @@ export default function PainelDistribuidorAdmin() {
                 <button
                   type="button"
                   onClick={() => {
-                    setModalNovoAlunoAberto(true);
-                    setNovoAlunoNome("");
-                    setNovoAlunoEmail("");
-                    setNovoAlunoCriadoSucesso(null);
+                    const el = document.getElementById("input-novo-aluno-nome");
+                    if (el) {
+                      el.focus();
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    } else {
+                      setModalNovoAlunoAberto(true);
+                    }
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm"
                   title="Cadastrar novo aluno e gerar Código GP-XXXX"
