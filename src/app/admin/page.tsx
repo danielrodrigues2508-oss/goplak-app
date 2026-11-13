@@ -547,11 +547,6 @@ export default function PainelDistribuidorAdmin() {
             statusCalculado = "bloqueado";
           } else if (whats.startsWith("pendente")) {
             statusCalculado = "pendente";
-          } else if (typeof window !== "undefined") {
-            const cached = localStorage.getItem(`goplak_status_${a.id}`);
-            if (cached === "ativo" || cached === "bloqueado" || cached === "pendente") {
-              statusCalculado = cached as any;
-            }
           }
 
           return {
@@ -2932,67 +2927,99 @@ export default function PainelDistribuidorAdmin() {
   };
 
   // Handler para Alterar Status do Aluno (Aprovar / Bloquear / Reativar)
-  const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente") => {
+  const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente", alunoEmail?: string) => {
     setProcessandoStatusId(alunoId);
     try {
       const whatsValor = novoStatus === "ativo" ? "aprovado" : novoStatus;
+      const emailNormalizado = alunoEmail ? alunoEmail.trim().toLowerCase() : "";
 
-      // 1. Atualiza cache local imediatamente
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(`goplak_status_${alunoId}`, novoStatus);
-        } catch (_) {}
-      }
-
-      // 2. Atualiza estado local da UI instantaneamente
+      // 1. Atualiza estado local da UI instantaneamente
       setAlunos((prev) =>
-        prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus, whatsapp: whatsValor } : a))
+        prev.map((a) =>
+          a.id === alunoId || (emailNormalizado && a.email?.toLowerCase() === emailNormalizado)
+            ? { ...a, status: novoStatus, whatsapp: whatsValor }
+            : a
+        )
       );
 
-      // 3. Dispara rota backend dedicada (executa com privilégios de servidor e atualiza Auth + Banco)
+      // 2. Dispara rota backend dedicada (executa com privilégios de servidor e atualiza Auth + Banco)
       try {
         await fetch("/api/admin-update-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ alunoId, status: novoStatus }),
+          body: JSON.stringify({ alunoId, email: emailNormalizado, status: novoStatus }),
         });
       } catch (errApi) {
         console.warn("Aviso na chamada da rota admin-update-status:", errApi);
       }
 
-      // 4. Persistência direta REST no Supabase com chave Anon (bypassa restrições de sessão RLS)
+      // 3. Persistência direta REST no Supabase com chave Anon (bypassa restrições de sessão RLS)
+      // 3.1 Atualiza por ID
+      if (alunoId) {
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify({ whatsapp: whatsValor }),
+          });
+        } catch (_) {}
+      }
+
+      // 3.2 Atualiza por E-mail (garantia absoluta mesmo se o ID divergir)
+      if (emailNormalizado) {
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailNormalizado)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify({ whatsapp: whatsValor }),
+          });
+        } catch (_) {}
+      }
+
+      // 4. Tenta persistir também na coluna status da tabela alunos via REST
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
-          method: "PATCH",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify({ whatsapp: whatsValor }),
-        });
+        if (alunoId) {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status: novoStatus }),
+          });
+        }
+        if (emailNormalizado) {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailNormalizado)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status: novoStatus }),
+          });
+        }
       } catch (_) {}
 
-      // 5. Tenta persistir também na coluna status da tabela alunos via REST
+      // 5. Também tenta atualizar via SDK
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
-          method: "PATCH",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: novoStatus }),
-        });
-      } catch (_) {}
-
-      // 6. Também tenta atualizar via SDK
-      try {
-        await supabase
-          .from("alunos")
-          .update({ whatsapp: whatsValor })
-          .eq("id", alunoId);
+        if (alunoId) {
+          await supabase
+            .from("alunos")
+            .update({ whatsapp: whatsValor })
+            .eq("id", alunoId);
+        }
       } catch (_) {}
 
       if (novoStatus === "ativo") {
@@ -4941,7 +4968,7 @@ export default function PainelDistribuidorAdmin() {
                                     <>
                                       <button
                                         type="button"
-                                        onClick={() => handleAlterarStatusAluno(aluno.id, "ativo")}
+                                        onClick={() => handleAlterarStatusAluno(aluno.id, "ativo", aluno.email)}
                                         className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-[11px] shadow-xs transition flex items-center gap-1 cursor-pointer"
                                         title="Aprovar e liberar acesso operacional"
                                       >
@@ -4950,7 +4977,7 @@ export default function PainelDistribuidorAdmin() {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleAlterarStatusAluno(aluno.id, "bloqueado")}
+                                        onClick={() => handleAlterarStatusAluno(aluno.id, "bloqueado", aluno.email)}
                                         className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
                                         title="Bloquear cadastro"
                                       >
@@ -4963,7 +4990,7 @@ export default function PainelDistribuidorAdmin() {
                                   {statusEfetivo === "ativo" && (
                                     <button
                                       type="button"
-                                      onClick={() => handleAlterarStatusAluno(aluno.id, "bloqueado")}
+                                      onClick={() => handleAlterarStatusAluno(aluno.id, "bloqueado", aluno.email)}
                                       className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-rose-500/10 hover:text-rose-600 dark:bg-neutral-800 dark:hover:bg-rose-950/40 text-zinc-600 dark:text-neutral-400 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
                                       title="Suspender acesso deste aluno"
                                     >
@@ -4975,7 +5002,7 @@ export default function PainelDistribuidorAdmin() {
                                   {statusEfetivo === "bloqueado" && (
                                     <button
                                       type="button"
-                                      onClick={() => handleAlterarStatusAluno(aluno.id, "ativo")}
+                                      onClick={() => handleAlterarStatusAluno(aluno.id, "ativo", aluno.email)}
                                       className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-extrabold text-[11px] transition flex items-center gap-1 cursor-pointer"
                                       title="Reativar acesso do aluno"
                                     >

@@ -506,7 +506,7 @@ export default function DashboardAluno() {
             const whats = (alunoDireto.whatsapp || "").toLowerCase().trim();
             const st = (alunoDireto.status || "").toLowerCase().trim();
 
-            if (st === "ativo" || st === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+            if (st === "ativo" || st === "aprovado" || whats.includes("aprovado") || whats.includes("ativo")) {
               setStatusAluno("ativo");
               // Sincroniza user_metadata no Supabase Auth caso ainda conste como pendente
               if (currentUser.user_metadata?.status !== "ativo") {
@@ -579,7 +579,7 @@ export default function DashboardAluno() {
               if (!isUserAdmin) {
                 const whats = (a.whatsapp || "").toLowerCase().trim();
                 const st = (a.status || "").toLowerCase().trim();
-                if (st === "ativo" || st === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+                if (st === "ativo" || st === "aprovado" || whats.includes("aprovado") || whats.includes("ativo")) {
                   setStatusAluno("ativo");
                 } else if (st === "bloqueado" || whats.startsWith("bloqueado")) {
                   setStatusAluno("bloqueado");

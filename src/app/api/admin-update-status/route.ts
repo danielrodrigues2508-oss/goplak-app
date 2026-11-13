@@ -4,17 +4,18 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { alunoId, status } = body;
+    const { alunoId, email, status } = body;
 
-    if (!alunoId) {
+    if (!alunoId && !email) {
       return NextResponse.json(
-        { success: false, error: "ID do aluno não fornecido" },
+        { success: false, error: "ID ou E-mail do aluno não fornecido" },
         { status: 400 }
       );
     }
 
     const novoStatus = (status || "ativo") as "ativo" | "pendente" | "bloqueado";
     const whatsValor = novoStatus === "ativo" ? "aprovado" : novoStatus;
+    const emailLimpo = email ? String(email).trim().toLowerCase() : "";
 
     const supabaseUrl =
       process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -34,53 +35,56 @@ export async function POST(request: Request) {
     let atualizouComSucesso = false;
     let detalhesErro = "";
 
-    // 1. Atualizar na coluna whatsapp (garantida no banco atual)
+    // 1. Atualizar na coluna whatsapp por ID e por E-mail
     try {
-      const { data: dWhats, error: errWhats } = await adminClient
-        .from("alunos")
-        .update({ whatsapp: whatsValor })
-        .eq("id", alunoId)
-        .select();
+      if (alunoId) {
+        const { data: dWhats, error: errWhats } = await adminClient
+          .from("alunos")
+          .update({ whatsapp: whatsValor })
+          .eq("id", alunoId)
+          .select();
 
-      if (!errWhats && dWhats && dWhats.length > 0) {
-        atualizouComSucesso = true;
-      } else if (errWhats) {
-        detalhesErro = errWhats.message;
+        if (!errWhats && dWhats && dWhats.length > 0) {
+          atualizouComSucesso = true;
+        } else if (errWhats) {
+          detalhesErro = errWhats.message;
+        }
+      }
+
+      if (emailLimpo) {
+        const { data: dWhatsEmail, error: errWhatsEmail } = await adminClient
+          .from("alunos")
+          .update({ whatsapp: whatsValor })
+          .ilike("email", emailLimpo)
+          .select();
+
+        if (!errWhatsEmail && dWhatsEmail && dWhatsEmail.length > 0) {
+          atualizouComSucesso = true;
+        }
       }
     } catch (eW: any) {
       detalhesErro = eW.message;
     }
 
-    // 2. Tentar atualizar também na coluna status (se a coluna existir ou pós-migração SQL)
+    // 2. Tentar atualizar também na coluna status
     try {
-      await adminClient
-        .from("alunos")
-        .update({ status: novoStatus })
-        .eq("id", alunoId);
-    } catch (_) {}
-
-    // 3. Tentar espelhar em profiles se a tabela existir
-    try {
-      await adminClient
-        .from("profiles")
-        .update({ status: novoStatus })
-        .eq("id", alunoId);
-    } catch (_) {}
-
-    // 4. Se serviceRoleKey estiver disponível, atualiza metadata diretamente no Supabase Auth
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        await adminClient.auth.admin.updateUserById(alunoId, {
-          user_metadata: { status: novoStatus },
-        });
-      } catch (authErr) {
-        console.warn("Aviso ao atualizar user_metadata no Auth:", authErr);
+      if (alunoId) {
+        await adminClient
+          .from("alunos")
+          .update({ status: novoStatus })
+          .eq("id", alunoId);
       }
-    }
+      if (emailLimpo) {
+        await adminClient
+          .from("alunos")
+          .update({ status: novoStatus })
+          .ilike("email", emailLimpo);
+      }
+    } catch (_) {}
 
-    // 5. Fallback REST direto com service/anon key
-    if (!atualizouComSucesso) {
-      try {
+    // 3. Fallback REST direto com service/anon key
+    try {
+      if (alunoId) {
         const patchRes = await fetch(`${supabaseUrl}/rest/v1/alunos?id=eq.${alunoId}`, {
           method: "PATCH",
           headers: {
@@ -93,12 +97,38 @@ export async function POST(request: Request) {
         });
         if (patchRes.ok) {
           const patched = await patchRes.json();
-          if (Array.isArray(patched) && patched.length > 0) {
-            atualizouComSucesso = true;
-          }
+          if (Array.isArray(patched) && patched.length > 0) atualizouComSucesso = true;
         }
-      } catch (fErr: any) {
-        console.warn("Aviso no fallback fetch da rota admin-update-status:", fErr);
+      }
+
+      if (emailLimpo) {
+        const patchResEmail = await fetch(`${supabaseUrl}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}`, {
+          method: "PATCH",
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ whatsapp: whatsValor }),
+        });
+        if (patchResEmail.ok) {
+          const patchedE = await patchResEmail.json();
+          if (Array.isArray(patchedE) && patchedE.length > 0) atualizouComSucesso = true;
+        }
+      }
+    } catch (fErr: any) {
+      console.warn("Aviso no fallback fetch da rota admin-update-status:", fErr);
+    }
+
+    // 4. Se serviceRoleKey estiver disponível, atualiza metadata no Supabase Auth
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY && alunoId) {
+      try {
+        await adminClient.auth.admin.updateUserById(alunoId, {
+          user_metadata: { status: novoStatus },
+        });
+      } catch (authErr) {
+        console.warn("Aviso ao atualizar user_metadata no Auth:", authErr);
       }
     }
 
