@@ -462,8 +462,13 @@ export default function DashboardAluno() {
                 setAlunoNome(a.nome);
               }
               if (!isUserAdmin) {
-                if (a.status) {
-                  setStatusAluno(a.status as "ativo" | "pendente" | "bloqueado");
+                const whats = (a.whatsapp || "").toLowerCase().trim();
+                if (a.status === "ativo" || a.status === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+                  setStatusAluno("ativo");
+                } else if (a.status === "bloqueado" || whats.startsWith("bloqueado")) {
+                  setStatusAluno("bloqueado");
+                } else if (a.status === "pendente" || whats.startsWith("pendente")) {
+                  setStatusAluno("pendente");
                 } else if (currentUser.user_metadata?.status) {
                   setStatusAluno(currentUser.user_metadata.status as "ativo" | "pendente" | "bloqueado");
                 } else {

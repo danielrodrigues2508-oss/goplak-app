@@ -90,6 +90,7 @@ interface Aluno {
   nome: string;
   email: string;
   status?: "pendente" | "ativo" | "bloqueado";
+  whatsapp?: string | null;
   created_at?: string;
 }
 
@@ -476,16 +477,16 @@ export default function PainelDistribuidorAdmin() {
         // 1.1 Tenta buscar com status na tabela alunos
         const { data: aDataComStatus, error: errComStatus } = await supabase
           .from("alunos")
-          .select("id, nome, email, status, created_at")
+          .select("id, nome, email, status, whatsapp, created_at")
           .order("created_at", { ascending: false });
 
         if (!errComStatus && aDataComStatus && aDataComStatus.length > 0) {
           dadosAlunos = aDataComStatus;
         } else {
-          // 1.2 Fallback: busca sem forçar a coluna status na tabela alunos
+          // 1.2 Fallback: busca com whatsapp (compatibilidade garantida no banco)
           const { data: aDataSemStatus, error: errSemStatus } = await supabase
             .from("alunos")
-            .select("id, nome, email, created_at")
+            .select("id, nome, email, whatsapp, created_at")
             .order("created_at", { ascending: false });
 
           if (!errSemStatus && aDataSemStatus && aDataSemStatus.length > 0) {
@@ -505,7 +506,7 @@ export default function PainelDistribuidorAdmin() {
             // 1.4 Fallback REST direto
             if (dadosAlunos.length === 0) {
               try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,created_at&order=created_at.desc`, {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,whatsapp,created_at&order=created_at.desc`, {
                   headers: {
                     apikey: SUPABASE_ANON_KEY,
                     Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -530,14 +531,25 @@ export default function PainelDistribuidorAdmin() {
             a.email?.includes("admin");
 
           let statusCalculado: "ativo" | "pendente" | "bloqueado" = "pendente";
+          const whats = (a.whatsapp || "").toLowerCase().trim();
 
           if (isMaster) {
             statusCalculado = "ativo";
-          } else if (a.status) {
-            statusCalculado = a.status;
+          } else if (a.status === "ativo" || a.status === "aprovado") {
+            statusCalculado = "ativo";
+          } else if (a.status === "bloqueado") {
+            statusCalculado = "bloqueado";
+          } else if (a.status === "pendente") {
+            statusCalculado = "pendente";
+          } else if (whats.startsWith("aprovado") || whats === "ativo") {
+            statusCalculado = "ativo";
+          } else if (whats.startsWith("bloqueado")) {
+            statusCalculado = "bloqueado";
+          } else if (whats.startsWith("pendente")) {
+            statusCalculado = "pendente";
           } else if (typeof window !== "undefined") {
             const cached = localStorage.getItem(`goplak_status_${a.id}`);
-            if (cached === "ativo" || cached === "bloqueado") {
+            if (cached === "ativo" || cached === "bloqueado" || cached === "pendente") {
               statusCalculado = cached as any;
             }
           }
@@ -547,6 +559,7 @@ export default function PainelDistribuidorAdmin() {
             nome: a.nome || "Aluno Parceiro",
             email: a.email || "",
             status: statusCalculado,
+            whatsapp: a.whatsapp,
             created_at: a.created_at,
           };
         });
@@ -2922,7 +2935,9 @@ export default function PainelDistribuidorAdmin() {
   const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente") => {
     setProcessandoStatusId(alunoId);
     try {
-      // 1. Atualiza cache local imediatamente (garante persistência mesmo se a migração SQL ainda não foi executada)
+      const whatsValor = novoStatus === "ativo" ? "aprovado" : novoStatus;
+
+      // 1. Atualiza cache local imediatamente
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem(`goplak_status_${alunoId}`, novoStatus);
@@ -2931,17 +2946,19 @@ export default function PainelDistribuidorAdmin() {
 
       // 2. Atualiza estado local da UI instantaneamente
       setAlunos((prev) =>
-        prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus } : a))
+        prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus, whatsapp: whatsValor } : a))
       );
 
-      // 3. Tenta persistir na coluna status da tabela alunos
-      const { error: errUpdate } = await supabase
+      // 3. Persistência Resiliente no Supabase (coluna whatsapp garantida + coluna status via SQL)
+      // Grava em 'whatsapp' (coluna com suporte imediato e sem erro de schema)
+      const { error: errWhats } = await supabase
         .from("alunos")
-        .update({ status: novoStatus })
+        .update({ whatsapp: whatsValor })
         .eq("id", alunoId);
 
-      if (errUpdate) {
-        console.warn("Aviso ao atualizar status via SDK em alunos:", errUpdate);
+      if (errWhats) {
+        console.warn("Aviso ao persistir status via whatsapp em alunos:", errWhats);
+        // Fallback REST direto
         try {
           await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
             method: "PATCH",
@@ -2950,10 +2967,18 @@ export default function PainelDistribuidorAdmin() {
               Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ status: novoStatus }),
+            body: JSON.stringify({ whatsapp: whatsValor }),
           });
         } catch (_) {}
       }
+
+      // Tenta persistir também na coluna status da tabela alunos (se a coluna já foi criada via SQL)
+      try {
+        await supabase
+          .from("alunos")
+          .update({ status: novoStatus })
+          .eq("id", alunoId);
+      } catch (_) {}
 
       // 4. Também tenta atualizar em profiles caso exista
       try {
@@ -4840,7 +4865,7 @@ export default function PainelDistribuidorAdmin() {
                           aluno.email === "daniel.rodrigues2508@gmail.com" ||
                           aluno.email?.includes("admin") ||
                           aluno.email === "distribuidor@goplacas.com.br";
-                        const statusEfetivo = isMaster ? "ativo" : (aluno.status || "ativo");
+                        const statusEfetivo = isMaster ? "ativo" : (aluno.status || "pendente");
                         const isProcessando = processandoStatusId === aluno.id;
 
                         return (

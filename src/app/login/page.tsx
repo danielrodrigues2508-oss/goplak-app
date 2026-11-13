@@ -55,6 +55,58 @@ const traduzirErroSupabase = (msg: string): string => {
   return msg || "Ocorreu um erro ao processar sua solicitação.";
 };
 
+async function verificarStatusAlunoNoBanco(userId: string, userEmail?: string | null): Promise<"ativo" | "pendente" | "bloqueado"> {
+  try {
+    let aDb: any = null;
+
+    // 1. Tenta buscar com status e whatsapp
+    const { data: aStatus, error: errStatus } = await supabase
+      .from("alunos")
+      .select("id, email, whatsapp, status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!errStatus && aStatus) {
+      aDb = aStatus;
+    } else {
+      // 2. Fallback sem status (garantido pelo schema atual)
+      const { data: aCompat } = await supabase
+        .from("alunos")
+        .select("id, email, whatsapp")
+        .eq("id", userId)
+        .maybeSingle();
+      if (aCompat) aDb = aCompat;
+    }
+
+    // 3. Se não localizou por ID, busca por email
+    if (!aDb && userEmail) {
+      const emailLimpo = userEmail.trim().toLowerCase();
+      const { data: aEmail } = await supabase
+        .from("alunos")
+        .select("id, email, whatsapp")
+        .ilike("email", emailLimpo)
+        .maybeSingle();
+      if (aEmail) aDb = aEmail;
+    }
+
+    if (aDb) {
+      const whats = (aDb.whatsapp || "").toLowerCase().trim();
+      if (aDb.status === "ativo" || aDb.status === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+        return "ativo";
+      }
+      if (aDb.status === "bloqueado" || whats.startsWith("bloqueado")) {
+        return "bloqueado";
+      }
+      if (aDb.status === "pendente" || whats.startsWith("pendente")) {
+        return "pendente";
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao validar status do aluno no banco:", err);
+  }
+  return "pendente";
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,19 +151,9 @@ function LoginForm() {
           }
 
           // Checa se o aluno está pendente ou bloqueado
-          let statusAluno = session.user.user_metadata?.status || "ativo";
-          try {
-            const { data: aDb } = await supabase
-              .from("alunos")
-              .select("status")
-              .eq("id", session.user.id)
-              .maybeSingle();
-
-            if (aDb && aDb.status) {
-              statusAluno = aDb.status;
-            }
-          } catch (eDb) {
-            console.warn("Aviso ao validar status de sessão:", eDb);
+          let statusAluno = await verificarStatusAlunoNoBanco(session.user.id, session.user.email);
+          if (statusAluno === "pendente" && session.user.user_metadata?.status === "ativo") {
+            statusAluno = "ativo";
           }
 
           if (statusAluno === "pendente") {
@@ -196,12 +238,13 @@ function LoginForm() {
           let gravouComSucesso = false;
           let ultimoErroMsg = "";
 
-          // Tentativa 1: Gravar com status na tabela alunos
+          // Tentativa 1: Gravar com status e whatsapp na tabela alunos
           const { error: errAlunosStatus } = await supabase.from("alunos").upsert({
             id: userId,
             nome: userNome,
             email: emailTrim,
             status: "pendente",
+            whatsapp: "pendente",
           });
 
           if (!errAlunosStatus) {
@@ -210,11 +253,12 @@ function LoginForm() {
             console.warn("Falha ao salvar aluno com status (possível ausência da coluna no banco):", errAlunosStatus);
             ultimoErroMsg = errAlunosStatus.message;
 
-            // Tentativa 2: Fallback sem a coluna status (caso a migração SQL ainda não tenha sido rodada)
+            // Tentativa 2: Fallback com whatsapp='pendente' sem a coluna status (compatibilidade imediata)
             const { error: errAlunosCompat } = await supabase.from("alunos").upsert({
               id: userId,
               nome: userNome,
               email: emailTrim,
+              whatsapp: "pendente",
             });
 
             if (!errAlunosCompat) {
@@ -284,20 +328,10 @@ function LoginForm() {
             return;
           }
 
-          // Checar status da conta do aluno
-          let statusAluno = data.user.user_metadata?.status || "ativo";
-          try {
-            const { data: aDb } = await supabase
-              .from("alunos")
-              .select("status")
-              .eq("id", data.user.id)
-              .maybeSingle();
-
-            if (aDb && aDb.status) {
-              statusAluno = aDb.status;
-            }
-          } catch (eDb) {
-            console.warn("Aviso ao validar status do aluno no login:", eDb);
+          // Checar status da conta do aluno de forma resiliente
+          let statusAluno = await verificarStatusAlunoNoBanco(data.user.id, data.user.email);
+          if (statusAluno === "pendente" && data.user.user_metadata?.status === "ativo") {
+            statusAluno = "ativo";
           }
 
           if (statusAluno === "pendente") {
