@@ -53,6 +53,9 @@ import {
   UserCheck,
   UserX,
   Search,
+  Copy,
+  UserPlus,
+  KeyRound,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { exportarLoteEmFatiasZip, COST_PER_UNIT, DisplayItem } from "@/lib/exportGraficaZip";
@@ -92,6 +95,7 @@ interface Aluno {
   status?: "pendente" | "ativo" | "bloqueado";
   whatsapp?: string | null;
   created_at?: string;
+  codigoAcesso?: string;
 }
 
 interface AlunoAutorizado {
@@ -371,6 +375,19 @@ export default function PainelDistribuidorAdmin() {
   const [buscaAlunoAcesso, setBuscaAlunoAcesso] = useState("");
   const [processandoStatusId, setProcessandoStatusId] = useState<string | null>(null);
   const [atualizandoAlunos, setAtualizandoAlunos] = useState(false);
+
+  // Cadastro Rápido de Novo Aluno com Código GP-XXXX
+  const [modalNovoAlunoAberto, setModalNovoAlunoAberto] = useState(false);
+  const [novoAlunoNome, setNovoAlunoNome] = useState("");
+  const [novoAlunoEmail, setNovoAlunoEmail] = useState("");
+  const [salvandoNovoAluno, setSalvandoNovoAluno] = useState(false);
+  const [novoAlunoCriadoSucesso, setNovoAlunoCriadoSucesso] = useState<{
+    nome: string;
+    email: string;
+    codigo: string;
+  } | null>(null);
+  const [copiadoCodigoId, setCopiadoCodigoId] = useState<string | null>(null);
+  const [copiadoMensagemSucesso, setCopiadoMensagemSucesso] = useState(false);
   const [filtroPlacaStatus, setFiltroPlacaStatus] = useState<"todas" | "ativas" | "virgens">("todas");
   const [buscaPlaca, setBuscaPlaca] = useState("");
   const [modalEditarPlacaAberto, setModalEditarPlacaAberto] = useState(false);
@@ -449,6 +466,9 @@ export default function PainelDistribuidorAdmin() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("goplak_aluno_logado");
+      }
       await supabase.auth.signOut();
     } catch (err) {
       console.warn("Erro ao deslogar:", err);
@@ -527,6 +547,9 @@ export default function PainelDistribuidorAdmin() {
             statusCalculado = "pendente";
           }
 
+          const matchCod = a.whatsapp ? String(a.whatsapp).match(/GP-\d{4}/i) : null;
+          const codigoAcesso = matchCod ? matchCod[0].toUpperCase() : undefined;
+
           return {
             id: a.id,
             nome: a.nome || "Aluno Parceiro",
@@ -534,6 +557,7 @@ export default function PainelDistribuidorAdmin() {
             status: statusCalculado,
             whatsapp: a.whatsapp,
             created_at: a.created_at,
+            codigoAcesso,
           };
         });
       } catch (err) {
@@ -2866,22 +2890,154 @@ export default function PainelDistribuidorAdmin() {
     }
   };
 
+  // Gerador de Código GP-XXXX Único
+  const gerarCodigoGPUnico = (): string => {
+    const codigosExistentes = new Set(
+      alunos
+        .map((a) => (a.whatsapp ? a.whatsapp.match(/GP-\d{4}/i)?.[0]?.toUpperCase() : null))
+        .filter(Boolean)
+    );
+    let tentativa = "";
+    for (let i = 0; i < 200; i++) {
+      const num = Math.floor(1000 + Math.random() * 9000);
+      tentativa = `GP-${num}`;
+      if (!codigosExistentes.has(tentativa)) break;
+    }
+    return tentativa || `GP-${Math.floor(1000 + Math.random() * 9000)}`;
+  };
+
+  // Handler para Criar Novo Aluno com Código GP-XXXX
+  const handleCriarNovoAluno = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nome = novoAlunoNome.trim();
+    const email = novoAlunoEmail.trim().toLowerCase();
+
+    if (!nome || !email) {
+      alert("Por favor, preencha o Nome e o E-mail do aluno.");
+      return;
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      alert("Por favor, informe um e-mail válido.");
+      return;
+    }
+
+    const jaExiste = alunos.some((a) => a.email && a.email.toLowerCase() === email);
+    if (jaExiste) {
+      alert(`Já existe um cadastro com o e-mail "${email}". Você pode visualizar o código na listagem de alunos.`);
+      return;
+    }
+
+    setSalvandoNovoAluno(true);
+    const codigo = gerarCodigoGPUnico();
+    const novoWhatsapp = `aprovado|${codigo}`;
+    const novoId = crypto.randomUUID ? crypto.randomUUID() : `aluno-${Date.now()}`;
+
+    const payload = {
+      id: novoId,
+      nome,
+      email,
+      whatsapp: novoWhatsapp,
+      meta_mensal_reais: 2000,
+      preco_padrao_display: 80,
+    };
+
+    try {
+      // 1. Inserir via REST com on_conflict=email (garantia total no banco)
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?on_conflict=email`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        // Fallback SDK
+        await supabase.from("alunos").insert([payload]);
+      }
+
+      const novoAlunoObj: Aluno = {
+        id: novoId,
+        nome,
+        email,
+        status: "ativo",
+        whatsapp: novoWhatsapp,
+        created_at: new Date().toISOString(),
+        codigoAcesso: codigo,
+      };
+
+      setAlunos((prev) => [novoAlunoObj, ...prev]);
+      setNovoAlunoCriadoSucesso({ nome, email, codigo });
+      setNovoAlunoNome("");
+      setNovoAlunoEmail("");
+      confetti({ particleCount: 45, spread: 70, origin: { y: 0.6 } });
+    } catch (err: any) {
+      console.error("Erro ao cadastrar novo aluno:", err);
+      alert("Erro ao cadastrar aluno: " + (err.message || String(err)));
+    } finally {
+      setSalvandoNovoAluno(false);
+    }
+  };
+
+  // Handler para Gerar Código GP para Alunos Antigos que ainda não possuem
+  const handleGerarCodigoParaAluno = async (aluno: Aluno) => {
+    const codigo = gerarCodigoGPUnico();
+    const currentWhats = aluno.whatsapp || "";
+    const extraData = currentWhats.includes("||")
+      ? "||" + currentWhats.split("||").slice(1).join("||")
+      : "";
+    const novoWhats = `aprovado|${codigo}${extraData}`;
+
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(aluno.email.trim().toLowerCase())}`, {
+        method: "PATCH",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({ whatsapp: novoWhats }),
+      });
+
+      setAlunos((prev) =>
+        prev.map((a) => (a.id === aluno.id ? { ...a, whatsapp: novoWhats, codigoAcesso: codigo } : a))
+      );
+      confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+    } catch (err) {
+      console.error("Erro ao gerar código para aluno:", err);
+    }
+  };
+
+  // Handler para Copiar Código GP
+  const handleCopiarCodigoGP = (codigo: string, id: string) => {
+    navigator.clipboard.writeText(codigo);
+    setCopiadoCodigoId(id);
+    setTimeout(() => setCopiadoCodigoId(null), 2500);
+  };
+
   // Handler para Alterar Status do Aluno (Aprovar / Bloquear / Reativar)
   const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente", alunoEmail?: string) => {
     setProcessandoStatusId(alunoId);
     try {
       const emailNormalizado = alunoEmail ? alunoEmail.trim().toLowerCase() : "";
 
-      // Preserva dados após || caso já existam (ex: metadados de diagnóstico/dispositivo)
+      // Preserva dados após || e código GP caso já existam
       const alunoAtual = alunos.find(
         (a) => a.id === alunoId || (emailNormalizado && a.email?.toLowerCase() === emailNormalizado)
       );
       const currentWhats = alunoAtual?.whatsapp || "";
+      const matchCodigo = currentWhats.match(/GP-\d{4}/i);
+      const codigoGP = matchCodigo ? `|${matchCodigo[0].toUpperCase()}` : "";
       const extraData = currentWhats.includes("||")
         ? "||" + currentWhats.split("||").slice(1).join("||")
         : "";
       const prefixo = novoStatus === "ativo" ? "aprovado" : novoStatus;
-      const whatsValor = prefixo + extraData;
+      const whatsValor = prefixo + codigoGP + extraData;
 
       // 1. Atualiza estado local da UI instantaneamente
       setAlunos((prev) =>
@@ -4713,13 +4869,28 @@ export default function PainelDistribuidorAdmin() {
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="w-full sm:w-64 relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalNovoAlunoAberto(true);
+                    setNovoAlunoNome("");
+                    setNovoAlunoEmail("");
+                    setNovoAlunoCriadoSucesso(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm"
+                  title="Cadastrar novo aluno e gerar Código GP-XXXX"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Novo Aluno</span>
+                </button>
+
+                <div className="w-full sm:w-60 relative">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
                   <input
                     type="text"
                     value={buscaAlunoAcesso}
                     onChange={(e) => setBuscaAlunoAcesso(e.target.value)}
-                    placeholder="Buscar aluno ou e-mail..."
+                    placeholder="Buscar aluno, e-mail ou código..."
                     className="w-full bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -4754,7 +4925,8 @@ export default function PainelDistribuidorAdmin() {
                   if (!termo) return true;
                   return (
                     (aluno.nome && aluno.nome.toLowerCase().includes(termo)) ||
-                    (aluno.email && aluno.email.toLowerCase().includes(termo))
+                    (aluno.email && aluno.email.toLowerCase().includes(termo)) ||
+                    (aluno.codigoAcesso && aluno.codigoAcesso.toLowerCase().includes(termo))
                   );
                 })
                 .sort((a, b) => {
@@ -4788,6 +4960,7 @@ export default function PainelDistribuidorAdmin() {
                       <tr>
                         <th className="py-2.5 px-3">Aluno</th>
                         <th className="py-2.5 px-3">E-mail</th>
+                        <th className="py-2.5 px-3">Código de Acesso</th>
                         <th className="py-2.5 px-3">Status</th>
                         <th className="py-2.5 px-3">Cadastro</th>
                         <th className="py-2.5 px-3 text-right">Ação de Acesso</th>
@@ -4814,6 +4987,41 @@ export default function PainelDistribuidorAdmin() {
                             </td>
                             <td className="py-2.5 px-3 font-mono text-zinc-600 dark:text-neutral-300">
                               {aluno.email}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {isMaster ? (
+                                <span className="text-[10px] text-zinc-400 font-bold italic">
+                                  Acesso Admin
+                                </span>
+                              ) : aluno.codigoAcesso ? (
+                                <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+                                  <span className="font-mono font-black text-xs text-emerald-700 dark:text-emerald-400 tracking-wider">
+                                    {aluno.codigoAcesso}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopiarCodigoGP(aluno.codigoAcesso!, aluno.id)}
+                                    className="p-0.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 transition cursor-pointer"
+                                    title="Copiar código GP"
+                                  >
+                                    {copiadoCodigoId === aluno.id ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleGerarCodigoParaAluno(aluno)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition cursor-pointer"
+                                  title="Gerar código GP-XXXX exclusivo para este aluno"
+                                >
+                                  <KeyRound className="w-3 h-3" />
+                                  <span>+ Gerar GP</span>
+                                </button>
+                              )}
                             </td>
                             <td className="py-2.5 px-3">
                               {statusEfetivo === "pendente" && (
@@ -6790,6 +6998,180 @@ export default function PainelDistribuidorAdmin() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* Modal: Cadastrar Novo Aluno com Código GP-XXXX */}
+        {modalNovoAlunoAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalNovoAlunoAberto(false);
+                  setNovoAlunoCriadoSucesso(null);
+                }}
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-xl"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {novoAlunoCriadoSucesso ? (
+                <div className="text-center py-2 space-y-4 animate-in fade-in zoom-in-95">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto shadow-sm">
+                    <Check className="w-8 h-8 stroke-[2.5]" />
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                      Aluno Cadastrado com Sucesso
+                    </span>
+                    <h3 className="text-lg font-black text-zinc-900 dark:text-white mt-2">
+                      {novoAlunoCriadoSucesso.nome}
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-neutral-400 mt-0.5 font-mono">
+                      {novoAlunoCriadoSucesso.email}
+                    </p>
+                  </div>
+
+                  {/* Card do Código de Acesso */}
+                  <div className="bg-emerald-500/5 dark:bg-emerald-500/10 border-2 border-emerald-500/30 rounded-2xl p-4 space-y-2">
+                    <span className="text-[11px] font-bold text-zinc-500 dark:text-neutral-400 uppercase tracking-wider block">
+                      Código de Acesso do Aluno:
+                    </span>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-2xl font-mono font-black text-emerald-600 dark:text-emerald-400 tracking-widest bg-white dark:bg-neutral-950 px-4 py-2 rounded-xl border border-emerald-500/20 shadow-inner">
+                        {novoAlunoCriadoSucesso.codigo}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                      Envie este código para o aluno acessar a plataforma imediatamente.
+                    </p>
+                  </div>
+
+                  {/* Botões de Ação */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const msg = `Olá ${novoAlunoCriadoSucesso.nome}, seu acesso ao GOPLAK foi liberado!\n\nAcesse: https://goplak.com.br/login\nCódigo de Acesso: ${novoAlunoCriadoSucesso.codigo}\n\nBasta digitar seu código para entrar no painel!`;
+                        navigator.clipboard.writeText(msg);
+                        setCopiadoMensagemSucesso(true);
+                        setTimeout(() => setCopiadoMensagemSucesso(false), 2500);
+                      }}
+                      className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold rounded-xl text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    >
+                      {copiadoMensagemSucesso ? (
+                        <>
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                          <span>Mensagem Copiada com Sucesso!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span>📋 Copiar Código & Mensagem Pronta</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalNovoAlunoAberto(false);
+                        setNovoAlunoCriadoSucesso(null);
+                      }}
+                      className="w-full py-2.5 px-4 bg-zinc-100 dark:bg-neutral-800 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl text-xs hover:bg-zinc-200 dark:hover:bg-neutral-700 transition cursor-pointer"
+                    >
+                      Concluir & Fechar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleCriarNovoAluno} className="space-y-4">
+                  <div className="flex items-center gap-3 border-b border-zinc-200 dark:border-neutral-800 pb-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                        Cadastrar Novo Aluno
+                      </h3>
+                      <p className="text-xs text-zinc-500 dark:text-neutral-400">
+                        Gera um Código de Acesso único (ex: GP-4829) com liberação instantânea.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                        Nome Completo do Aluno *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        disabled={salvandoNovoAluno}
+                        value={novoAlunoNome}
+                        onChange={(e) => setNovoAlunoNome(e.target.value)}
+                        placeholder="Ex: João da Silva"
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
+                        E-mail do Aluno *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        disabled={salvandoNovoAluno}
+                        value={novoAlunoEmail}
+                        onChange={(e) => setNovoAlunoEmail(e.target.value)}
+                        placeholder="aluno@exemplo.com"
+                        className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 transition"
+                      />
+                    </div>
+
+                    <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 p-3 rounded-2xl text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+                      <KeyRound className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                      <span>
+                        O aluno receberá um código único no formato <strong>GP-XXXX</strong> e poderá logar no painel imediatamente sem precisar cadastrar senha.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-200 dark:border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => setModalNovoAlunoAberto(false)}
+                      disabled={salvandoNovoAluno}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={salvandoNovoAluno || !novoAlunoNome.trim() || !novoAlunoEmail.trim()}
+                      className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-extrabold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {salvandoNovoAluno ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Gerando Código...</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-4 h-4" />
+                          <span>Criar Aluno & Gerar Código</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}

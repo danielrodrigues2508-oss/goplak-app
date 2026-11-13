@@ -20,6 +20,19 @@ export default function Home() {
         if (!mounted) return;
 
         if (!session || !session.user) {
+          // Se já houver sessão ativa do aluno por código único no localStorage
+          if (typeof window !== "undefined") {
+            try {
+              const raw = localStorage.getItem("goplak_aluno_logado");
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && (parsed.id || parsed.email || parsed.codigo)) {
+                  router.replace("/dashboard");
+                  return;
+                }
+              }
+            } catch (_) {}
+          }
           router.replace("/login");
           return;
         }

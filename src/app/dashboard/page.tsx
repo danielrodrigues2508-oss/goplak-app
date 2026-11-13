@@ -412,18 +412,29 @@ export default function DashboardAluno() {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user;
 
-      if (!currentUser) {
+      let alunoLocal: any = null;
+      if (!currentUser && typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("goplak_aluno_logado");
+          if (raw) {
+            alunoLocal = JSON.parse(raw);
+          }
+        } catch (_) {}
+      }
+
+      if (!currentUser && !alunoLocal) {
         router.push("/login?redirect=/dashboard");
         return;
       }
 
-      const currentUserId = currentUser.id;
-      const currentUserEmail = (currentUser.email || "").toLowerCase();
+      const currentUserId = currentUser?.id || alunoLocal?.id || "aluno-logado";
+      const currentUserEmail = (currentUser?.email || alunoLocal?.email || "").toLowerCase();
       setCurrentUserEmail(currentUserEmail);
-      const currentUserRole = currentUser.user_metadata?.role || currentUser.app_metadata?.role || "";
+      const currentUserRole = currentUser?.user_metadata?.role || currentUser?.app_metadata?.role || "";
       const currentUserName =
-        currentUser.user_metadata?.nome ||
-        currentUser.email?.split("@")[0] ||
+        currentUser?.user_metadata?.nome ||
+        alunoLocal?.nome ||
+        currentUser?.email?.split("@")[0] ||
         "Aluno Parceiro";
 
       setAlunoId(currentUserId);
@@ -450,7 +461,7 @@ export default function DashboardAluno() {
       try {
         let encontrouAluno = false;
 
-        // 1. Consulta ao Banco de Dados filtrando EXCLUSIVAMENTE por e-mail (sem query por id)
+        // 1. Consulta ao Banco de Dados filtrando por e-mail ou código único GP-XXXX
         let alunoDireto: any = null;
         try {
           if (currentUserEmail) {
@@ -460,34 +471,64 @@ export default function DashboardAluno() {
               .ilike("email", currentUserEmail.trim())
               .maybeSingle();
             if (dAlunoSdk) alunoDireto = dAlunoSdk;
+          }
 
-            if (!alunoDireto) {
-              const resDirectEmail = await fetch(
-                `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(currentUserEmail.trim())}&select=*`,
-                {
-                  headers: {
-                    apikey: SUPABASE_ANON_KEY,
-                    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                  },
-                  cache: "no-store",
-                }
-              );
-              if (resDirectEmail.ok) {
-                const arrEmail = await resDirectEmail.json();
-                if (Array.isArray(arrEmail) && arrEmail.length > 0) {
-                  alunoDireto = arrEmail[0];
-                }
+          if (!alunoDireto && alunoLocal?.codigo) {
+            const { data: dAlunoCod } = await supabase
+              .from("alunos")
+              .select("*")
+              .ilike("whatsapp", `%${alunoLocal.codigo}%`)
+              .maybeSingle();
+            if (dAlunoCod) alunoDireto = dAlunoCod;
+          }
+
+          if (!alunoDireto && currentUserEmail) {
+            const resDirectEmail = await fetch(
+              `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(currentUserEmail.trim())}&select=*`,
+              {
+                headers: {
+                  apikey: SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                },
+                cache: "no-store",
+              }
+            );
+            if (resDirectEmail.ok) {
+              const arrEmail = await resDirectEmail.json();
+              if (Array.isArray(arrEmail) && arrEmail.length > 0) {
+                alunoDireto = arrEmail[0];
+              }
+            }
+          }
+
+          if (!alunoDireto && alunoLocal?.codigo) {
+            const resDirectCod = await fetch(
+              `${SUPABASE_URL}/rest/v1/alunos?whatsapp=ilike.*${encodeURIComponent(alunoLocal.codigo)}*&select=*`,
+              {
+                headers: {
+                  apikey: SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                },
+                cache: "no-store",
+              }
+            );
+            if (resDirectCod.ok) {
+              const arrCod = await resDirectCod.json();
+              if (Array.isArray(arrCod) && arrCod.length > 0) {
+                alunoDireto = arrCod[0];
               }
             }
           }
         } catch (errDirect) {
-          console.warn("Aviso na consulta do aluno por email:", errDirect);
+          console.warn("Aviso na consulta do aluno por email/codigo:", errDirect);
         }
 
         if (alunoDireto) {
           encontrouAluno = true;
           alunoDbId = alunoDireto.id;
+          setAlunoId(alunoDireto.id);
           alunosMap[alunoDireto.id] = alunoDireto.nome || currentUserName;
           if (alunoDireto.nome) setAlunoNome(alunoDireto.nome);
 
@@ -498,14 +539,14 @@ export default function DashboardAluno() {
             if (st === "ativo" || st === "aprovado" || whats.includes("aprovado") || whats.includes("ativo")) {
               setStatusAluno("ativo");
               // Sincroniza user_metadata no Supabase Auth caso ainda conste como pendente
-              if (currentUser.user_metadata?.status !== "ativo") {
+              if (currentUser && currentUser.user_metadata?.status !== "ativo") {
                 supabase.auth.updateUser({ data: { status: "ativo" } }).catch(() => {});
               }
             } else if (st === "bloqueado" || whats.startsWith("bloqueado")) {
               setStatusAluno("bloqueado");
             } else if (st === "pendente" || whats.startsWith("pendente")) {
               setStatusAluno("pendente");
-            } else if (currentUser.user_metadata?.status) {
+            } else if (currentUser?.user_metadata?.status) {
               setStatusAluno(currentUser.user_metadata.status as "ativo" | "pendente" | "bloqueado");
             } else {
               setStatusAluno("ativo");
@@ -550,6 +591,9 @@ export default function DashboardAluno() {
               setInputPrecoDisplay(parsedPreco.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
             }
           }
+        } else if (alunoLocal) {
+          // Fallback para sessão local via código único se não encontrou registro direto
+          setStatusAluno("ativo");
         }
 
         // 2. Consulta da lista completa para mapeamento de lotes/pedidos
@@ -574,7 +618,7 @@ export default function DashboardAluno() {
                   setStatusAluno("bloqueado");
                 } else if (st === "pendente" || whats.startsWith("pendente")) {
                   setStatusAluno("pendente");
-                } else if (currentUser.user_metadata?.status) {
+                } else if (currentUser?.user_metadata?.status) {
                   setStatusAluno(currentUser.user_metadata.status as "ativo" | "pendente" | "bloqueado");
                 } else {
                   setStatusAluno("ativo");
@@ -622,9 +666,11 @@ export default function DashboardAluno() {
         }
 
         if (!encontrouAluno && !isUserAdmin) {
-          const metaStatus = currentUser.user_metadata?.status;
+          const metaStatus = currentUser?.user_metadata?.status;
           if (metaStatus) {
             setStatusAluno(metaStatus as "ativo" | "pendente" | "bloqueado");
+          } else if (alunoLocal) {
+            setStatusAluno("ativo");
           } else {
             setStatusAluno("pendente");
           }
@@ -635,7 +681,7 @@ export default function DashboardAluno() {
           try {
             // Recuperar Meta e Preço se ainda nos valores padrão
             const cacheMeta = localStorage.getItem("goplak_meta_semanal") || localStorage.getItem("tagplak_meta_semanal");
-            const metaMeta = currentUser.user_metadata?.meta_semanal_displays;
+            const metaMeta = currentUser?.user_metadata?.meta_semanal_displays;
             const metaFinal = Number(metaMeta || cacheMeta);
             if (!isNaN(metaFinal) && metaFinal > 0) {
               setMetaSemanalDisplays(metaFinal);
@@ -643,7 +689,7 @@ export default function DashboardAluno() {
             }
 
             const cachePreco = localStorage.getItem("goplak_preco_display") || localStorage.getItem("tagplak_preco_display");
-            const metaPreco = currentUser.user_metadata?.preco_por_display || currentUser.user_metadata?.preco_padrao_display;
+            const metaPreco = currentUser?.user_metadata?.preco_por_display || currentUser?.user_metadata?.preco_padrao_display;
             const precoFinal = Number(metaPreco || cachePreco);
             if (!isNaN(precoFinal) && precoFinal > 0) {
               setPrecoPorDisplay(precoFinal);
@@ -651,7 +697,7 @@ export default function DashboardAluno() {
             }
 
             const cacheEnd = localStorage.getItem("goplak_aluno_endereco") || localStorage.getItem("tagplak_aluno_endereco");
-            const metaEnd = currentUser.user_metadata?.endereco;
+            const metaEnd = currentUser?.user_metadata?.endereco;
             const endFallback = cacheEnd ? JSON.parse(cacheEnd) : metaEnd;
             if (endFallback && endFallback.logradouro) {
               setEnderecoSalvo((prev) => prev || endFallback);
@@ -2585,6 +2631,9 @@ export default function DashboardAluno() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("goplak_aluno_logado");
+      }
       await supabase.auth.signOut();
     } catch (err) {
       console.warn("Erro ao deslogar:", err);
