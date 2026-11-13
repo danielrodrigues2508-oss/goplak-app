@@ -56,130 +56,58 @@ const traduzirErroSupabase = (msg: string): string => {
   return msg || "Ocorreu um erro ao processar sua solicitação.";
 };
 
-interface AlunoDbResult {
-  encontrado: boolean;
-  status: "ativo" | "pendente" | "bloqueado" | "nao_encontrado";
-  aluno?: any;
-}
-
-// Consulta em tempo real e resiliente na tabela public.alunos (com prioridade por e-mail)
-async function buscarAlunoNoBanco(userId?: string | null, userEmail?: string | null): Promise<AlunoDbResult> {
+// 1. Consulta a tabela public.alunos filtrando pelo email (ilike('email', email.trim()))
+async function buscarAlunoPorEmail(userEmail?: string | null) {
   const emailLimpo = (userEmail || "").trim().toLowerCase();
-  let aDb: any = null;
+  if (!emailLimpo) return null;
 
-  // 1. Busca direta por E-MAIL via REST sem cache (prioridade absoluta para ignorar discrepâncias de ID)
-  if (emailLimpo) {
-    try {
-      const resEmail = await fetch(
-        `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}&select=*&t=${Date.now()}`,
-        {
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-          },
-          cache: "no-store",
-        }
-      );
-      if (resEmail.ok) {
-        const arrE = await resEmail.json();
-        if (Array.isArray(arrE) && arrE.length > 0) aDb = arrE[0];
+  try {
+    const { data: dAluno } = await supabase
+      .from("alunos")
+      .select("*")
+      .ilike("email", emailLimpo)
+      .maybeSingle();
+    if (dAluno) return dAluno;
+  } catch (_) {}
+
+  // Fallback REST sem cache
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}&select=*&t=${Date.now()}`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
       }
-    } catch (_) {}
-  }
+    );
+    if (res.ok) {
+      const arr = await res.json();
+      if (Array.isArray(arr) && arr.length > 0) return arr[0];
+    }
+  } catch (_) {}
 
-  // 2. Busca direta por ID se não achou por e-mail
-  if (!aDb && userId) {
-    try {
-      const resDirect = await fetch(
-        `${SUPABASE_URL}/rest/v1/alunos?id=eq.${userId}&select=*&t=${Date.now()}`,
-        {
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-          },
-          cache: "no-store",
-        }
-      );
-      if (resDirect.ok) {
-        const arr = await resDirect.json();
-        if (Array.isArray(arr) && arr.length > 0) aDb = arr[0];
-      }
-    } catch (_) {}
-  }
-
-  // 3. Fallback via SDK do Supabase
-  if (!aDb && emailLimpo) {
-    try {
-      const { data: dSdkEmail } = await supabase
-        .from("alunos")
-        .select("*")
-        .ilike("email", emailLimpo)
-        .maybeSingle();
-      if (dSdkEmail) aDb = dSdkEmail;
-    } catch (_) {}
-  }
-
-  if (!aDb && userId) {
-    try {
-      const { data: dSdkId } = await supabase
-        .from("alunos")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-      if (dSdkId) aDb = dSdkId;
-    } catch (_) {}
-  }
-
-  if (!aDb) {
-    return { encontrado: false, status: "nao_encontrado" };
-  }
-
-  // Avaliação dos campos gravados pelo Admin ('aprovado' ou 'ativo')
-  const whats = (aDb.whatsapp || "").toLowerCase().trim();
-  const st = (aDb.status || "").toLowerCase().trim();
-
-  if (
-    st === "ativo" ||
-    st === "aprovado" ||
-    whats.includes("aprovado") ||
-    whats.includes("ativo")
-  ) {
-    return { encontrado: true, status: "ativo", aluno: aDb };
-  }
-
-  if (
-    st === "bloqueado" ||
-    st === "suspenso" ||
-    whats.includes("bloqueado") ||
-    whats.includes("suspenso")
-  ) {
-    return { encontrado: true, status: "bloqueado", aluno: aDb };
-  }
-
-  return { encontrado: true, status: "pendente", aluno: aDb };
+  return null;
 }
 
-// Grava ou atualiza o aluno como pendente na tabela public.alunos garantindo compatibilidade imediata
-async function salvarAlunoPendenteNoBanco(userId?: string | null, userEmail?: string | null, userNome?: string | null) {
+// 3. Insere o registro na tabela public.alunos com o mesmo id retornado pelo signUp e email: email.trim().toLowerCase()
+async function salvarAlunoPendenteNoBanco(userId: string, userEmail: string, userNome?: string) {
   const emailLimpo = (userEmail || "").trim().toLowerCase();
   if (!emailLimpo) return false;
 
   const nomeFinal = (userNome || "").trim() || emailLimpo.split("@")[0] || "Aluno";
 
-  const payload: any = {
+  const payload = {
+    id: userId,
     nome: nomeFinal,
     email: emailLimpo,
     whatsapp: "pendente",
   };
-  if (userId) {
-    payload.id = userId;
-  }
 
-  // 1. Grava via REST direto com on_conflict=email (garante inserção e atualização sem violar constraint)
+  // 1. Inserção via REST com on_conflict=email (garante id e email consistentes)
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?on_conflict=email`, {
       method: "POST",
@@ -191,21 +119,7 @@ async function salvarAlunoPendenteNoBanco(userId?: string | null, userEmail?: st
       },
       body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      // Se a coluna status existir no banco, tenta atualizar também
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}`, {
-          method: "PATCH",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: "pendente" }),
-        });
-      } catch (_) {}
-      return true;
-    }
+    if (res.ok) return true;
   } catch (_) {}
 
   // 2. Fallback via SDK Supabase
@@ -248,7 +162,7 @@ function LoginForm() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          const userEmail = (session.user.email || "").toLowerCase();
+          const userEmail = (session.user.email || "").trim().toLowerCase();
           const userRole = session.user.user_metadata?.role || session.user.app_metadata?.role || "";
           const isAdmin =
             userEmail === "daniel@goplacas.com.br" ||
@@ -262,31 +176,18 @@ function LoginForm() {
             return;
           }
 
-          // Checa se o aluno está aprovado diretamente no banco de dados
-          const dbCheck = await buscarAlunoNoBanco(session.user.id, session.user.email);
+          // Consulta na tabela public.alunos filtrando pelo email
+          const aluno = await buscarAlunoPorEmail(userEmail);
+          const isAprovado = aluno?.whatsapp?.toLowerCase().trim().startsWith("aprovado");
 
-          // PRIORIDADE ABSOLUTA: Se o banco public.alunos diz que está ativo/aprovado, LIBERA IMEDIATAMENTE!
-          if (dbCheck.status === "ativo") {
-            try {
-              await supabase.auth.updateUser({ data: { status: "ativo", role: "aluno" } });
-            } catch (_) {}
-            router.push(redirectTo);
+          if (isAprovado) {
+            router.push(redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard");
             return;
           }
 
-          // Se não consta no banco (ex: após limpeza de testes), recria como pendente
-          if (dbCheck.status === "nao_encontrado" || !dbCheck.encontrado) {
-            await salvarAlunoPendenteNoBanco(session.user.id, session.user.email, session.user.user_metadata?.nome);
-          }
-
-          if (dbCheck.status === "bloqueado") {
-            setErrorMsg("Seu acesso está suspenso ou bloqueado pelo administrador. Entre em contato com o suporte.");
-            try { await supabase.auth.signOut(); } catch (_) {}
-            return;
-          }
-
-          setInfoMsg("A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve.");
+          // Se não estiver aprovado, desconecta sessão e exibe aviso amigável
           try { await supabase.auth.signOut(); } catch (_) {}
+          setInfoMsg("A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve.");
           return;
         }
       } catch (err) {
@@ -307,7 +208,8 @@ function LoginForm() {
 
     try {
       if (isSignUp) {
-        // 1. Chamar supabase.auth.signUp com email em minúsculo e senha
+        // 3. No formulário "Novo Cadastro":
+        // Chame supabase.auth.signUp({ email: email.trim().toLowerCase(), password }) e insira o registro na tabela public.alunos com o mesmo id retornado pelo signUp e email: email.trim().toLowerCase()
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: emailTrim,
           password,
@@ -333,12 +235,12 @@ function LoginForm() {
           return;
         }
 
-        // Garanta que o usuário seja gravado na tabela public.alunos com o mesmo e-mail em minúsculo e status pendente
+        // Insere o registro na tabela public.alunos com o mesmo id retornado pelo signUp e email: email.trim().toLowerCase()
         if (signUpData?.user) {
           const userId = signUpData.user.id;
           await salvarAlunoPendenteNoBanco(userId, emailTrim, nomeTrim);
 
-          // Se auto-confirm logou o usuário, desloga imediatamente para moderação no Admin
+          // Se auto-confirm logou o usuário, desloga imediatamente para que não acesse sem aprovação
           try {
             await supabase.auth.signOut();
           } catch (eSo) {
@@ -351,7 +253,7 @@ function LoginForm() {
           setErrorMsg("Conta criada no Auth, mas dados do usuário não retornados. Tente fazer login.");
         }
       } else {
-        // Login com E-mail e Senha
+        // 1. Na tela de Login (Entrar no GOPLAK):
         const { data, error } = await supabase.auth.signInWithPassword({
           email: emailTrim,
           password,
@@ -364,7 +266,7 @@ function LoginForm() {
         }
 
         if (data.session && data.user) {
-          const userEmail = (data.user.email || emailTrim).toLowerCase();
+          const userEmail = (data.user.email || emailTrim).trim().toLowerCase();
           const userRole = data.user.user_metadata?.role || data.user.app_metadata?.role || "";
 
           // Verificação de Administrador Master Oficial
@@ -384,11 +286,13 @@ function LoginForm() {
             return;
           }
 
-          // 2. Após o signInWithPassword ter sucesso, consulte a tabela public.alunos filtrando por email.trim().toLowerCase()
-          const dbCheck = await buscarAlunoNoBanco(data.user.id, userEmail);
+          // Após supabase.auth.signInWithPassword ter sucesso, consulte a tabela public.alunos filtrando pelo email (ilike('email', email.trim())), e NÃO apenas pelo id.
+          const aluno = await buscarAlunoPorEmail(userEmail);
 
-          // Se o registro existir na tabela public.alunos com status aprovado/ativo, libere o acesso ao painel do aluno imediatamente
-          if (dbCheck.encontrado && dbCheck.status === "ativo") {
+          // Considere o aluno APROVADO se aluno.whatsapp começar com 'aprovado' (ex: aluno?.whatsapp?.toLowerCase().startsWith('aprovado')).
+          const isAprovado = aluno?.whatsapp?.toLowerCase().trim().startsWith("aprovado");
+
+          if (isAprovado) {
             try {
               await supabase.auth.updateUser({ data: { status: "ativo", role: "aluno" } });
             } catch (_) {}
@@ -403,8 +307,9 @@ function LoginForm() {
             return;
           }
 
-          // Se estiver bloqueado
-          if (dbCheck.encontrado && dbCheck.status === "bloqueado") {
+          // Se estiver explicitamente bloqueado
+          const isBloqueado = aluno?.whatsapp?.toLowerCase().trim().startsWith("bloqueado");
+          if (isBloqueado) {
             setErrorMsg(
               "Seu acesso está suspenso ou bloqueado pelo administrador. Entre em contato com o suporte."
             );
@@ -415,12 +320,12 @@ function LoginForm() {
             return;
           }
 
-          // Se ainda não constar na tabela public.alunos (ou estiver pendente):
-          // Garante que o registro esteja em public.alunos com status pendente para que o Admin possa aprovar
-          if (!dbCheck.encontrado) {
+          // Se o aluno ainda não constar na tabela public.alunos, cadastra como pendente com o mesmo id
+          if (!aluno) {
             await salvarAlunoPendenteNoBanco(data.user.id, userEmail, data.user.user_metadata?.nome || "");
           }
 
+          // Só exiba a mensagem "A sua conta está aguardando liberação do administrador" se aluno.whatsapp NÃO começar com 'aprovado'.
           setErrorMsg(
             "A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve."
           );
@@ -479,9 +384,11 @@ function LoginForm() {
               type="button"
               onClick={async () => {
                 setLoading(true);
-                const dbRes = await buscarAlunoNoBanco("", email.trim().toLowerCase());
+                const userEmail = email.trim().toLowerCase();
+                const aluno = await buscarAlunoPorEmail(userEmail);
                 setLoading(false);
-                if (dbRes.status === "ativo") {
+                const isAprovado = aluno?.whatsapp?.toLowerCase().trim().startsWith("aprovado");
+                if (isAprovado) {
                   setCadastroPendenteInfo(false);
                   setIsSignUp(false);
                   setSuccessMsg("Conta aprovada com sucesso! Digite sua senha para acessar o painel.");

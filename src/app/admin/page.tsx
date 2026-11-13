@@ -2930,8 +2930,18 @@ export default function PainelDistribuidorAdmin() {
   const handleAlterarStatusAluno = async (alunoId: string, novoStatus: "ativo" | "bloqueado" | "pendente", alunoEmail?: string) => {
     setProcessandoStatusId(alunoId);
     try {
-      const whatsValor = novoStatus === "ativo" ? "aprovado" : novoStatus;
       const emailNormalizado = alunoEmail ? alunoEmail.trim().toLowerCase() : "";
+
+      // Preserva dados após || caso já existam (ex: metadados de diagnóstico/dispositivo)
+      const alunoAtual = alunos.find(
+        (a) => a.id === alunoId || (emailNormalizado && a.email?.toLowerCase() === emailNormalizado)
+      );
+      const currentWhats = alunoAtual?.whatsapp || "";
+      const extraData = currentWhats.includes("||")
+        ? "||" + currentWhats.split("||").slice(1).join("||")
+        : "";
+      const prefixo = novoStatus === "ativo" ? "aprovado" : novoStatus;
+      const whatsValor = prefixo + extraData;
 
       // 1. Atualiza estado local da UI instantaneamente
       setAlunos((prev) =>
@@ -2942,37 +2952,27 @@ export default function PainelDistribuidorAdmin() {
         )
       );
 
-      // 2. Dispara rota backend dedicada (executa com privilégios de servidor e atualiza Auth + Banco)
+      // 2. Dispara rota backend dedicada com chave administrativa
       try {
         await fetch("/api/admin-update-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ alunoId, email: emailNormalizado, status: novoStatus }),
+          body: JSON.stringify({ alunoId, email: emailNormalizado, status: novoStatus, whatsapp: whatsValor }),
         });
       } catch (errApi) {
         console.warn("Aviso na chamada da rota admin-update-status:", errApi);
       }
 
-      // 3. Persistência direta REST no Supabase com chave Anon (bypassa restrições de sessão RLS)
-      // 3.1 Atualiza por ID
-      if (alunoId) {
-        try {
-          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
-            method: "PATCH",
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              "Content-Type": "application/json",
-              Prefer: "return=representation",
-            },
-            body: JSON.stringify({ whatsapp: whatsValor }),
-          });
-        } catch (_) {}
-      }
-
-      // 3.2 Atualiza por E-mail (garantia absoluta mesmo se o ID divergir)
+      // 3. Atualização direta pelo E-mail na tabela public.alunos (prioridade)
       if (emailNormalizado) {
         try {
+          await supabase
+            .from("alunos")
+            .update({ whatsapp: whatsValor })
+            .ilike("email", emailNormalizado);
+        } catch (_) {}
+
+        try {
           await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailNormalizado)}`, {
             method: "PATCH",
             headers: {
@@ -2986,41 +2986,28 @@ export default function PainelDistribuidorAdmin() {
         } catch (_) {}
       }
 
-      // 4. Tenta persistir também na coluna status da tabela alunos via REST
-      try {
-        if (alunoId) {
-          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
-            method: "PATCH",
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ status: novoStatus }),
-          });
-        }
-        if (emailNormalizado) {
-          await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailNormalizado)}`, {
-            method: "PATCH",
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ status: novoStatus }),
-          });
-        }
-      } catch (_) {}
-
-      // 5. Também tenta atualizar via SDK
-      try {
-        if (alunoId) {
+      // 4. Atualização direta pelo ID na tabela public.alunos
+      if (alunoId) {
+        try {
           await supabase
             .from("alunos")
             .update({ whatsapp: whatsValor })
             .eq("id", alunoId);
-        }
-      } catch (_) {}
+        } catch (_) {}
+
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify({ whatsapp: whatsValor }),
+          });
+        } catch (_) {}
+      }
 
       if (novoStatus === "ativo") {
         confetti({ particleCount: 35, spread: 70, origin: { y: 0.7 } });
