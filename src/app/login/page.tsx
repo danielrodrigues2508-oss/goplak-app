@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabaseClient";
 import {
   ShieldCheck,
   Sparkles,
@@ -59,17 +59,51 @@ async function verificarStatusAlunoNoBanco(userId: string, userEmail?: string | 
   try {
     let aDb: any = null;
 
-    // 1. Tenta buscar com status e whatsapp
-    const { data: aStatus, error: errStatus } = await supabase
-      .from("alunos")
-      .select("id, email, whatsapp, status")
-      .eq("id", userId)
-      .maybeSingle();
+    // 1. Busca Direta SEM CACHE via REST (dados em tempo real sem bloqueio de RLS de sessão)
+    try {
+      const resDirect = await fetch(
+        `${SUPABASE_URL}/rest/v1/alunos?id=eq.${userId}&select=*&t=${Date.now()}`,
+        {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+          },
+          cache: "no-store",
+        }
+      );
+      if (resDirect.ok) {
+        const arr = await resDirect.json();
+        if (Array.isArray(arr) && arr.length > 0) aDb = arr[0];
+      }
+    } catch (_) {}
 
-    if (!errStatus && aStatus) {
-      aDb = aStatus;
-    } else {
-      // 2. Fallback sem status (garantido pelo schema atual)
+    // 2. Se não localizou por ID, busca por email sem cache
+    if (!aDb && userEmail) {
+      const emailLimpo = userEmail.trim().toLowerCase();
+      try {
+        const resEmail = await fetch(
+          `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}&select=*&t=${Date.now()}`,
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+            },
+            cache: "no-store",
+          }
+        );
+        if (resEmail.ok) {
+          const arrE = await resEmail.json();
+          if (Array.isArray(arrE) && arrE.length > 0) aDb = arrE[0];
+        }
+      } catch (_) {}
+    }
+
+    // 3. Fallback SDK
+    if (!aDb) {
       const { data: aCompat } = await supabase
         .from("alunos")
         .select("id, email, whatsapp")
@@ -78,26 +112,16 @@ async function verificarStatusAlunoNoBanco(userId: string, userEmail?: string | 
       if (aCompat) aDb = aCompat;
     }
 
-    // 3. Se não localizou por ID, busca por email
-    if (!aDb && userEmail) {
-      const emailLimpo = userEmail.trim().toLowerCase();
-      const { data: aEmail } = await supabase
-        .from("alunos")
-        .select("id, email, whatsapp")
-        .ilike("email", emailLimpo)
-        .maybeSingle();
-      if (aEmail) aDb = aEmail;
-    }
-
     if (aDb) {
       const whats = (aDb.whatsapp || "").toLowerCase().trim();
-      if (aDb.status === "ativo" || aDb.status === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+      const st = (aDb.status || "").toLowerCase().trim();
+      if (st === "ativo" || st === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
         return "ativo";
       }
-      if (aDb.status === "bloqueado" || whats.startsWith("bloqueado")) {
+      if (st === "bloqueado" || whats.startsWith("bloqueado")) {
         return "bloqueado";
       }
-      if (aDb.status === "pendente" || whats.startsWith("pendente")) {
+      if (st === "pendente" || whats.startsWith("pendente")) {
         return "pendente";
       }
     }

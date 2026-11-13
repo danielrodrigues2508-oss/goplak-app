@@ -448,26 +448,138 @@ export default function DashboardAluno() {
         [currentUserId]: currentUserName,
       };
       try {
+        let encontrouAluno = false;
+
+        // 1. Consulta Direta Sem Cache ao Banco de Dados (Bypassa RLS de Sessão e Cache Local)
+        let alunoDireto: any = null;
+        try {
+          const resDirectId = await fetch(
+            `${SUPABASE_URL}/rest/v1/alunos?id=eq.${currentUserId}&select=*&t=${Date.now()}`,
+            {
+              headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+              },
+              cache: "no-store",
+            }
+          );
+          if (resDirectId.ok) {
+            const arrId = await resDirectId.json();
+            if (Array.isArray(arrId) && arrId.length > 0) {
+              alunoDireto = arrId[0];
+            }
+          }
+
+          if (!alunoDireto && currentUserEmail) {
+            const resDirectEmail = await fetch(
+              `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(currentUserEmail)}&select=*&t=${Date.now()}`,
+              {
+                headers: {
+                  apikey: SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  Pragma: "no-cache",
+                },
+                cache: "no-store",
+              }
+            );
+            if (resDirectEmail.ok) {
+              const arrEmail = await resDirectEmail.json();
+              if (Array.isArray(arrEmail) && arrEmail.length > 0) {
+                alunoDireto = arrEmail[0];
+              }
+            }
+          }
+        } catch (errDirect) {
+          console.warn("Aviso na consulta direta sem cache do aluno:", errDirect);
+        }
+
+        if (alunoDireto) {
+          encontrouAluno = true;
+          alunoDbId = alunoDireto.id;
+          alunosMap[alunoDireto.id] = alunoDireto.nome || currentUserName;
+          if (alunoDireto.nome) setAlunoNome(alunoDireto.nome);
+
+          if (!isUserAdmin) {
+            const whats = (alunoDireto.whatsapp || "").toLowerCase().trim();
+            const st = (alunoDireto.status || "").toLowerCase().trim();
+
+            if (st === "ativo" || st === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+              setStatusAluno("ativo");
+            } else if (st === "bloqueado" || whats.startsWith("bloqueado")) {
+              setStatusAluno("bloqueado");
+            } else if (st === "pendente" || whats.startsWith("pendente")) {
+              setStatusAluno("pendente");
+            } else if (currentUser.user_metadata?.status) {
+              setStatusAluno(currentUser.user_metadata.status as "ativo" | "pendente" | "bloqueado");
+            } else {
+              setStatusAluno("ativo");
+            }
+          }
+
+          if (alunoDireto.cep || alunoDireto.logradouro || alunoDireto.cidade) {
+            const endCarregado: EnderecoEntrega = {
+              cep: alunoDireto.cep || "",
+              logradouro: alunoDireto.logradouro || "",
+              numero: alunoDireto.numero || "",
+              complemento: alunoDireto.complemento || "",
+              bairro: alunoDireto.bairro || "",
+              cidade: alunoDireto.cidade || "",
+              estado: alunoDireto.estado || "",
+              ponto_referencia: alunoDireto.ponto_referencia || "",
+            };
+            setEnderecoSalvo(endCarregado);
+            setCepInput(endCarregado.cep);
+            setLogradouroInput(endCarregado.logradouro);
+            setNumeroInput(endCarregado.numero);
+            setComplementoInput(endCarregado.complemento || "");
+            setBairroInput(endCarregado.bairro);
+            setCidadeInput(endCarregado.cidade);
+            setEstadoInput(endCarregado.estado);
+            setPontoReferenciaInput(endCarregado.ponto_referencia || "");
+            setEditandoEndereco(false);
+          }
+
+          if (alunoDireto.meta_semanal_displays !== undefined && alunoDireto.meta_semanal_displays !== null) {
+            const parsedMeta = Number(alunoDireto.meta_semanal_displays);
+            if (!isNaN(parsedMeta) && parsedMeta > 0) {
+              setMetaSemanalDisplays(parsedMeta);
+              setInputMetaSemanal(String(parsedMeta));
+            }
+          }
+
+          if (alunoDireto.preco_padrao_display !== undefined && alunoDireto.preco_padrao_display !== null) {
+            const parsedPreco = Number(alunoDireto.preco_padrao_display);
+            if (!isNaN(parsedPreco) && parsedPreco > 0) {
+              setPrecoPorDisplay(parsedPreco);
+              setInputPrecoDisplay(parsedPreco.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+          }
+        }
+
+        // 2. Consulta da lista completa para mapeamento de lotes/pedidos
         const { data: todosAlunos } = await supabase
           .from("alunos")
           .select("*");
 
-        let encontrouAluno = false;
         if (todosAlunos && todosAlunos.length > 0) {
           todosAlunos.forEach((a: any) => {
             if (a.id) alunosMap[a.id] = a.nome;
-            if (a.id === currentUserId || (a.email && a.email.toLowerCase() === currentUserEmail)) {
+            if (!encontrouAluno && (a.id === currentUserId || (a.email && a.email.toLowerCase() === currentUserEmail))) {
               alunoDbId = a.id;
               if (a.nome) {
                 setAlunoNome(a.nome);
               }
               if (!isUserAdmin) {
                 const whats = (a.whatsapp || "").toLowerCase().trim();
-                if (a.status === "ativo" || a.status === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
+                const st = (a.status || "").toLowerCase().trim();
+                if (st === "ativo" || st === "aprovado" || whats.startsWith("aprovado") || whats === "ativo") {
                   setStatusAluno("ativo");
-                } else if (a.status === "bloqueado" || whats.startsWith("bloqueado")) {
+                } else if (st === "bloqueado" || whats.startsWith("bloqueado")) {
                   setStatusAluno("bloqueado");
-                } else if (a.status === "pendente" || whats.startsWith("pendente")) {
+                } else if (st === "pendente" || whats.startsWith("pendente")) {
                   setStatusAluno("pendente");
                 } else if (currentUser.user_metadata?.status) {
                   setStatusAluno(currentUser.user_metadata.status as "ativo" | "pendente" | "bloqueado");

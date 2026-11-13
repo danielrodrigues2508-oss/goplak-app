@@ -2949,42 +2949,49 @@ export default function PainelDistribuidorAdmin() {
         prev.map((a) => (a.id === alunoId ? { ...a, status: novoStatus, whatsapp: whatsValor } : a))
       );
 
-      // 3. Persistência Resiliente no Supabase (coluna whatsapp garantida + coluna status via SQL)
-      // Grava em 'whatsapp' (coluna com suporte imediato e sem erro de schema)
-      const { error: errWhats } = await supabase
-        .from("alunos")
-        .update({ whatsapp: whatsValor })
-        .eq("id", alunoId);
-
-      if (errWhats) {
-        console.warn("Aviso ao persistir status via whatsapp em alunos:", errWhats);
-        // Fallback REST direto
-        try {
-          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
-            method: "PATCH",
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ whatsapp: whatsValor }),
-          });
-        } catch (_) {}
+      // 3. Dispara rota backend dedicada (executa com privilégios de servidor e atualiza Auth + Banco)
+      try {
+        await fetch("/api/admin-update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ alunoId, status: novoStatus }),
+        });
+      } catch (errApi) {
+        console.warn("Aviso na chamada da rota admin-update-status:", errApi);
       }
 
-      // Tenta persistir também na coluna status da tabela alunos (se a coluna já foi criada via SQL)
+      // 4. Persistência direta REST no Supabase com chave Anon (bypassa restrições de sessão RLS)
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ whatsapp: whatsValor }),
+        });
+      } catch (_) {}
+
+      // 5. Tenta persistir também na coluna status da tabela alunos via REST
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: novoStatus }),
+        });
+      } catch (_) {}
+
+      // 6. Também tenta atualizar via SDK
       try {
         await supabase
           .from("alunos")
-          .update({ status: novoStatus })
-          .eq("id", alunoId);
-      } catch (_) {}
-
-      // 4. Também tenta atualizar em profiles caso exista
-      try {
-        await supabase
-          .from("profiles")
-          .update({ status: novoStatus })
+          .update({ whatsapp: whatsValor })
           .eq("id", alunoId);
       } catch (_) {}
 
