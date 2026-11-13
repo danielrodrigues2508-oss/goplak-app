@@ -93,26 +93,40 @@ async function buscarAlunoPorEmail(userEmail?: string | null) {
   return null;
 }
 
-// 3. Insere o registro na tabela public.alunos com o mesmo id retornado pelo signUp e email: email.trim().toLowerCase()
+// 3. Insere ou atualiza o registro na tabela public.alunos filtrando EXCLUSIVAMENTE pelo email
 async function salvarAlunoPendenteNoBanco(userId: string, userEmail: string, userNome?: string) {
   const emailLimpo = (userEmail || "").trim().toLowerCase();
   if (!emailLimpo) return false;
 
-  // Verifica se o aluno já existe e já está aprovado para nunca reverter status de quem já é aprovado
+  // Verifica se o aluno já existe na tabela public.alunos
   const alunoExistente = await buscarAlunoPorEmail(emailLimpo);
   const whatsExistente = (alunoExistente?.whatsapp || "").toLowerCase().trim();
   const jaAprovado = whatsExistente.includes("aprovado") || whatsExistente.includes("ativo");
 
   const nomeFinal = (userNome || "").trim() || emailLimpo.split("@")[0] || "Aluno";
 
-  const payload = {
-    id: userId,
+  if (alunoExistente) {
+    // Aluno já existe: atualiza nome preservando ID existente e aprovação (sem causar erro 400 de chave)
+    try {
+      await supabase
+        .from("alunos")
+        .update({
+          nome: nomeFinal,
+          whatsapp: jaAprovado ? alunoExistente.whatsapp : (alunoExistente.whatsapp || "pendente"),
+        })
+        .ilike("email", emailLimpo);
+      return true;
+    } catch (_) {}
+  }
+
+  const payload: any = {
     nome: nomeFinal,
     email: emailLimpo,
-    whatsapp: jaAprovado ? alunoExistente.whatsapp : "pendente",
+    whatsapp: jaAprovado ? alunoExistente?.whatsapp : "pendente",
   };
+  if (userId) payload.id = userId;
 
-  // 1. Inserção via REST com on_conflict=email (garante id e email consistentes)
+  // 1. Inserção via REST com on_conflict=email
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?on_conflict=email`, {
       method: "POST",
@@ -330,20 +344,9 @@ function LoginForm() {
 
           // Se alunoData?.whatsapp contiver 'aprovado' (ou 'ativo'), libere o acesso ao painel imediatamente
           const whats = (aluno?.whatsapp || "").toLowerCase().trim();
-          const st = (aluno?.status || "").toLowerCase().trim();
-          const metaStatus = (data.user.user_metadata?.status || "").toLowerCase().trim();
-          const isAprovado =
-            whats.includes("aprovado") ||
-            whats.includes("ativo") ||
-            st === "ativo" ||
-            st === "aprovado" ||
-            metaStatus === "ativo";
+          const isAprovado = whats.includes("aprovado") || whats.includes("ativo");
 
           if (isAprovado) {
-            try {
-              await supabase.auth.updateUser({ data: { status: "ativo", role: "aluno" } });
-            } catch (_) {}
-
             setSuccessMsg("Login realizado com sucesso! Redirecionando...");
             const destinoFinal =
               redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard";

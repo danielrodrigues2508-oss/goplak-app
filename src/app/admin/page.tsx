@@ -469,57 +469,35 @@ export default function PainelDistribuidorAdmin() {
 
       console.log("Iniciando busca de dados do Admin...");
 
-      // 1. Puxar Alunos (Compatibilidade Resiliente com/sem coluna status e profiles)
+      // 1. Puxar Alunos diretamente na tabela public.alunos (sem profiles e sem status inexistente)
       let listaAlunos: Aluno[] = [];
       try {
         let dadosAlunos: any[] = [];
 
-        // 1.1 Tenta buscar com status na tabela alunos
-        const { data: aDataComStatus, error: errComStatus } = await supabase
+        // 1.1 Busca direta com colunas existentes na tabela public.alunos
+        const { data: aData, error: errAlunos } = await supabase
           .from("alunos")
-          .select("id, nome, email, status, whatsapp, created_at")
+          .select("id, nome, email, whatsapp, created_at")
           .order("created_at", { ascending: false });
 
-        if (!errComStatus && aDataComStatus && aDataComStatus.length > 0) {
-          dadosAlunos = aDataComStatus;
+        if (!errAlunos && aData && aData.length > 0) {
+          dadosAlunos = aData;
         } else {
-          // 1.2 Fallback: busca com whatsapp (compatibilidade garantida no banco)
-          const { data: aDataSemStatus, error: errSemStatus } = await supabase
-            .from("alunos")
-            .select("id, nome, email, whatsapp, created_at")
-            .order("created_at", { ascending: false });
-
-          if (!errSemStatus && aDataSemStatus && aDataSemStatus.length > 0) {
-            dadosAlunos = aDataSemStatus;
-          } else {
-            // 1.3 Fallback: tenta buscar na tabela profiles caso exista
-            try {
-              const { data: pData } = await supabase
-                .from("profiles")
-                .select("*")
-                .order("created_at", { ascending: false });
-              if (pData && pData.length > 0) {
-                dadosAlunos = pData;
-              }
-            } catch (_) {}
-
-            // 1.4 Fallback REST direto
-            if (dadosAlunos.length === 0) {
-              try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,whatsapp,created_at&order=created_at.desc`, {
-                  headers: {
-                    apikey: SUPABASE_ANON_KEY,
-                    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                  },
-                });
-                if (res.ok) {
-                  const d = await res.json();
-                  if (Array.isArray(d)) dadosAlunos = d;
-                }
-              } catch (restErr) {
-                console.error("Erro no fallback REST de alunos:", restErr);
-              }
+          // 1.2 Fallback REST sem cache
+          try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos?select=id,nome,email,whatsapp,created_at&order=created_at.desc`, {
+              headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+              },
+            });
+            if (res.ok) {
+              const d = await res.json();
+              if (Array.isArray(d)) dadosAlunos = d;
             }
+          } catch (restErr) {
+            console.error("Erro no fallback REST de alunos:", restErr);
           }
         }
 
@@ -593,32 +571,16 @@ export default function PainelDistribuidorAdmin() {
         setAlunoSelecionado(listaAlunos[0].id);
       }
 
-      // 1.1 Puxar Alunos Autorizados (Whitelist)
+      // 1.1 Recuperar Alunos Autorizados (Whitelist local sem queries a tabelas inexistentes)
       try {
-        const { data: authData, error: errAuth } = await supabase
-          .from("alunos_autorizados")
-          .select("*")
-          .order("criado_em", { ascending: false });
-
-        if (!errAuth && authData) {
-          setListaAutorizados(authData);
-        } else {
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/alunos_autorizados?select=*&order=criado_em.desc`, {
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data)) {
-              setListaAutorizados(data);
-            }
+        if (typeof window !== "undefined") {
+          const cachedWhitelist = localStorage.getItem("goplak_whitelist");
+          if (cachedWhitelist) {
+            const parsed = JSON.parse(cachedWhitelist);
+            if (Array.isArray(parsed)) setListaAutorizados(parsed);
           }
         }
-      } catch (errAuth) {
-        console.warn("Aviso ao buscar alunos_autorizados:", errAuth);
-      }
+      } catch (_) {}
 
       // 2. Query de Placas
       let listaPlacas: PlacaRecord[] = [];
@@ -2849,38 +2811,23 @@ export default function PainelDistribuidorAdmin() {
         return;
       }
 
-      const registrosParaInserir = entradas.map((em) => ({
+      const registrosParaInserir: AlunoAutorizado[] = entradas.map((em) => ({
+        id: `auth-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         email: em,
-        nome: entradas.length === 1 && novoNomeAutorizar.trim() ? novoNomeAutorizar.trim() : null,
+        nome: entradas.length === 1 && novoNomeAutorizar.trim() ? novoNomeAutorizar.trim() : undefined,
+        criado_em: new Date().toISOString(),
       }));
 
-      const { error } = await supabase
-        .from("alunos_autorizados")
-        .upsert(registrosParaInserir, { onConflict: "email", ignoreDuplicates: true });
-
-      if (error) {
-        console.warn("Erro upsert alunos_autorizados SDK:", error);
-        await fetch(`${SUPABASE_URL}/rest/v1/alunos_autorizados`, {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "resolution=ignore-duplicates,return=representation",
-          },
-          body: JSON.stringify(registrosParaInserir),
-        });
-      }
-
-      // Recarrega lista de autorizados
-      const { data: recarregados } = await supabase
-        .from("alunos_autorizados")
-        .select("*")
-        .order("criado_em", { ascending: false });
-
-      if (recarregados) {
-        setListaAutorizados(recarregados);
-      }
+      // Atualiza lista de autorizados localmente e no localStorage
+      setListaAutorizados((prev) => {
+        const combinados = [...registrosParaInserir, ...prev];
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("goplak_whitelist", JSON.stringify(combinados));
+          } catch (_) {}
+        }
+        return combinados;
+      });
 
       setNovoEmailAutorizar("");
       setNovoNomeAutorizar("");
@@ -2902,22 +2849,15 @@ export default function PainelDistribuidorAdmin() {
 
     setRemovendoAutorizadoId(id);
     try {
-      const { error } = await supabase
-        .from("alunos_autorizados")
-        .delete()
-        .eq("id", id);
-
-      if (error) {
-        await fetch(`${SUPABASE_URL}/rest/v1/alunos_autorizados?id=eq.${id}`, {
-          method: "DELETE",
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-        });
-      }
-
-      setListaAutorizados((prev) => prev.filter((a) => a.id !== id));
+      setListaAutorizados((prev) => {
+        const filtrados = prev.filter((a) => a.id !== id && a.email !== email);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("goplak_whitelist", JSON.stringify(filtrados));
+          } catch (_) {}
+        }
+        return filtrados;
+      });
     } catch (err) {
       console.error("Erro ao remover autorizado:", err);
       alert("Não foi possível remover o e-mail da lista.");
@@ -2963,7 +2903,7 @@ export default function PainelDistribuidorAdmin() {
         console.warn("Aviso na chamada da rota admin-update-status:", errApi);
       }
 
-      // 3. Atualização direta pelo E-mail na tabela public.alunos (prioridade)
+      // 3. Atualização direta pelo E-mail na tabela public.alunos (exclusiva por email)
       if (emailNormalizado) {
         try {
           await supabase
@@ -2974,29 +2914,6 @@ export default function PainelDistribuidorAdmin() {
 
         try {
           await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailNormalizado)}`, {
-            method: "PATCH",
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              "Content-Type": "application/json",
-              Prefer: "return=representation",
-            },
-            body: JSON.stringify({ whatsapp: whatsValor }),
-          });
-        } catch (_) {}
-      }
-
-      // 4. Atualização direta pelo ID na tabela public.alunos
-      if (alunoId) {
-        try {
-          await supabase
-            .from("alunos")
-            .update({ whatsapp: whatsValor })
-            .eq("id", alunoId);
-        } catch (_) {}
-
-        try {
-          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
             method: "PATCH",
             headers: {
               apikey: SUPABASE_ANON_KEY,
@@ -3048,16 +2965,20 @@ export default function PainelDistribuidorAdmin() {
       // 2. Atualizar estado local instantaneamente para feedback imediato
       setAlunos((prev) => prev.filter((a) => a.id !== alunoId));
 
-      // 3. Deletar do Supabase (tabela alunos)
-      const { error: errDel } = await supabase
-        .from("alunos")
-        .delete()
-        .eq("id", alunoId);
-
-      if (errDel) {
-        console.warn("Aviso ao deletar aluno via SDK:", errDel);
+      // 3. Deletar da tabela public.alunos EXCLUSIVAMENTE pelo email
+      const emailLimpo = (email || "").trim().toLowerCase();
+      if (emailLimpo) {
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/alunos?id=eq.${alunoId}`, {
+          await supabase
+            .from("alunos")
+            .delete()
+            .ilike("email", emailLimpo);
+        } catch (errDel) {
+          console.warn("Aviso ao deletar aluno via SDK:", errDel);
+        }
+
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}`, {
             method: "DELETE",
             headers: {
               apikey: SUPABASE_ANON_KEY,
@@ -3067,15 +2988,7 @@ export default function PainelDistribuidorAdmin() {
         } catch (_) {}
       }
 
-      // 4. Também deletar de profiles se existir
-      try {
-        await supabase
-          .from("profiles")
-          .delete()
-          .eq("id", alunoId);
-      } catch (_) {}
-
-      // 5. Chamar API route para deletar do Supabase Auth
+      // 4. Chamar API route para deletar do Supabase Auth
       try {
         await fetch("/api/admin-delete-user", {
           method: "POST",

@@ -44,14 +44,6 @@ export async function POST(request: Request) {
             .maybeSingle();
           if (dCheckEmail?.whatsapp) existingWhats = dCheckEmail.whatsapp;
         }
-        if (!existingWhats && alunoId) {
-          const { data: dCheckId } = await adminClient
-            .from("alunos")
-            .select("whatsapp")
-            .eq("id", alunoId)
-            .maybeSingle();
-          if (dCheckId?.whatsapp) existingWhats = dCheckId.whatsapp;
-        }
       } catch (_) {}
 
       const extraData = existingWhats.includes("||")
@@ -64,7 +56,7 @@ export async function POST(request: Request) {
     let atualizouComSucesso = false;
     let detalhesErro = "";
 
-    // 1. Atualizar na coluna whatsapp por E-mail (prioridade absoluta) e por ID
+    // 1. Atualizar na coluna whatsapp EXCLUSIVAMENTE por E-mail
     try {
       if (emailLimpo) {
         const { data: dWhatsEmail, error: errWhatsEmail } = await adminClient
@@ -75,61 +67,30 @@ export async function POST(request: Request) {
 
         if (!errWhatsEmail && dWhatsEmail && dWhatsEmail.length > 0) {
           atualizouComSucesso = true;
-        }
-      }
-
-      if (alunoId) {
-        const { data: dWhats, error: errWhats } = await adminClient
-          .from("alunos")
-          .update({ whatsapp: whatsValor })
-          .eq("id", alunoId)
-          .select();
-
-        if (!errWhats && dWhats && dWhats.length > 0) {
-          atualizouComSucesso = true;
-        } else if (errWhats && !atualizouComSucesso) {
-          detalhesErro = errWhats.message;
+        } else if (errWhatsEmail) {
+          detalhesErro = errWhatsEmail.message;
         }
       }
     } catch (eW: any) {
       detalhesErro = eW.message;
     }
 
-    // 2. Fallback REST direto
-    if (!atualizouComSucesso) {
+    // 2. Fallback REST direto EXCLUSIVAMENTE por E-mail
+    if (!atualizouComSucesso && emailLimpo) {
       try {
-        if (emailLimpo) {
-          const patchResEmail = await fetch(`${supabaseUrl}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}`, {
-            method: "PATCH",
-            headers: {
-              apikey: serviceRoleKey,
-              Authorization: `Bearer ${serviceRoleKey}`,
-              "Content-Type": "application/json",
-              Prefer: "return=representation",
-            },
-            body: JSON.stringify({ whatsapp: whatsValor }),
-          });
-          if (patchResEmail.ok) {
-            const patchedE = await patchResEmail.json();
-            if (Array.isArray(patchedE) && patchedE.length > 0) atualizouComSucesso = true;
-          }
-        }
-
-        if (alunoId) {
-          const patchRes = await fetch(`${supabaseUrl}/rest/v1/alunos?id=eq.${alunoId}`, {
-            method: "PATCH",
-            headers: {
-              apikey: serviceRoleKey,
-              Authorization: `Bearer ${serviceRoleKey}`,
-              "Content-Type": "application/json",
-              Prefer: "return=representation",
-            },
-            body: JSON.stringify({ whatsapp: whatsValor }),
-          });
-          if (patchRes.ok) {
-            const patched = await patchRes.json();
-            if (Array.isArray(patched) && patched.length > 0) atualizouComSucesso = true;
-          }
+        const patchResEmail = await fetch(`${supabaseUrl}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}`, {
+          method: "PATCH",
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ whatsapp: whatsValor }),
+        });
+        if (patchResEmail.ok) {
+          const patchedE = await patchResEmail.json();
+          if (Array.isArray(patchedE) && patchedE.length > 0) atualizouComSucesso = true;
         }
       } catch (fErr: any) {
         console.warn("Aviso no fallback fetch da rota admin-update-status:", fErr);

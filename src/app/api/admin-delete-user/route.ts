@@ -19,13 +19,12 @@ export async function POST(request: Request) {
       },
     });
 
-    // 1. Deletar da tabela alunos
-    await adminClient.from("alunos").delete().eq("id", userId);
-
-    // 2. Deletar da tabela profiles caso exista
-    try {
-      await adminClient.from("profiles").delete().eq("id", userId);
-    } catch (_) {}
+    // 1. Deletar da tabela public.alunos EXCLUSIVAMENTE pelo email
+    if (email) {
+      await adminClient.from("alunos").delete().ilike("email", String(email).trim().toLowerCase());
+    } else if (userId) {
+      await adminClient.from("alunos").delete().eq("id", userId);
+    }
 
     // 3. Tentar deletar do Supabase Auth se chave de serviço estiver configurada
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {

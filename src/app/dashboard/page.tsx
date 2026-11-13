@@ -2477,18 +2477,17 @@ export default function DashboardAluno() {
         console.warn("Aviso ao salvar meta no Auth:", eAuth);
       }
 
-      // 4. Atualizar na tabela alunos se o registro existir
-      if (alunoId) {
+      // 4. Atualizar na tabela alunos se o registro existir (exclusivamente por email)
+      if (currentUserEmail) {
         try {
           await supabase
             .from("alunos")
             .update({
-              meta_semanal_displays: novaMetaNum,
               preco_padrao_display: precoFinal,
             })
-            .eq("id", alunoId);
+            .ilike("email", currentUserEmail.trim());
         } catch (eAlu) {
-          console.warn("Aviso ao salvar meta na tabela alunos:", eAlu);
+          console.warn("Aviso ao salvar na tabela alunos:", eAlu);
         }
       }
 
