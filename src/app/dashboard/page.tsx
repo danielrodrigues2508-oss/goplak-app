@@ -450,50 +450,39 @@ export default function DashboardAluno() {
       try {
         let encontrouAluno = false;
 
-        // 1. Consulta Direta Sem Cache ao Banco de Dados (Bypassa RLS de Sessão e Cache Local)
+        // 1. Consulta ao Banco de Dados filtrando EXCLUSIVAMENTE por e-mail (sem query por id)
         let alunoDireto: any = null;
         try {
-          const resDirectId = await fetch(
-            `${SUPABASE_URL}/rest/v1/alunos?id=eq.${currentUserId}&select=*&t=${Date.now()}`,
-            {
-              headers: {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                Pragma: "no-cache",
-              },
-              cache: "no-store",
-            }
-          );
-          if (resDirectId.ok) {
-            const arrId = await resDirectId.json();
-            if (Array.isArray(arrId) && arrId.length > 0) {
-              alunoDireto = arrId[0];
-            }
-          }
+          if (currentUserEmail) {
+            const { data: dAlunoSdk } = await supabase
+              .from("alunos")
+              .select("*")
+              .ilike("email", currentUserEmail.trim())
+              .maybeSingle();
+            if (dAlunoSdk) alunoDireto = dAlunoSdk;
 
-          if (!alunoDireto && currentUserEmail) {
-            const resDirectEmail = await fetch(
-              `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(currentUserEmail)}&select=*&t=${Date.now()}`,
-              {
-                headers: {
-                  apikey: SUPABASE_ANON_KEY,
-                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                  "Cache-Control": "no-cache, no-store, must-revalidate",
-                  Pragma: "no-cache",
-                },
-                cache: "no-store",
-              }
-            );
-            if (resDirectEmail.ok) {
-              const arrEmail = await resDirectEmail.json();
-              if (Array.isArray(arrEmail) && arrEmail.length > 0) {
-                alunoDireto = arrEmail[0];
+            if (!alunoDireto) {
+              const resDirectEmail = await fetch(
+                `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(currentUserEmail.trim())}&select=*`,
+                {
+                  headers: {
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                  },
+                  cache: "no-store",
+                }
+              );
+              if (resDirectEmail.ok) {
+                const arrEmail = await resDirectEmail.json();
+                if (Array.isArray(arrEmail) && arrEmail.length > 0) {
+                  alunoDireto = arrEmail[0];
+                }
               }
             }
           }
         } catch (errDirect) {
-          console.warn("Aviso na consulta direta sem cache do aluno:", errDirect);
+          console.warn("Aviso na consulta do aluno por email:", errDirect);
         }
 
         if (alunoDireto) {

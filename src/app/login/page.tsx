@@ -73,7 +73,7 @@ async function buscarAlunoPorEmail(userEmail?: string | null) {
   // Fallback REST sem cache
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}&select=*&t=${Date.now()}`,
+      `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}&select=*`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -98,13 +98,18 @@ async function salvarAlunoPendenteNoBanco(userId: string, userEmail: string, use
   const emailLimpo = (userEmail || "").trim().toLowerCase();
   if (!emailLimpo) return false;
 
+  // Verifica se o aluno já existe e já está aprovado para nunca reverter status de quem já é aprovado
+  const alunoExistente = await buscarAlunoPorEmail(emailLimpo);
+  const whatsExistente = (alunoExistente?.whatsapp || "").toLowerCase().trim();
+  const jaAprovado = whatsExistente.includes("aprovado") || whatsExistente.includes("ativo");
+
   const nomeFinal = (userNome || "").trim() || emailLimpo.split("@")[0] || "Aluno";
 
   const payload = {
     id: userId,
     nome: nomeFinal,
     email: emailLimpo,
-    whatsapp: "pendente",
+    whatsapp: jaAprovado ? alunoExistente.whatsapp : "pendente",
   };
 
   // 1. Inserção via REST com on_conflict=email (garante id e email consistentes)
@@ -176,9 +181,15 @@ function LoginForm() {
             return;
           }
 
-          // Consulta na tabela public.alunos filtrando pelo email
+          // Consulta na tabela public.alunos filtrando EXCLUSIVAMENTE pelo email
           const aluno = await buscarAlunoPorEmail(userEmail);
-          const isAprovado = aluno?.whatsapp?.toLowerCase().trim().startsWith("aprovado");
+          const whats = (aluno?.whatsapp || "").toLowerCase().trim();
+          const st = (aluno?.status || "").toLowerCase().trim();
+          const isAprovado =
+            whats.includes("aprovado") ||
+            whats.includes("ativo") ||
+            st === "ativo" ||
+            st === "aprovado";
 
           if (isAprovado) {
             router.push(redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard");
@@ -285,20 +296,21 @@ function LoginForm() {
             return;
           }
 
-          // 1. Na função de login, logo após signInWithPassword, faça uma query direta e simples:
-          const { data: alunoData, error: alunoError } = await supabase
+          // 1. Na função de login, logo após signInWithPassword, consulta EXCLUSIVA por email (sem query por id e sem param &t=)
+          const emailLimpo = emailTrim;
+          const { data: alunoData } = await supabase
             .from("alunos")
             .select("*")
-            .ilike("email", email.trim())
+            .ilike("email", emailLimpo)
             .maybeSingle();
 
           let aluno = alunoData;
 
-          // Fallback REST sem cache (garante leitura com chave Anon mesmo sob RLS de sessão)
+          // Fallback REST sem cache (garante leitura com chave Anon sem param &t= que gera erro 400 no PostgREST)
           if (!aluno) {
             try {
               const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(email.trim().toLowerCase())}&select=*&t=${Date.now()}`,
+                `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(emailLimpo)}&select=*`,
                 {
                   headers: {
                     apikey: SUPABASE_ANON_KEY,
@@ -316,8 +328,16 @@ function LoginForm() {
             } catch (_) {}
           }
 
-          // Considere o aluno APROVADO se aluno.whatsapp começar com 'aprovado' (ex: aluno?.whatsapp?.toLowerCase().startsWith('aprovado')).
-          const isAprovado = aluno?.whatsapp?.toLowerCase()?.trim()?.startsWith("aprovado");
+          // Se alunoData?.whatsapp contiver 'aprovado' (ou 'ativo'), libere o acesso ao painel imediatamente
+          const whats = (aluno?.whatsapp || "").toLowerCase().trim();
+          const st = (aluno?.status || "").toLowerCase().trim();
+          const metaStatus = (data.user.user_metadata?.status || "").toLowerCase().trim();
+          const isAprovado =
+            whats.includes("aprovado") ||
+            whats.includes("ativo") ||
+            st === "ativo" ||
+            st === "aprovado" ||
+            metaStatus === "ativo";
 
           if (isAprovado) {
             try {
