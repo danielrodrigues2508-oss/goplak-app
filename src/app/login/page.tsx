@@ -185,9 +185,8 @@ function LoginForm() {
             return;
           }
 
-          // Se não estiver aprovado, desconecta sessão e exibe aviso amigável
+          // Se não estiver aprovado, apenas finaliza a sessão silenciosamente
           try { await supabase.auth.signOut(); } catch (_) {}
-          setInfoMsg("A sua conta está aguardando liberação do administrador. Você receberá a confirmação em breve.");
           return;
         }
       } catch (err) {
@@ -286,11 +285,39 @@ function LoginForm() {
             return;
           }
 
-          // Após supabase.auth.signInWithPassword ter sucesso, consulte a tabela public.alunos filtrando pelo email (ilike('email', email.trim())), e NÃO apenas pelo id.
-          const aluno = await buscarAlunoPorEmail(userEmail);
+          // 1. Na função de login, logo após signInWithPassword, faça uma query direta e simples:
+          const { data: alunoData, error: alunoError } = await supabase
+            .from("alunos")
+            .select("*")
+            .ilike("email", email.trim())
+            .maybeSingle();
+
+          let aluno = alunoData;
+
+          // Fallback REST sem cache (garante leitura com chave Anon mesmo sob RLS de sessão)
+          if (!aluno) {
+            try {
+              const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/alunos?email=ilike.${encodeURIComponent(email.trim().toLowerCase())}&select=*&t=${Date.now()}`,
+                {
+                  headers: {
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    Pragma: "no-cache",
+                  },
+                  cache: "no-store",
+                }
+              );
+              if (res.ok) {
+                const arr = await res.json();
+                if (Array.isArray(arr) && arr.length > 0) aluno = arr[0];
+              }
+            } catch (_) {}
+          }
 
           // Considere o aluno APROVADO se aluno.whatsapp começar com 'aprovado' (ex: aluno?.whatsapp?.toLowerCase().startsWith('aprovado')).
-          const isAprovado = aluno?.whatsapp?.toLowerCase().trim().startsWith("aprovado");
+          const isAprovado = aluno?.whatsapp?.toLowerCase()?.trim()?.startsWith("aprovado");
 
           if (isAprovado) {
             try {
@@ -308,7 +335,7 @@ function LoginForm() {
           }
 
           // Se estiver explicitamente bloqueado
-          const isBloqueado = aluno?.whatsapp?.toLowerCase().trim().startsWith("bloqueado");
+          const isBloqueado = aluno?.whatsapp?.toLowerCase()?.trim()?.startsWith("bloqueado");
           if (isBloqueado) {
             setErrorMsg(
               "Seu acesso está suspenso ou bloqueado pelo administrador. Entre em contato com o suporte."
@@ -318,11 +345,6 @@ function LoginForm() {
             } catch (_) {}
             setLoading(false);
             return;
-          }
-
-          // Se o aluno ainda não constar na tabela public.alunos, cadastra como pendente com o mesmo id
-          if (!aluno) {
-            await salvarAlunoPendenteNoBanco(data.user.id, userEmail, data.user.user_metadata?.nome || "");
           }
 
           // Só exiba a mensagem "A sua conta está aguardando liberação do administrador" se aluno.whatsapp NÃO começar com 'aprovado'.
