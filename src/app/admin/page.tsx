@@ -56,6 +56,7 @@ import {
   Copy,
   UserPlus,
   KeyRound,
+  ArrowRightLeft,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { exportarLoteEmFatiasZip, COST_PER_UNIT, DisplayItem } from "@/lib/exportGraficaZip";
@@ -123,6 +124,7 @@ interface PlacaRecord {
   aluno_id?: string;
   nome_empresa?: string;
   link_google_review?: string;
+  link_destino?: string;
   whatsapp_feedback?: string;
   escudo_ativo?: boolean;
   total_scans?: number;
@@ -323,6 +325,20 @@ export default function PainelDistribuidorAdmin() {
   const [transportadoraInput, setTransportadoraInput] = useState("Correios");
   const [rastreioInput, setRastreioInput] = useState("");
   const [salvandoDespacho, setSalvandoDespacho] = useState(false);
+
+  // Modal de Transferência de Estoque Admin para Aluno
+  const [modalTransferirEstoqueAberto, setModalTransferirEstoqueAberto] = useState(false);
+  const [alunoDestinatarioTransferencia, setAlunoDestinatarioTransferencia] = useState<string>("");
+  const [qtdTransferencia, setQtdTransferencia] = useState<number>(10);
+  const [transferindoEstoque, setTransferindoEstoque] = useState(false);
+  const [transferenciaConcluida, setTransferenciaConcluida] = useState<{
+    alunoNome: string;
+    quantidade: number;
+    codigos: string[];
+    codInicio: string;
+    codFim: string;
+  } | null>(null);
+  const [copiadoCodigosTransferidos, setCopiadoCodigosTransferidos] = useState(false);
 
   // Gestão de Caixa Real & Estoque Físico da Fábrica
   const [configFabricaId, setConfigFabricaId] = useState<string | null>(null);
@@ -2823,6 +2839,100 @@ export default function PainelDistribuidorAdmin() {
     }
   };
 
+  // Handler para Transferência em Massa de Estoque Admin para Aluno
+  const handleTransferirEstoque = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const danielId = "403183b5-02f6-46a7-b448-7658c5087ec4";
+
+    // 1. Obter placas virgens do Admin em ordem crescente de código
+    const disponiveis = placasCadastradas
+      .filter((p) => {
+        const isDonoAdmin = p.aluno_id === danielId || !p.aluno_id;
+        const isVirgem = p.status === "virgem" && !p.nome_empresa && !p.link_google_review && !p.link_destino;
+        return isDonoAdmin && isVirgem;
+      })
+      .sort((a, b) => {
+        const numA = parseInt((a.codigo || "").replace(/\D/g, "") || "0", 10);
+        const numB = parseInt((b.codigo || "").replace(/\D/g, "") || "0", 10);
+        return numA - numB;
+      });
+
+    if (disponiveis.length === 0) {
+      alert("Não há placas virgens disponíveis no estoque Admin para transferência.");
+      return;
+    }
+
+    const qtd = Math.min(Math.max(1, Number(qtdTransferencia) || 1), disponiveis.length);
+    if (!alunoDestinatarioTransferencia) {
+      alert("Selecione o aluno destinatário.");
+      return;
+    }
+
+    const alunoAlvo = alunos.find((a) => a.id === alunoDestinatarioTransferencia);
+    if (!alunoAlvo) {
+      alert("Aluno destinatário não encontrado.");
+      return;
+    }
+
+    const placasParaTransferir = disponiveis.slice(0, qtd);
+    const idsParaTransferir = placasParaTransferir.map((p) => p.id).filter(Boolean) as string[];
+    const codigosTransferidos = placasParaTransferir.map((p) => p.codigo);
+    const codInicio = codigosTransferidos[0];
+    const codFim = codigosTransferidos[codigosTransferidos.length - 1];
+
+    setTransferindoEstoque(true);
+    try {
+      // 1. Atualizar aluno_id no Supabase
+      const { error: errUpdate } = await supabase
+        .from("placas")
+        .update({ aluno_id: alunoDestinatarioTransferencia })
+        .in("id", idsParaTransferir);
+
+      if (errUpdate) {
+        console.warn("Fallback REST para transferência de estoque:", errUpdate);
+        await fetch(`${SUPABASE_URL}/rest/v1/placas?id=in.(${idsParaTransferir.join(",")})`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ aluno_id: alunoDestinatarioTransferencia }),
+        });
+      }
+
+      // 2. Atualizar estado local
+      const idSet = new Set(idsParaTransferir);
+      setPlacasCadastradas((prev) =>
+        prev.map((p) => (p.id && idSet.has(p.id) ? { ...p, aluno_id: alunoDestinatarioTransferencia } : p))
+      );
+
+      // 3. Registrar sucesso para exibição do resumo e cópia
+      setTransferenciaConcluida({
+        alunoNome: alunoAlvo.nome || "Aluno",
+        quantidade: qtd,
+        codigos: codigosTransferidos,
+        codInicio,
+        codFim,
+      });
+
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.6 },
+      });
+
+      // 4. Sincronizar dados gerais em background
+      await fetchAdminData();
+    } catch (err: any) {
+      console.error("Erro na transferência de estoque:", err);
+      alert("Erro ao transferir estoque: " + (err.message || String(err)));
+    } finally {
+      setTransferindoEstoque(false);
+    }
+  };
+
   // Handler para Adicionar Aluno(s) à Whitelist (Suporta único ou lote por vírgula / quebra de linha)
   const handleAdicionarAutorizados = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3971,6 +4081,27 @@ export default function PainelDistribuidorAdmin() {
               >
                 <PlusCircle className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>⚡ Emissão Manual de Lote</span>
+              </button>
+
+              {/* Botão Transferir Estoque para Aluno */}
+              <button
+                type="button"
+                onClick={() => {
+                  setModalTransferirEstoqueAberto(true);
+                  setTransferenciaConcluida(null);
+                  setCopiadoCodigosTransferidos(false);
+                  const primeiroAluno = alunos.find(
+                    (a) => a.id !== "403183b5-02f6-46a7-b448-7658c5087ec4" && a.email !== "daniel.rodrigues2508@gmail.com" && (a.status === "ativo" || !a.status)
+                  );
+                  if (primeiroAluno && !alunoDestinatarioTransferencia) {
+                    setAlunoDestinatarioTransferencia(primeiroAluno.id);
+                  }
+                }}
+                className="bg-sky-500 hover:bg-sky-400 active:scale-95 text-white font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="Transferir displays virgens do estoque Admin para um aluno parceiro"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Transferir Estoque para Aluno</span>
               </button>
 
               {/* Botão Exportar Planilha Gráfica Geral */}
@@ -5228,6 +5359,290 @@ export default function PainelDistribuidorAdmin() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE TRANSFERÊNCIA DE ESTOQUE ADMIN PARA ALUNO */}
+        {modalTransferirEstoqueAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-neutral-900 border border-zinc-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl relative max-h-[88vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setModalTransferirEstoqueAberto(false)}
+                className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <ArrowRightLeft className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
+                    Transferir Estoque para Aluno
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
+                    Transfira displays virgens do estoque central Admin para a conta de um aluno parceiro.
+                  </p>
+                </div>
+              </div>
+
+              {/* Aviso Informativo de Estoque Disponível */}
+              {(() => {
+                const danielId = "403183b5-02f6-46a7-b448-7658c5087ec4";
+                const totalVirgensAdmin = placasCadastradas.filter((p) => {
+                  const isDonoAdmin = p.aluno_id === danielId || !p.aluno_id;
+                  const isVirgem = p.status === "virgem" && !p.nome_empresa && !p.link_google_review && !p.link_destino;
+                  return isDonoAdmin && isVirgem;
+                }).length;
+
+                return (
+                  <div className="mb-3.5 p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-between text-xs text-sky-950 dark:text-sky-200">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <span>Estoque Virgem Admin (GOPlak):</span>
+                    </div>
+                    <span className="font-mono font-black text-sm px-2 py-0.5 rounded bg-sky-500/20 text-sky-700 dark:text-sky-300">
+                      {totalVirgensAdmin} {totalVirgensAdmin === 1 ? "placa disponível" : "placas disponíveis"}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {transferenciaConcluida ? (
+                /* TELA DE SUCESSO PÓS-TRANSFERÊNCIA */
+                <div className="space-y-4 py-2 animate-in fade-in zoom-in-95">
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                      <Check className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                    <h4 className="text-sm font-black text-zinc-900 dark:text-white">
+                      Transferência Concluída com Sucesso!
+                    </h4>
+                    <p className="text-xs text-zinc-600 dark:text-neutral-300">
+                      Transferidas <strong>{transferenciaConcluida.quantidade} placas</strong> para{" "}
+                      <strong>{transferenciaConcluida.alunoNome}</strong>:{" "}
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                        {transferenciaConcluida.codInicio} a {transferenciaConcluida.codFim}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Lista de Códigos com Badges */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-zinc-700 dark:text-neutral-300">
+                      <span>Códigos Transferidos ({transferenciaConcluida.codigos.length})</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(transferenciaConcluida.codigos.join(", "));
+                          setCopiadoCodigosTransferidos(true);
+                          setTimeout(() => setCopiadoCodigosTransferidos(false), 2500);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        {copiadoCodigosTransferidos ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Códigos Copiados!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copiar Códigos</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="max-h-36 overflow-y-auto p-2.5 bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl flex flex-wrap gap-1.5">
+                      {transferenciaConcluida.codigos.map((cod) => (
+                        <span
+                          key={cod}
+                          className="font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                        >
+                          {cod}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTransferenciaConcluida(null);
+                        setCopiadoCodigosTransferidos(false);
+                      }}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                    >
+                      Nova Transferência
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalTransferirEstoqueAberto(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-extrabold bg-zinc-900 text-white dark:bg-white dark:text-black hover:opacity-90 transition cursor-pointer"
+                    >
+                      Concluir / Fechar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* FORMULÁRIO DE TRANSFERÊNCIA */
+                <form onSubmit={handleTransferirEstoque} className="space-y-3.5">
+                  {/* 1. Seletor Aluno Destinatário */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                      <span>Aluno Destinatário *</span>
+                    </label>
+                    <select
+                      value={alunoDestinatarioTransferencia}
+                      onChange={(e) => setAlunoDestinatarioTransferencia(e.target.value)}
+                      disabled={transferindoEstoque}
+                      required
+                      className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition cursor-pointer"
+                    >
+                      <option value="" disabled>Selecione um aluno ativo...</option>
+                      {alunos
+                        .filter((a) => a.id !== "403183b5-02f6-46a7-b448-7658c5087ec4" && a.email !== "daniel.rodrigues2508@gmail.com")
+                        .filter((a) => a.status === "ativo" || !a.status)
+                        .map((a) => {
+                          const codMatch = a.codigoAcesso || a.whatsapp?.match(/GP-?\d{4}/i)?.[0]?.toUpperCase() || "";
+                          const codFormatado = codMatch ? codMatch.replace("-", "") : "";
+                          const labelAluno = codFormatado ? `${a.nome} - ${codFormatado}` : (a.email ? `${a.nome} (${a.email})` : a.nome);
+                          return (
+                            <option key={a.id} value={a.id} className="bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white">
+                              {labelAluno}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+
+                  {/* 2. Campo Numérico Quantidade de Plaquinhas */}
+                  {(() => {
+                    const danielId = "403183b5-02f6-46a7-b448-7658c5087ec4";
+                    const disponiveis = placasCadastradas
+                      .filter((p) => {
+                        const isDonoAdmin = p.aluno_id === danielId || !p.aluno_id;
+                        const isVirgem = p.status === "virgem" && !p.nome_empresa && !p.link_google_review && !p.link_destino;
+                        return isDonoAdmin && isVirgem;
+                      })
+                      .sort((a, b) => {
+                        const numA = parseInt((a.codigo || "").replace(/\D/g, "") || "0", 10);
+                        const numB = parseInt((b.codigo || "").replace(/\D/g, "") || "0", 10);
+                        return numA - numB;
+                      });
+
+                    const totalDisponiveis = disponiveis.length;
+                    const previewInicio = disponiveis[0]?.codigo;
+                    const previewFim = disponiveis[Math.min(qtdTransferencia, totalDisponiveis) - 1]?.codigo;
+
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider">
+                            Quantidade de Plaquinhas *
+                          </label>
+                          <span className="text-[10px] font-mono text-zinc-500">
+                            Máximo: {totalDisponiveis} un
+                          </span>
+                        </div>
+
+                        {/* Botões Rápidos */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[5, 10, 20, 50].map((qtd) => (
+                            <button
+                              key={qtd}
+                              type="button"
+                              onClick={() => setQtdTransferencia(Math.min(qtd, totalDisponiveis))}
+                              disabled={totalDisponiveis < qtd}
+                              className={`py-1 px-2.5 rounded-lg text-xs font-bold border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                                qtdTransferencia === qtd
+                                  ? "bg-sky-500 text-white border-sky-400 shadow-xs"
+                                  : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100"
+                              }`}
+                            >
+                              {qtd} un
+                            </button>
+                          ))}
+                          {totalDisponiveis > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setQtdTransferencia(totalDisponiveis)}
+                              className={`py-1 px-2.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                                qtdTransferencia === totalDisponiveis
+                                  ? "bg-sky-500 text-white border-sky-400 shadow-xs"
+                                  : "bg-zinc-50 dark:bg-neutral-950 text-zinc-700 dark:text-neutral-300 border-zinc-200 dark:border-neutral-800 hover:bg-zinc-100"
+                              }`}
+                            >
+                              Todas ({totalDisponiveis})
+                            </button>
+                          )}
+                        </div>
+
+                        <input
+                          type="number"
+                          min={1}
+                          max={totalDisponiveis}
+                          required
+                          value={qtdTransferencia}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10) || 1;
+                            setQtdTransferencia(Math.min(Math.max(1, val), totalDisponiveis));
+                          }}
+                          className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-bold font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-sky-500 transition"
+                        />
+
+                        {/* Pré-visualização da Faixa Sequencial */}
+                        {totalDisponiveis > 0 && qtdTransferencia > 0 && previewInicio && previewFim && (
+                          <div className="p-2.5 bg-zinc-50 dark:bg-neutral-950 border border-zinc-200 dark:border-neutral-800 rounded-xl text-xs space-y-0.5">
+                            <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider block">
+                              Faixa sequencial que será transferida:
+                            </span>
+                            <span className="font-mono font-black text-sky-600 dark:text-sky-400 text-xs">
+                              {qtdTransferencia} {qtdTransferencia === 1 ? "placa" : "placas"}: {previewInicio} {qtdTransferencia > 1 ? `a ${previewFim}` : ""}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Botões de Ação */}
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-200 dark:border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => setModalTransferirEstoqueAberto(false)}
+                      disabled={transferindoEstoque}
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={transferindoEstoque || !alunoDestinatarioTransferencia}
+                      className="font-extrabold py-2 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-400 hover:to-sky-300 text-white shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                    >
+                      {transferindoEstoque ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Transferindo...</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                          <span>Confirmar Transferência</span>
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
