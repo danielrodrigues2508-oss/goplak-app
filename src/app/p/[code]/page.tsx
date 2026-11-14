@@ -74,7 +74,7 @@ export default function DisplayRedirectPage({ params }: Props) {
     async function processarDisplay() {
       setLoading(true);
       try {
-        // 1. Buscar a placa no Supabase (com ilike e fallback REST)
+        // 1. PRIMEIRO: Buscar os dados da placa pelo código no banco de dados
         let placaData: any = null;
         try {
           const { data: pSdk } = await supabase
@@ -117,9 +117,9 @@ export default function DisplayRedirectPage({ params }: Props) {
         setPlaca(placaData);
 
         const linkDestino = (placaData.link_google_review || placaData.link_destino || placaData.url_destino || "").trim();
-        const hasLojaOuLink = Boolean(placaData.nome_empresa?.trim() || linkDestino);
+        const temLinkCadastrado = Boolean(linkDestino);
 
-        // 2. Obter Sessão do Usuário: Supabase Auth E/OU localStorage (Aluno logado por código GP-XXXX)
+        // Obter Sessão do Usuário: Supabase Auth E/OU localStorage (Aluno logado por código GP-XXXX)
         let authUser: any = null;
         let userIsAdmin = false;
         try {
@@ -148,43 +148,6 @@ export default function DisplayRedirectPage({ params }: Props) {
           } catch (_) {}
         }
 
-        const estaLogado = Boolean(authUser || (alunoLocal && (alunoLocal.id || alunoLocal.email || alunoLocal.codigo)));
-
-        // =========================================================================
-        // CENÁRIO 1: USUÁRIO NÃO LOGADO
-        // =========================================================================
-        if (!estaLogado) {
-          // Se a placa já estiver ativada e com link configurado (ex: cliente na loja física)
-          // Redireciona imediatamente para a avaliação do Google Maps
-          if (placaData.status === "ativa" && linkDestino) {
-            let destinoFinal = linkDestino;
-            if (!destinoFinal.startsWith("http://") && !destinoFinal.startsWith("https://")) {
-              destinoFinal = `https://${destinoFinal}`;
-            }
-
-            try {
-              if (typeof placaData.total_scans === "number") {
-                await supabase
-                  .from("placas")
-                  .update({ total_scans: (placaData.total_scans || 0) + 1 })
-                  .eq("id", placaData.id);
-              }
-            } catch {}
-
-            window.location.href = destinoFinal;
-            return;
-          }
-
-          // Se a placa for virgem / não ativada:
-          // Redireciona UMA ÚNICA VEZ para o login preservando o redirect sem loop
-          const redirectUrl = `/login?redirect=${encodeURIComponent(`/p/${codigo}`)}&message=${encodeURIComponent("Esta placa ainda não foi ativada. Faça login no GOPLAK para vinculá-la ao seu cliente.")}`;
-          router.replace(redirectUrl);
-          return;
-        }
-
-        // =========================================================================
-        // CENÁRIO 2: USUÁRIO LOGADO (Aluno ou Admin)
-        // =========================================================================
         let currentAlunoId = alunoLocal?.id;
         let currentAlunoNome = alunoLocal?.nome;
         let currentAlunoEmail = alunoLocal?.email;
@@ -223,26 +186,82 @@ export default function DisplayRedirectPage({ params }: Props) {
         setUsuario(dadosUsuario);
         setIsAdmin(userIsAdmin);
 
-        // Regras de Vínculo e Posse da Placa:
         const ADMIN_ID = "403183b5-02f6-46a7-b448-7658c5087ec4";
+        const isDono = Boolean(
+          (currentAlunoId && placaData.aluno_id === currentAlunoId) ||
+          (authUser?.id && placaData.aluno_id === authUser.id)
+        );
+        const isProprietarioOuAdmin = userIsAdmin || isDono;
+
+        // =========================================================================
+        // 2. SE A PLACA JÁ POSSUIR LINK DE DESTINO / AVALIAÇÃO CADASTRADO (PLACA ATIVA):
+        // =========================================================================
+        if (temLinkCadastrado) {
+          if (!isProprietarioOuAdmin) {
+            // Se NÃO estiver autenticado como proprietário ou Admin (visitante / cliente comum):
+            // Redireciona IMEDIATAMENTE (window.location.replace) para o link de avaliação do Google,
+            // SEM redirecionar para /login e SEM abrir tela de configuração.
+            let destinoFinal = linkDestino;
+            if (!destinoFinal.startsWith("http://") && !destinoFinal.startsWith("https://")) {
+              destinoFinal = `https://${destinoFinal}`;
+            }
+
+            try {
+              if (typeof placaData.total_scans === "number") {
+                await supabase
+                  .from("placas")
+                  .update({ total_scans: (placaData.total_scans || 0) + 1 })
+                  .eq("id", placaData.id);
+              }
+            } catch {}
+
+            window.location.replace(destinoFinal);
+            return;
+          }
+
+          // Se ESTIVER autenticado como proprietário ou Admin:
+          // Abre a tela de edição normalmente
+          setPlacaPertenceAoUsuario(true);
+          setNomeComercio(placaData.nome_empresa || "");
+          setLinkGoogle(linkDestino);
+          if (placaData.valor_venda) {
+            setValorDisplay(String(placaData.valor_venda));
+          }
+          if (placaData.whatsapp_feedback || placaData.whatsapp_contato) {
+            setWhatsappContato(formatarTelefone(placaData.whatsapp_feedback || placaData.whatsapp_contato));
+          }
+          if (placaData.responsavel_nome) {
+            setNomeResponsavel(placaData.responsavel_nome);
+          }
+          return;
+        }
+
+        // =========================================================================
+        // 3. SE A PLACA NÃO POSSUIR LINK CADASTRADO (PLACA VIRGEM):
+        // =========================================================================
+        const estaLogado = Boolean(authUser || (alunoLocal && (alunoLocal.id || alunoLocal.email || alunoLocal.codigo)));
+
+        if (!estaLogado) {
+          // Se não estiver logado, redireciona uma única vez para /login?redirect=/p/[codigo]
+          const redirectUrl = `/login?redirect=${encodeURIComponent(`/p/${codigo}`)}&message=${encodeURIComponent("Esta placa ainda não foi ativada. Faça login no GOPLAK para vinculá-la ao seu cliente.")}`;
+          router.replace(redirectUrl);
+          return;
+        }
+
+        // Se estiver logado como aluno ativo ou Admin:
         const isPlacaAdmin =
           !placaData.aluno_id ||
           placaData.aluno_id === ADMIN_ID ||
           placaData.aluno_id === "" ||
           placaData.aluno_id === "admin";
-        const isVirgem = placaData.status === "virgem" || !hasLojaOuLink;
-        const isDono = Boolean(
-          (currentAlunoId && placaData.aluno_id === currentAlunoId) ||
-          (authUser?.id && placaData.aluno_id === authUser.id)
-        );
-        const podeReivindicar = !userIsAdmin && isPlacaAdmin && isVirgem;
+        const podeReivindicar = !userIsAdmin && isPlacaAdmin;
 
         if (userIsAdmin) {
           // Administrador master tem acesso total
           setPlacaPertenceAoUsuario(true);
         } else if (podeReivindicar) {
           // REIVINDICAÇÃO AUTOMÁTICA DE PLACA VIRGEM:
-          // Placa do Admin ("GOPlak") e ainda virgem/não ativada (sem loja/link):
+          // Placa do Admin ("GOPlak") e ainda virgem/sem link:
           // Permite acesso imediato e vincula automaticamente ao aluno logado ao abrir
           setPlacaPertenceAoUsuario(true);
 
@@ -279,7 +298,7 @@ export default function DisplayRedirectPage({ params }: Props) {
         }
 
         setNomeComercio(placaData.nome_empresa || "");
-        setLinkGoogle(placaData.link_google_review || placaData.link_destino || "");
+        setLinkGoogle(linkDestino);
         if (placaData.valor_venda) {
           setValorDisplay(String(placaData.valor_venda));
         }
@@ -556,12 +575,37 @@ export default function DisplayRedirectPage({ params }: Props) {
           </div>
 
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
-            Ativar Display {codigo}
+            {linkGoogle ? `Editar Display ${codigo}` : `Ativar Display ${codigo}`}
           </h1>
           <p className="text-xs text-zinc-500 dark:text-neutral-400 leading-tight">
-            Vincule os dados para que o QR Code e NFC redirecionem para o Google.
+            {linkGoogle
+              ? "Edite as configurações do display ou teste o redirecionamento do cliente."
+              : "Vincule os dados para que o QR Code e NFC redirecionem para o Google."}
           </p>
         </div>
+
+        {/* Banner com Botão Visível "Testar Link do Cliente" quando a placa já tem link */}
+        {linkGoogle && (
+          <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div className="min-w-0 flex-1">
+              <span className="font-bold text-sky-950 dark:text-sky-200 block truncate">
+                Placa Ativa com Link Cadastrado
+              </span>
+              <span className="text-[11px] text-sky-700/80 dark:text-sky-400 font-mono truncate block">
+                {linkGoogle}
+              </span>
+            </div>
+            <a
+              href={linkGoogle.startsWith("http") ? linkGoogle : `https://${linkGoogle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <span>Testar Link do Cliente</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        )}
 
         {/* Alerta de Sucesso */}
         {ativadaComSucesso && (
@@ -650,7 +694,7 @@ export default function DisplayRedirectPage({ params }: Props) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
                 >
-                  <span>Testar Link</span>
+                  <span>Testar Link do Cliente</span>
                   <ExternalLink className="w-2.5 h-2.5" />
                 </a>
               )}
