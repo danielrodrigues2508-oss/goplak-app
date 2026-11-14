@@ -143,7 +143,8 @@ function LoginForm() {
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && (parsed.id || parsed.email || parsed.codigo)) {
-              router.push(redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard");
+              const destino = redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard";
+              window.location.href = destino;
               return;
             }
           }
@@ -291,11 +292,16 @@ function LoginForm() {
         localStorage.setItem("goplak_aluno_logado", JSON.stringify(sessaoAluno));
       }
 
-      setSuccessMsg(`Bem-vindo(a), ${aluno.nome || "Aluno"}! Acessando seu painel...`);
+      setSuccessMsg(`Bem-vindo(a), ${aluno.nome || "Aluno"}! Acessando...`);
       const destinoFinal = redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard";
       setTimeout(() => {
-        router.push(destinoFinal);
-      }, 400);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("goplak_aluno_logado", JSON.stringify(sessaoAluno));
+          window.location.href = destinoFinal;
+        } else {
+          router.push(destinoFinal);
+        }
+      }, 350);
     } catch (err: unknown) {
       console.error("Erro na validação do código:", err);
       setErrorMsg("Código inválido ou acesso suspenso. Fale com o suporte.");
@@ -342,8 +348,8 @@ function LoginForm() {
           setSuccessMsg("Login de Administrador realizado com sucesso! Redirecionando...");
           const destinoFinal = redirectTo && redirectTo !== "/login" ? redirectTo : "/admin";
           setTimeout(() => {
-            router.push(destinoFinal);
-          }, 400);
+            window.location.href = destinoFinal;
+          }, 350);
           return;
         }
 
@@ -371,8 +377,8 @@ function LoginForm() {
           const destinoFinal =
             redirectTo && redirectTo !== "/login" ? redirectTo : "/dashboard";
           setTimeout(() => {
-            router.push(destinoFinal);
-          }, 400);
+            window.location.href = destinoFinal;
+          }, 350);
           return;
         }
 
