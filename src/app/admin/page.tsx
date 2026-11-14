@@ -392,6 +392,7 @@ export default function PainelDistribuidorAdmin() {
   const [buscaPlaca, setBuscaPlaca] = useState("");
   const [modalEditarPlacaAberto, setModalEditarPlacaAberto] = useState(false);
   const [placaEditandoAdmin, setPlacaEditandoAdmin] = useState<PlacaRecord | null>(null);
+  const [editAlunoId, setEditAlunoId] = useState<string>("");
   const [editNomeLoja, setEditNomeLoja] = useState("");
   const [editResponsavel, setEditResponsavel] = useState("");
   const [editWhatsapp, setEditWhatsapp] = useState("");
@@ -2701,6 +2702,7 @@ export default function PainelDistribuidorAdmin() {
     setEditLinkGoogle(placa.link_google_review || "");
     setEditValorVenda(placa.valor_venda ? String(placa.valor_venda) : "80.00");
     setEditServicosAdmin(servicosRecuperados);
+    setEditAlunoId(placa.aluno_id || "403183b5-02f6-46a7-b448-7658c5087ec4");
     setModalEditarPlacaAberto(true);
   };
 
@@ -2748,7 +2750,10 @@ export default function PainelDistribuidorAdmin() {
       }
 
       const agoraIso = new Date().toISOString();
+      const alunoIdFinal = editAlunoId || placaEditandoAdmin.aluno_id || "403183b5-02f6-46a7-b448-7658c5087ec4";
+
       const updatePayload: Record<string, any> = {
+        aluno_id: alunoIdFinal,
         nome_empresa: nomeEmpresaFinal,
         link_google_review: linkFormatado,
         link_destino: linkFormatado,
@@ -2793,6 +2798,7 @@ export default function PainelDistribuidorAdmin() {
             ? {
                 ...p,
                 ...updatePayload,
+                aluno_id: alunoIdFinal,
                 responsavel_nome: respLimpo,
                 whatsapp_contato: whatsLimpo,
                 servicos_adicionais: servicosValidos,
@@ -6745,6 +6751,37 @@ export default function PainelDistribuidorAdmin() {
               </div>
 
               <form onSubmit={handleSalvarEdicaoPlacaAdmin} className="space-y-3">
+                {/* Aluno / Distribuidor Responsável */}
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Aluno / Distribuidor Responsável</span>
+                  </label>
+                  <select
+                    value={editAlunoId}
+                    onChange={(e) => setEditAlunoId(e.target.value)}
+                    disabled={salvandoEdicaoPlaca}
+                    className="w-full bg-zinc-50 dark:bg-neutral-950 border border-zinc-300 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-emerald-500 transition cursor-pointer"
+                  >
+                    <option value="403183b5-02f6-46a7-b448-7658c5087ec4" className="bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white font-bold">
+                      GOPlak (Admin)
+                    </option>
+                    {alunos
+                      .filter((a) => a.id !== "403183b5-02f6-46a7-b448-7658c5087ec4" && a.email !== "daniel.rodrigues2508@gmail.com")
+                      .filter((a) => a.status === "ativo" || !a.status || a.id === editAlunoId)
+                      .map((a) => {
+                        const codMatch = a.codigoAcesso || a.whatsapp?.match(/GP-?\d{4}/i)?.[0]?.toUpperCase() || "";
+                        const codFormatado = codMatch ? codMatch.replace("-", "") : "";
+                        const labelAluno = codFormatado ? `${a.nome} - ${codFormatado}` : (a.email ? `${a.nome} (${a.email})` : a.nome);
+                        return (
+                          <option key={a.id} value={a.id} className="bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white">
+                            {labelAluno}
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+
                 {/* Nome do Comércio / Estabelecimento */}
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
