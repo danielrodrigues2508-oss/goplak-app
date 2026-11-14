@@ -51,8 +51,8 @@ async function generateSliceWorkbook(
       item_global: startGlobalIndex + localIndex + 1, // Ex: 1 a 1000 no total
       color: item.model_color || 'Padrão',
       code: item.code,
-      link: `https://www.goplak.com.br/d/${item.code}`,
-      qr_link: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://www.goplak.com.br/d/${item.code}`
+      link: `https://www.goplak.com.br/p/${item.code}`,
+      qr_link: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://www.goplak.com.br/p/${item.code}`
     });
   });
 

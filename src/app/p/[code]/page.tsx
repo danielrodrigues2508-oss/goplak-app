@@ -74,17 +74,35 @@ export default function DisplayRedirectPage({ params }: Props) {
     async function processarDisplay() {
       setLoading(true);
       try {
-        // 1. PRIMEIRO: Buscar os dados da placa pelo código no banco de dados
+        // 1. PRIMEIRO: Buscar os dados da placa (via API server-side pública com fallback direto)
         let placaData: any = null;
+
+        // 1.1 Tenta rota server-side que ignora RLS para visitantes públicos
         try {
-          const { data: pSdk } = await supabase
-            .from("placas")
-            .select("*")
-            .ilike("codigo", codigo)
-            .maybeSingle();
-          if (pSdk) placaData = pSdk;
+          const resApi = await fetch(`/api/placa-publica?codigo=${encodeURIComponent(codigo)}`, {
+            cache: "no-store",
+          });
+          if (resApi.ok) {
+            const dataApi = await resApi.json();
+            if (dataApi.encontrada && dataApi.placa) {
+              placaData = dataApi.placa;
+            }
+          }
         } catch (_) {}
 
+        // 1.2 Fallback: consulta direta no Supabase SDK
+        if (!placaData) {
+          try {
+            const { data: pSdk } = await supabase
+              .from("placas")
+              .select("*")
+              .ilike("codigo", codigo)
+              .maybeSingle();
+            if (pSdk) placaData = pSdk;
+          } catch (_) {}
+        }
+
+        // 1.3 Fallback: REST anon direto
         if (!placaData) {
           try {
             const res = await fetch(
@@ -116,104 +134,76 @@ export default function DisplayRedirectPage({ params }: Props) {
         if (!isMounted) return;
         setPlaca(placaData);
 
-        const linkDestino = (placaData.link_google_review || placaData.link_destino || placaData.url_destino || "").trim();
-        const temLinkCadastrado = Boolean(linkDestino);
+        const linkDestino = (
+          placaData.link_google_review ||
+          placaData.link_destino ||
+          placaData.url_destino ||
+          ""
+        ).trim();
 
-        // Obter Sessão do Usuário: Supabase Auth E/OU localStorage (Aluno logado por código GP-XXXX)
+        // 2. Verificação síncrona e rápida de autenticação salva no dispositivo
         let authUser: any = null;
         let userIsAdmin = false;
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            authUser = session.user;
-            const userEmail = (authUser.email || "").toLowerCase();
-            const userRole = authUser.user_metadata?.role || authUser.app_metadata?.role || "";
-            userIsAdmin =
-              userEmail === "daniel@goplacas.com.br" ||
-              userEmail === "admin@goplacas.com.br" ||
-              userEmail === "daniel.rodrigues2508@gmail.com" ||
-              userEmail === "distribuidor@goplacas.com.br" ||
-              userEmail.includes("admin") ||
-              userRole === "admin";
-          }
-        } catch (_) {}
-
         let alunoLocal: any = null;
+
         if (typeof window !== "undefined") {
           try {
-            const raw = localStorage.getItem("goplak_aluno_logado");
-            if (raw) {
-              alunoLocal = JSON.parse(raw);
-            }
+            const rawAluno = localStorage.getItem("goplak_aluno_logado");
+            if (rawAluno) alunoLocal = JSON.parse(rawAluno);
           } catch (_) {}
-        }
 
-        let currentAlunoId = alunoLocal?.id;
-        let currentAlunoNome = alunoLocal?.nome;
-        let currentAlunoEmail = alunoLocal?.email;
-
-        // Se logou via Supabase Auth e não tem alunoLocal
-        if (!currentAlunoId && authUser) {
           try {
-            if (authUser.email) {
-              const { data: dAluno } = await supabase
-                .from("alunos")
-                .select("id, nome, email")
-                .ilike("email", authUser.email.trim())
-                .maybeSingle();
-              if (dAluno?.id) {
-                currentAlunoId = dAluno.id;
-                currentAlunoNome = dAluno.nome || authUser.email;
-                currentAlunoEmail = dAluno.email || authUser.email;
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i) || "";
+              if (k.includes("auth-token") || k.startsWith("sb-")) {
+                const val = localStorage.getItem(k);
+                if (val) {
+                  const parsed = JSON.parse(val);
+                  const u = parsed?.user || parsed;
+                  const email = (u?.email || "").toLowerCase();
+                  const role = u?.user_metadata?.role || u?.app_metadata?.role || "";
+                  if (
+                    email === "daniel.rodrigues2508@gmail.com" ||
+                    email === "daniel@goplacas.com.br" ||
+                    email === "admin@goplacas.com.br" ||
+                    email === "distribuidor@goplacas.com.br" ||
+                    email.includes("admin") ||
+                    role === "admin"
+                  ) {
+                    userIsAdmin = true;
+                  }
+                  if (u?.id) authUser = u;
+                }
               }
             }
           } catch (_) {}
-          if (!currentAlunoId) {
-            currentAlunoId = authUser.id;
-            currentAlunoNome = authUser.user_metadata?.nome || authUser.email;
-            currentAlunoEmail = authUser.email;
-          }
         }
 
-        const dadosUsuario = {
-          id: currentAlunoId,
-          nome: currentAlunoNome || "Aluno Parceiro",
-          email: currentAlunoEmail || "",
-          codigo: alunoLocal?.codigo || "",
-          isAdmin: userIsAdmin,
-        };
-
-        setUsuario(dadosUsuario);
-        setIsAdmin(userIsAdmin);
-
-        const ADMIN_ID = "403183b5-02f6-46a7-b448-7658c5087ec4";
         const isDono = Boolean(
-          (currentAlunoId && placaData.aluno_id === currentAlunoId) ||
+          (alunoLocal?.id && placaData.aluno_id === alunoLocal.id) ||
           (authUser?.id && placaData.aluno_id === authUser.id)
         );
         const isProprietarioOuAdmin = userIsAdmin || isDono;
 
         // =========================================================================
-        // 2. SE A PLACA JÁ POSSUIR LINK DE DESTINO / AVALIAÇÃO CADASTRADO (PLACA ATIVA):
+        // PRIORIDADE ABSOLUTA: SE A PLACA JÁ POSSUI LINK CADASTRADO (PLACA ATIVA):
         // =========================================================================
-        if (temLinkCadastrado) {
+        if (linkDestino) {
           if (!isProprietarioOuAdmin) {
-            // Se NÃO estiver autenticado como proprietário ou Admin (visitante / cliente comum):
-            // Redireciona IMEDIATAMENTE (window.location.replace) para o link de avaliação do Google,
-            // SEM redirecionar para /login e SEM abrir tela de configuração.
+            // VISITANTE / CLIENTE COMUM:
+            // Redirecionamento EXTERNO IMEDIATO para o link de avaliação do Google!
+            // SEM ir para /login e SEM abrir tela de configuração.
             let destinoFinal = linkDestino;
             if (!destinoFinal.startsWith("http://") && !destinoFinal.startsWith("https://")) {
               destinoFinal = `https://${destinoFinal}`;
             }
 
+            // Incrementa scans em segundo plano sem travar o redirecionamento
             try {
-              if (typeof placaData.total_scans === "number") {
-                await supabase
-                  .from("placas")
-                  .update({ total_scans: (placaData.total_scans || 0) + 1 })
-                  .eq("id", placaData.id);
-              }
-            } catch {}
+              fetch(`/api/placa-publica?id=${encodeURIComponent(placaData.id)}`, {
+                method: "POST",
+              });
+            } catch (_) {}
 
             window.location.replace(destinoFinal);
             return;
@@ -233,13 +223,23 @@ export default function DisplayRedirectPage({ params }: Props) {
           if (placaData.responsavel_nome) {
             setNomeResponsavel(placaData.responsavel_nome);
           }
+          setUsuario({
+            id: alunoLocal?.id || authUser?.id,
+            nome: alunoLocal?.nome || authUser?.user_metadata?.nome || "Aluno Parceiro",
+            email: alunoLocal?.email || authUser?.email || "",
+            codigo: alunoLocal?.codigo || "",
+            isAdmin: userIsAdmin,
+          });
+          setIsAdmin(userIsAdmin);
           return;
         }
 
         // =========================================================================
-        // 3. SE A PLACA NÃO POSSUIR LINK CADASTRADO (PLACA VIRGEM):
+        // SE A PLACA NÃO POSSUI LINK CADASTRADO (PLACA VIRGEM):
         // =========================================================================
-        const estaLogado = Boolean(authUser || (alunoLocal && (alunoLocal.id || alunoLocal.email || alunoLocal.codigo)));
+        const estaLogado = Boolean(
+          authUser || (alunoLocal && (alunoLocal.id || alunoLocal.email || alunoLocal.codigo))
+        );
 
         if (!estaLogado) {
           // Se não estiver logado, redireciona uma única vez para /login?redirect=/p/[codigo]
@@ -249,6 +249,8 @@ export default function DisplayRedirectPage({ params }: Props) {
         }
 
         // Se estiver logado como aluno ativo ou Admin:
+        const currentAlunoId = alunoLocal?.id || authUser?.id;
+        const ADMIN_ID = "403183b5-02f6-46a7-b448-7658c5087ec4";
         const isPlacaAdmin =
           !placaData.aluno_id ||
           placaData.aluno_id === ADMIN_ID ||
@@ -257,14 +259,10 @@ export default function DisplayRedirectPage({ params }: Props) {
         const podeReivindicar = !userIsAdmin && isPlacaAdmin;
 
         if (userIsAdmin) {
-          // Administrador master tem acesso total
           setPlacaPertenceAoUsuario(true);
         } else if (podeReivindicar) {
-          // REIVINDICAÇÃO AUTOMÁTICA DE PLACA VIRGEM:
-          // Placa do Admin ("GOPlak") e ainda virgem/sem link:
-          // Permite acesso imediato e vincula automaticamente ao aluno logado ao abrir
+          // Auto-reivindicação de placa virgem vinculada ao Admin ("GOPlak")
           setPlacaPertenceAoUsuario(true);
-
           if (currentAlunoId) {
             try {
               const { error: errClaim } = await supabase
@@ -284,21 +282,19 @@ export default function DisplayRedirectPage({ params }: Props) {
                 });
               }
             } catch (errAutoClaim) {
-              console.warn("Aviso ao auto-vincular placa ao abrir:", errAutoClaim);
+              console.warn("Aviso ao auto-vincular placa virgem:", errAutoClaim);
             }
             placaData.aluno_id = currentAlunoId;
             setPlaca({ ...placaData, aluno_id: currentAlunoId });
           }
         } else if (isDono) {
-          // Placa já pertence ao próprio aluno logado: abre normalmente a tela de configuração/edição
           setPlacaPertenceAoUsuario(true);
         } else {
-          // Bloqueia acesso apenas se a placa pertencer a OUTRO aluno diferente
           setPlacaPertenceAoUsuario(false);
         }
 
         setNomeComercio(placaData.nome_empresa || "");
-        setLinkGoogle(linkDestino);
+        setLinkGoogle("");
         if (placaData.valor_venda) {
           setValorDisplay(String(placaData.valor_venda));
         }
@@ -308,6 +304,14 @@ export default function DisplayRedirectPage({ params }: Props) {
         if (placaData.responsavel_nome) {
           setNomeResponsavel(placaData.responsavel_nome);
         }
+        setUsuario({
+          id: currentAlunoId,
+          nome: alunoLocal?.nome || authUser?.user_metadata?.nome || "Aluno Parceiro",
+          email: alunoLocal?.email || authUser?.email || "",
+          codigo: alunoLocal?.codigo || "",
+          isAdmin: userIsAdmin,
+        });
+        setIsAdmin(userIsAdmin);
       } catch (err) {
         console.error("Erro ao carregar display:", err);
       } finally {
