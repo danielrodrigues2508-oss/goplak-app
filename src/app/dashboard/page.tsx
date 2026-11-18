@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  RotateCcw,
   Loader2,
   Truck,
   Copy,
@@ -1682,61 +1683,95 @@ export default function DashboardAluno() {
   // Alias para retrocompatibilidade
   const handleOpenNfcTools = handleCopiarLinkNfc;
 
-  // Exclusão Segura de Placa Ativa (com desvinculação no banco)
+  // Desvinculação Segura de Placa Ativa (TRANSFORMA EM RESET: NUNCA DELETA DO BANCO)
   const handleConfirmarExcluirPlaca = async () => {
     if (!placaParaExcluir) return;
     setExcluindoPlaca(true);
 
     try {
       const placaId = placaParaExcluir.id;
-      let deleteSucesso = false;
+      const donoId = placaParaExcluir.aluno_id || alunoId;
 
-      // 1. Tentar deletar no Supabase SDK
-      const { error: errDel } = await supabase
-        .from("placas")
-        .delete()
-        .eq("id", placaId);
+      const resetPayload = {
+        status: "virgem",
+        nome_empresa: "",
+        link_google_review: "",
+        whatsapp_feedback: "",
+        valor_venda: 80,
+        activated_at: null,
+        aluno_id: donoId,
+      };
 
-      if (!errDel) {
-        deleteSucesso = true;
-      } else {
-        console.warn("Tentando fallback REST para exclusão da placa:", errDel);
-        try {
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaId}`, {
-            method: "DELETE",
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            },
-          });
-          if (res.ok) {
-            deleteSucesso = true;
+      // 1. Tentar reset via API Route server-side segura
+      let resetSucesso = false;
+      try {
+        const resApi = await fetch("/api/placa-publica", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: placaId,
+            status: "virgem",
+            nome_empresa: "",
+            link_google_review: "",
+            whatsapp_feedback: "",
+            valor_venda: 80,
+            aluno_id: donoId,
+          }),
+        });
+        if (resApi.ok) {
+          const jsonApi = await resApi.json();
+          if (jsonApi.success) resetSucesso = true;
+        }
+      } catch (_) {}
+
+      // 2. Se falhar na API, executa UPDATE no Supabase SDK (NUNCA DELETE)
+      if (!resetSucesso && !placaId.startsWith("virtual-")) {
+        const { error: errUpdate } = await supabase
+          .from("placas")
+          .update(resetPayload)
+          .eq("id", placaId);
+
+        if (!errUpdate) {
+          resetSucesso = true;
+        } else {
+          console.warn("Tentando fallback REST para reset da placa:", errUpdate);
+          try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaId}`, {
+              method: "PATCH",
+              headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(resetPayload),
+            });
+            if (res.ok) resetSucesso = true;
+          } catch (restErr) {
+            console.error("Erro no fallback REST de reset:", restErr);
           }
-        } catch (restErr) {
-          console.error("Erro no fallback REST de exclusão:", restErr);
         }
       }
 
-      // Se for virtual ou mock, permite exclusão local
+      // Se for virtual ou mock, permite reset local
       if (placaId.startsWith("virtual-")) {
-        deleteSucesso = true;
+        resetSucesso = true;
       }
 
-      // 2. Atualizar estado local imediatamente
+      // 3. Atualizar estado local imediatamente: remove das ativas e adiciona às virgens
       setPlacasAtivas((prev) => prev.filter((p) => p.id !== placaId));
 
-      // 3. Fechar modal de confirmação
+      // 4. Fechar modal de confirmação
       setModalExcluirPlacaAberto(false);
       setPlacaParaExcluir(null);
 
-      // 4. Feedback toast
-      setAvisoSucessoAtivacao("Placa excluída com sucesso!");
+      // 5. Feedback toast informativo
+      setAvisoSucessoAtivacao(`Display ${placaParaExcluir.codigo} desvinculado com sucesso e retornado ao seu estoque virgem!`);
 
-      // 5. Atualizar dados para sincronizar métricas
+      // 6. Atualizar dados para sincronizar métricas e estoque virgem disponível
       await carregarDadosDoBanco();
     } catch (error: any) {
-      console.error("Erro ao excluir placa:", error);
-      alert(`Erro ao excluir placa: ${error.message || String(error)}`);
+      console.error("Erro ao desvincular placa:", error);
+      alert(`Erro ao desvincular placa: ${error.message || String(error)}`);
     } finally {
       setExcluindoPlaca(false);
     }
@@ -3412,10 +3447,10 @@ export default function DashboardAluno() {
                                   setPlacaParaExcluir(placa);
                                   setModalExcluirPlacaAberto(true);
                                 }}
-                                className="p-1 -mr-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition cursor-pointer"
-                                title="Excluir placa"
+                                className="p-1 -mr-1 rounded-lg text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 transition cursor-pointer"
+                                title="Desvincular cliente e voltar placa ao estoque virgem"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <RotateCcw className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -3474,10 +3509,10 @@ export default function DashboardAluno() {
                                 setPlacaParaExcluir(placa);
                                 setModalExcluirPlacaAberto(true);
                               }}
-                              className="h-8 w-8 rounded-xl border border-red-500/20 hover:border-red-500/50 bg-red-500/5 hover:bg-red-500/15 text-red-500 dark:text-red-400 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
-                              title="Excluir placa"
+                              className="h-8 w-8 rounded-xl border border-amber-500/20 hover:border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/15 text-amber-500 dark:text-amber-400 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+                              title="Desvincular cliente e voltar placa ao estoque virgem"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -5963,7 +5998,7 @@ export default function DashboardAluno() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO: EXCLUIR PLACA ATIVA */}
+      {/* MODAL DE CONFIRMAÇÃO: DESVINCULAR CLIENTE E VOLTAR PLACA PARA ESTOQUE VIRGEM */}
       {modalExcluirPlacaAberto && placaParaExcluir && (
         <div className="fixed inset-0 z-[85] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
           <div className="w-full max-w-sm sm:max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-2xl my-auto box-border text-white relative">
@@ -5983,12 +6018,12 @@ export default function DashboardAluno() {
 
             {/* Cabeçalho */}
             <div className="flex items-start gap-3 pb-3 border-b border-zinc-800/80">
-              <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
-                <Trash2 className="w-5 h-5 text-red-400" />
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <RotateCcw className="w-5 h-5 text-amber-400" />
               </div>
               <div className="min-w-0 pr-6">
                 <h3 className="text-sm sm:text-base font-extrabold text-white">
-                  Confirmar Exclusão
+                  Desvincular Cliente & Voltar ao Estoque
                 </h3>
                 <p className="text-[11px] text-zinc-400 mt-0.5 font-mono">
                   Display: <span className="text-zinc-200 font-bold">{placaParaExcluir.codigo}</span>
@@ -6003,8 +6038,11 @@ export default function DashboardAluno() {
 
             {/* Mensagem de Confirmação */}
             <div className="py-4">
-              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                Tem certeza que deseja excluir esta placa? Esta ação desvinculará o display e não poderá ser desfeita.
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-medium">
+                Deseja desvincular este cliente e voltar a plaquinha para virgem em estoque?
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed">
+                Esta ação limpa o link e o nome da loja, preservando o display físico intacto no seu estoque virgem para ser reconfigurado quando desejar.
               </p>
             </div>
 
@@ -6025,14 +6063,17 @@ export default function DashboardAluno() {
                 type="button"
                 disabled={excluindoPlaca}
                 onClick={handleConfirmarExcluirPlaca}
-                className="flex-1 h-10 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer shadow-md shadow-red-600/20 disabled:opacity-50"
+                className="flex-1 h-10 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer shadow-md shadow-amber-500/20 disabled:opacity-50"
               >
                 {excluindoPlaca ? (
                   <span className="flex items-center gap-1.5">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Excluindo...
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-black" /> Desvinculando...
                   </span>
                 ) : (
-                  <span>Sim, Excluir</span>
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 text-black" />
+                    <span>Sim, Voltar para Estoque</span>
+                  </>
                 )}
               </button>
             </div>

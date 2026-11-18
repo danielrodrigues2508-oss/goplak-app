@@ -57,6 +57,7 @@ import {
   UserPlus,
   KeyRound,
   ArrowRightLeft,
+  RotateCcw,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { exportarLoteEmFatiasZip, COST_PER_UNIT, DisplayItem } from "@/lib/exportGraficaZip";
@@ -314,10 +315,18 @@ export default function PainelDistribuidorAdmin() {
 
   // Modal de Emissão Manual de Lotes & Seletor de Cores
   const [modalEmissaoManualAberto, setModalEmissaoManualAberto] = useState(false);
+  const [modoEmissaoManual, setModoEmissaoManual] = useState<"lote" | "restaurar">("lote");
   const [tipoEmissaoManual, setTipoEmissaoManual] = useState<"venda_aluno" | "reposicao_propria">("reposicao_propria");
   const [opcaoCorManual, setOpcaoCorManual] = useState<"misto" | "preta" | "azul" | "personalizado">("misto");
   const [qtdPretaManual, setQtdPretaManual] = useState<number>(10);
   const [qtdAzulManual, setQtdAzulManual] = useState<number>(10);
+
+  // Restauração de Código Físico Específico (ex: GP-0138)
+  const [codigoRestaurar, setCodigoRestaurar] = useState("");
+  const [alunoProprietarioRestaurar, setAlunoProprietarioRestaurar] = useState("403183b5-02f6-46a7-b448-7658c5087ec4");
+  const [restaurandoCodigo, setRestaurandoCodigo] = useState(false);
+  const [feedbackRestaurarSucesso, setFeedbackRestaurarSucesso] = useState<string | null>(null);
+  const [erroRestaurar, setErroRestaurar] = useState<string | null>(null);
 
   // Modal de Despacho e Rastreio
   const [modalDespachoAberto, setModalDespachoAberto] = useState(false);
@@ -1741,6 +1750,96 @@ export default function PainelDistribuidorAdmin() {
         console.error("Erro inesperado no rastreio:", err);
         setErroMsg(`Erro: ${msg}`);
       }
+    }
+  };
+
+  // Restaurar Código Específico Apagado Acidentalmente (ex: GP-0138)
+  const handleRestaurarCodigo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = codigoRestaurar.trim().toUpperCase();
+    if (!raw) {
+      setErroRestaurar("Informe o código da placa que deseja restaurar (ex: GP-0138).");
+      return;
+    }
+
+    let codFormatado = raw;
+    if (/^\d+$/.test(raw)) {
+      codFormatado = `GP-${raw.padStart(4, "0")}`;
+    } else if (/^GP\d+$/.test(raw)) {
+      codFormatado = `GP-${raw.slice(2).padStart(4, "0")}`;
+    } else if (/^GP-\d+$/.test(raw)) {
+      const num = raw.slice(3);
+      codFormatado = `GP-${num.padStart(4, "0")}`;
+    }
+
+    setRestaurandoCodigo(true);
+    setErroRestaurar(null);
+    setFeedbackRestaurarSucesso(null);
+
+    try {
+      // 1. Verifica se já existe na tabela placas
+      const { data: existente } = await supabase
+        .from("placas")
+        .select("id, codigo, status")
+        .ilike("codigo", codFormatado)
+        .maybeSingle();
+
+      if (existente) {
+        setErroRestaurar(`O display ${codFormatado} já existe no banco de dados com status "${existente.status}". Não é necessário recriar.`);
+        setRestaurandoCodigo(false);
+        return;
+      }
+
+      // 2. Insere a placa virgem no banco
+      const novaPlaca = {
+        codigo: codFormatado,
+        status: "virgem",
+        aluno_id: alunoProprietarioRestaurar,
+        nome_empresa: "",
+        link_google_review: "",
+        whatsapp_feedback: "",
+        valor_venda: 80,
+        escudo_ativo: true,
+        total_scans: 0,
+        activated_at: null,
+      };
+
+      let inseriu = false;
+      const { error: errIns } = await supabase.from("placas").insert([novaPlaca]);
+      if (!errIns) {
+        inseriu = true;
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/placas`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(novaPlaca),
+        });
+        if (res.ok) inseriu = true;
+        else throw new Error(errIns.message);
+      }
+
+      if (inseriu) {
+        const donoNome =
+          alunoProprietarioRestaurar === "403183b5-02f6-46a7-b448-7658c5087ec4"
+            ? "GOPlak (Admin)"
+            : alunos.find((a) => a.id === alunoProprietarioRestaurar)?.nome || "Aluno";
+
+        setFeedbackRestaurarSucesso(`Display ${codFormatado} restaurado com sucesso como placa virgem para ${donoNome}!`);
+        setCodigoRestaurar("");
+        await fetchAdminData();
+        setTimeout(() => {
+          setModalEmissaoManualAberto(false);
+          setFeedbackRestaurarSucesso(null);
+        }, 1600);
+      }
+    } catch (err: any) {
+      setErroRestaurar(`Erro ao restaurar display: ${err.message || String(err)}`);
+    } finally {
+      setRestaurandoCodigo(false);
     }
   };
 
@@ -4075,9 +4174,14 @@ export default function PainelDistribuidorAdmin() {
               {/* Botão Emissão Manual de Lote */}
               <button
                 type="button"
-                onClick={() => setModalEmissaoManualAberto(true)}
+                onClick={() => {
+                  setModoEmissaoManual("lote");
+                  setErroRestaurar(null);
+                  setFeedbackRestaurarSucesso(null);
+                  setModalEmissaoManualAberto(true);
+                }}
                 className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-                title="Abrir formulário de emissão manual de lote de displays"
+                title="Abrir formulário de emissão manual de lote de displays ou restauração de código"
               >
                 <PlusCircle className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>⚡ Emissão Manual de Lote</span>
@@ -4605,11 +4709,15 @@ export default function PainelDistribuidorAdmin() {
 
               if (buscaLower) {
                 const alunoRel = alunos.find((a) => a.id === p.aluno_id);
+                const isDanielAdmin = p.aluno_id === "403183b5-02f6-46a7-b448-7658c5087ec4" || !p.aluno_id || alunoRel?.nome === "GOPlak";
                 const matchCod = (p.codigo || "").toLowerCase().includes(buscaLower);
                 const matchLoja = (p.nome_empresa || "").toLowerCase().includes(buscaLower);
                 const matchAluno = (alunoRel?.nome || "").toLowerCase().includes(buscaLower);
+                const matchEmail = (alunoRel?.email || "").toLowerCase().includes(buscaLower);
+                const matchCodAluno = (alunoRel?.codigoAcesso || "").toLowerCase().includes(buscaLower);
+                const matchAdmin = isDanielAdmin && ("goplak".includes(buscaLower) || "admin".includes(buscaLower) || "matriz".includes(buscaLower));
                 const matchResp = (p.responsavel_nome || "").toLowerCase().includes(buscaLower);
-                return matchCod || matchLoja || matchAluno || matchResp;
+                return matchCod || matchLoja || matchAluno || matchEmail || matchCodAluno || matchAdmin || matchResp;
               }
               return true;
             });
@@ -4700,13 +4808,44 @@ export default function PainelDistribuidorAdmin() {
                           {/* Aluno / Distribuidor */}
                           <td className="py-2.5 px-2.5 whitespace-nowrap">
                             <div className="flex flex-col">
-                              <span className="font-semibold text-zinc-800 dark:text-neutral-200">
-                                {alunoRel?.nome || (p.aluno_id ? "Aluno Vinculado" : "Sem aluno")}
-                              </span>
-                              {alunoRel?.email && (
-                                <span className="text-[10px] text-zinc-400 font-normal">
-                                  {alunoRel.email}
-                                </span>
+                              {p.aluno_id === "403183b5-02f6-46a7-b448-7658c5087ec4" || alunoRel?.nome === "GOPlak" || (!p.aluno_id && !alunoRel) ? (
+                                <>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-bold text-[10px] uppercase tracking-wide">
+                                      🏢 GOPlak (Admin)
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-zinc-400 font-normal">
+                                    Estoque Matriz
+                                  </span>
+                                </>
+                              ) : alunoRel ? (
+                                <>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-semibold text-zinc-900 dark:text-white">
+                                      {alunoRel.nome}
+                                    </span>
+                                    {alunoRel.codigoAcesso && (
+                                      <span className="px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono text-[10px] font-bold">
+                                        {alunoRel.codigoAcesso}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {alunoRel.email && (
+                                    <span className="text-[10px] text-zinc-400 font-normal">
+                                      {alunoRel.email}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-zinc-800 dark:text-neutral-200">
+                                    Aluno Vinculado
+                                  </span>
+                                  <span className="text-[10px] font-mono text-zinc-400">
+                                    ID: {p.aluno_id ? `${p.aluno_id.slice(0, 8)}...` : "Nenhum"}
+                                  </span>
+                                </div>
                               )}
                             </div>
                           </td>
@@ -5662,21 +5801,156 @@ export default function PainelDistribuidorAdmin() {
               </button>
 
               {/* Cabeçalho */}
-              <div className="flex items-center gap-3 mb-3.5 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <PlusCircle className="w-5 h-5" />
+              <div className="flex items-center gap-3 mb-3 pb-2.5 border-b border-zinc-200 dark:border-neutral-800">
+                <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${
+                  modoEmissaoManual === "restaurar"
+                    ? "bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                    : "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                }`}>
+                  {modoEmissaoManual === "restaurar" ? <RotateCcw className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">
-                    Emissão Manual de Lote
+                    {modoEmissaoManual === "restaurar" ? "Restaurar Código Físico Específico" : "Emissão Manual de Lote"}
                   </h3>
                   <p className="text-[11px] text-zinc-500 dark:text-neutral-400">
-                    Gere displays virgens sequenciais e credite no estoque do parceiro.
+                    {modoEmissaoManual === "restaurar"
+                      ? "Recrie um código físico específico apagado (ex: GP-0138) como placa virgem."
+                      : "Gere displays virgens sequenciais e credite no estoque do parceiro."}
                   </p>
                 </div>
               </div>
 
-              <form onSubmit={handleGerarLote} className="space-y-3">
+              {/* Seletor de Abas: Lote Sequencial vs Restaurar Código Específico */}
+              <div className="flex rounded-xl bg-zinc-100 dark:bg-neutral-800/80 p-1 mb-3.5 border border-zinc-200 dark:border-neutral-700/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoEmissaoManual("lote");
+                    setErroRestaurar(null);
+                    setFeedbackRestaurarSucesso(null);
+                  }}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    modoEmissaoManual === "lote"
+                      ? "bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white shadow-xs"
+                      : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <span>⚡ Emissão de Lote</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoEmissaoManual("restaurar");
+                    setErroRestaurar(null);
+                    setFeedbackRestaurarSucesso(null);
+                  }}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    modoEmissaoManual === "restaurar"
+                      ? "bg-white dark:bg-neutral-900 text-zinc-900 dark:text-white shadow-xs"
+                      : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+                  <span>🔄 Restaurar Código (ex: GP-0138)</span>
+                </button>
+              </div>
+
+              {modoEmissaoManual === "restaurar" ? (
+                <form onSubmit={handleRestaurarCodigo} className="space-y-3.5">
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-xs text-rose-900 dark:text-rose-200">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <RotateCcw className="w-4 h-4 text-rose-500 shrink-0" />
+                      Recuperação de Plaquinha Física
+                    </p>
+                    <p className="mt-1 text-[11px] text-rose-800/80 dark:text-rose-300/80 leading-relaxed">
+                      Utilize quando um código físico impresso (como <strong>GP-0138</strong>) foi excluído ou não consta no sistema. A plaquinha será recriada como <strong>virgem</strong> em estoque, pronta para ativação.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
+                      Código Físico a Restaurar *
+                    </label>
+                    <input
+                      type="text"
+                      value={codigoRestaurar}
+                      onChange={(e) => setCodigoRestaurar(e.target.value.toUpperCase())}
+                      placeholder="Ex: GP-0138 ou 138"
+                      required
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 bg-zinc-50 dark:bg-neutral-950 text-sm font-mono font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                    <p className="text-[10px] text-zinc-400 mt-1">
+                      Você pode digitar apenas o número (ex: 138) ou o código com prefixo (ex: GP-0138).
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
+                      Vincular Proprietário Inicial *
+                    </label>
+                    <select
+                      value={alunoProprietarioRestaurar}
+                      onChange={(e) => setAlunoProprietarioRestaurar(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-800 bg-zinc-50 dark:bg-neutral-950 text-xs font-medium text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                    >
+                      <option value="403183b5-02f6-46a7-b448-7658c5087ec4">
+                        🏢 GOPlak (Admin) — Estoque Matriz
+                      </option>
+                      {alunos
+                        .filter((a) => a.id !== "403183b5-02f6-46a7-b448-7658c5087ec4" && a.email !== "daniel.rodrigues2508@gmail.com")
+                        .map((aluno) => (
+                          <option key={aluno.id} value={aluno.id}>
+                            👤 {aluno.nome} {aluno.codigoAcesso ? `(${aluno.codigoAcesso})` : aluno.email ? `(${aluno.email})` : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {erroRestaurar && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-600 dark:text-red-400 text-xs flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{erroRestaurar}</span>
+                    </div>
+                  )}
+
+                  {feedbackRestaurarSucesso && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2">
+                      <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{feedbackRestaurarSucesso}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200 dark:border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => setModalEmissaoManualAberto(false)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-neutral-400 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={restaurandoCodigo || !codigoRestaurar.trim()}
+                      className="font-extrabold py-2 px-4 rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs bg-rose-600 hover:bg-rose-500 text-white"
+                    >
+                      {restaurandoCodigo ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Restaurando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Restaurar Código Físico</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleGerarLote} className="space-y-3">
                 {/* 1. TIPO DE EMISSÃO (SELEÇÃO PRINCIPAL) */}
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
@@ -6069,6 +6343,7 @@ export default function PainelDistribuidorAdmin() {
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </div>
         )}
