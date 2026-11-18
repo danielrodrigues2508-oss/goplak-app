@@ -10,14 +10,14 @@ const SUPABASE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "sb_publishable_LZO7dhUojnqVHY_k14Od7w_xIpaL0xC";
 
-function getClient() {
+export function getClient() {
   return createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
 // Normaliza código para buscar no banco
-function normalizarCodigo(raw: string): string[] {
+export function normalizarCodigo(raw: string): string[] {
   const limpo = (raw || "").trim().toUpperCase();
   const variacoes = [limpo];
 
@@ -76,12 +76,16 @@ export async function GET(request: Request) {
       );
     }
 
-    const linkDestino = (
+    let linkDestino = (
       placa.link_google_review ||
       placa.link_destino ||
       placa.url_destino ||
       ""
     ).trim();
+
+    if (linkDestino && !linkDestino.startsWith("http://") && !linkDestino.startsWith("https://")) {
+      linkDestino = `https://${linkDestino}`;
+    }
 
     return NextResponse.json(
       {
@@ -89,6 +93,7 @@ export async function GET(request: Request) {
         encontrada: true,
         placa: {
           ...placa,
+          link_google_review: linkDestino,
           link_destino: linkDestino,
         },
       },
@@ -130,5 +135,76 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (_) {
     return NextResponse.json({ success: false }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const {
+      id,
+      codigo,
+      nome_empresa,
+      link_google_review,
+      whatsapp_feedback,
+      valor_venda,
+      aluno_id,
+      status,
+    } = body;
+
+    if (!id && !codigo) {
+      return NextResponse.json(
+        { success: false, error: "ID ou código da placa não fornecido" },
+        { status: 400 }
+      );
+    }
+
+    let linkFormatado = (link_google_review || "").trim();
+    if (linkFormatado && !linkFormatado.startsWith("http://") && !linkFormatado.startsWith("https://")) {
+      linkFormatado = `https://${linkFormatado}`;
+    }
+
+    const supabase = getClient();
+    const updatePayload: Record<string, any> = {
+      status: status || "ativa",
+      activated_at: new Date().toISOString(),
+    };
+
+    if (nome_empresa !== undefined) updatePayload.nome_empresa = (nome_empresa || "").trim();
+    if (linkFormatado) updatePayload.link_google_review = linkFormatado;
+    if (whatsapp_feedback !== undefined) {
+      updatePayload.whatsapp_feedback = String(whatsapp_feedback).replace(/\D/g, "");
+    }
+    if (valor_venda !== undefined) {
+      updatePayload.valor_venda = parseFloat(String(valor_venda).replace(",", ".")) || 80;
+    }
+    if (aluno_id) updatePayload.aluno_id = aluno_id;
+
+    let query = supabase.from("placas").update(updatePayload);
+    if (id) {
+      query = query.eq("id", id);
+    } else {
+      query = query.ilike("codigo", String(codigo).trim().toUpperCase());
+    }
+
+    const { data, error } = await query.select().maybeSingle();
+
+    if (error) {
+      console.error("Erro no update server-side da placa:", error.message);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      placa: {
+        ...data,
+        link_google_review: linkFormatado || data?.link_google_review || "",
+        link_destino: linkFormatado || data?.link_google_review || "",
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Erro no PATCH de placa:", msg);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

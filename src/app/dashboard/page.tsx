@@ -1765,16 +1765,23 @@ export default function DashboardAluno() {
       let ativacaoSucesso = false;
       let erroMsgFinal = "";
 
+      let linkFormatado = formLinkGoogle.trim();
+      if (linkFormatado && !linkFormatado.startsWith("http://") && !linkFormatado.startsWith("https://")) {
+        linkFormatado = `https://${linkFormatado}`;
+      }
+
+      const agoraIso = new Date().toISOString();
+
       if (placaSelecionadaId.startsWith("virtual-")) {
         const payload = {
           codigo: codigoPlaca,
           status: "ativa",
           nome_empresa: formNomeEmpresa.trim(),
-          link_google_review: formLinkGoogle.trim() || null,
+          link_google_review: linkFormatado || null,
           whatsapp_feedback: formWhatsappFeedback.replace(/\D/g, "") || null,
           valor_venda: valorNum,
           aluno_id: alunoId,
-          activated_at: new Date().toISOString(),
+          activated_at: agoraIso,
         };
 
         const { error: errIns } = await supabase.from("placas").insert([payload]);
@@ -1805,38 +1812,62 @@ export default function DashboardAluno() {
         const payloadUpdate = {
           status: "ativa",
           nome_empresa: formNomeEmpresa.trim(),
-          link_google_review: formLinkGoogle.trim() || null,
+          link_google_review: linkFormatado || null,
           whatsapp_feedback: formWhatsappFeedback.replace(/\D/g, "") || null,
           valor_venda: valorNum,
-          activated_at: new Date().toISOString(),
+          aluno_id: alunoId,
+          activated_at: agoraIso,
         };
 
-        const { error: errUpdate } = await supabase
-          .from("placas")
-          .update(payloadUpdate)
-          .eq("id", placaSelecionadaId);
+        // 1. Tenta API server-side
+        try {
+          const resApi = await fetch("/api/placa-publica", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: placaSelecionadaId,
+              nome_empresa: formNomeEmpresa.trim(),
+              link_google_review: linkFormatado,
+              whatsapp_feedback: formWhatsappFeedback.replace(/\D/g, "") || null,
+              valor_venda: valorNum,
+              aluno_id: alunoId,
+              status: "ativa",
+            }),
+          });
+          if (resApi.ok) {
+            const dataApi = await resApi.json();
+            if (dataApi.success) ativacaoSucesso = true;
+          }
+        } catch (_) {}
 
-        if (!errUpdate) {
-          ativacaoSucesso = true;
-        } else {
-          console.warn("Tentando fallback REST para update da placa:", errUpdate);
-          try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaSelecionadaId}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              },
-              body: JSON.stringify(payloadUpdate),
-            });
-            if (res.ok) {
-              ativacaoSucesso = true;
-            } else {
-              erroMsgFinal = `Erro ao ativar display: ${errUpdate.message}`;
+        if (!ativacaoSucesso) {
+          const { error: errUpdate } = await supabase
+            .from("placas")
+            .update(payloadUpdate)
+            .eq("id", placaSelecionadaId);
+
+          if (!errUpdate) {
+            ativacaoSucesso = true;
+          } else {
+            console.warn("Tentando fallback REST para update da placa:", errUpdate);
+            try {
+              const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaSelecionadaId}`, {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                },
+                body: JSON.stringify(payloadUpdate),
+              });
+              if (res.ok) {
+                ativacaoSucesso = true;
+              } else {
+                erroMsgFinal = `Erro ao ativar display: ${errUpdate.message}`;
+              }
+            } catch (restErr: any) {
+              erroMsgFinal = `Erro de conexão ao ativar display: ${restErr.message || String(restErr)}`;
             }
-          } catch (restErr: any) {
-            erroMsgFinal = `Erro de conexão ao ativar display: ${restErr.message || String(restErr)}`;
           }
         }
       }
@@ -2383,47 +2414,56 @@ export default function DashboardAluno() {
         nomeEmpresaFinal = `${nomeLimpo} [${partesExtras.join(" | ")}]`;
       }
 
+      const agoraIso = new Date().toISOString();
       const updatePayload: Record<string, any> = {
+        status: "ativa",
         nome_empresa: nomeEmpresaFinal,
         link_google_review: linkFormatado,
-        link_destino: linkFormatado,
         whatsapp_feedback: whatsLimpo,
         valor_venda: valorDisplayNum,
+        activated_at: agoraIso,
       };
 
-      if (linkFormatado && placaEditando.status === "virgem") {
-        updatePayload.status = "ativa";
-        updatePayload.activated_at = new Date().toISOString();
-      }
-
-      // Tenta enviar com colunas estendidas caso o banco as tenha
-      const payloadEstendido: Record<string, any> = {
-        ...updatePayload,
-        responsavel_nome: respLimpo,
-        whatsapp_contato: whatsLimpo,
-        servicos_adicionais: servicosValidos,
-        outras_vendas: servicosValidos.length > 0 ? servicosValidos : null,
-      };
-
-      const { error: errEstendido } = await supabase
-        .from("placas")
-        .update(payloadEstendido)
-        .eq("id", placaEditando.id);
-
-      if (errEstendido) {
-        console.warn("Fallback update campos base na placa:", errEstendido.message);
-        // Fallback para schema base caso colunas novas não existam
-        const { error: errBase } = await supabase
-          .from("placas")
-          .update({
+      // 1. Tenta API server-side garantida
+      let salvouViaApi = false;
+      try {
+        const resApi = await fetch("/api/placa-publica", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: placaEditando.id,
             nome_empresa: nomeEmpresaFinal,
             link_google_review: linkFormatado,
             whatsapp_feedback: whatsLimpo,
             valor_venda: valorDisplayNum,
-          })
+            status: "ativa",
+          }),
+        });
+        if (resApi.ok) {
+          const jsonApi = await resApi.json();
+          if (jsonApi.success) salvouViaApi = true;
+        }
+      } catch (_) {}
+
+      // 2. Se não salvou via API server-side, usa Supabase SDK
+      if (!salvouViaApi) {
+        const { error: errBase } = await supabase
+          .from("placas")
+          .update(updatePayload)
           .eq("id", placaEditando.id);
 
-        if (errBase) throw new Error(errBase.message);
+        if (errBase) {
+          // Fallback REST direto
+          await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${placaEditando.id}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(updatePayload),
+          });
+        }
       }
 
       // Atualiza o estado da lista localmente na hora sem reload

@@ -290,6 +290,8 @@ function LoginForm() {
 
       if (typeof window !== "undefined") {
         localStorage.setItem("goplak_aluno_logado", JSON.stringify(sessaoAluno));
+        document.cookie = `goplak_aluno_id=${encodeURIComponent(aluno.id)}; path=/; max-age=31536000; SameSite=Lax`;
+        document.cookie = `goplak_aluno_cod=${encodeURIComponent(codFormatado)}; path=/; max-age=31536000; SameSite=Lax`;
       }
 
       setSuccessMsg(`Bem-vindo(a), ${aluno.nome || "Aluno"}! Acessando...`);
@@ -345,6 +347,9 @@ function LoginForm() {
           userRole === "admin";
 
         if (isAdmin) {
+          if (typeof window !== "undefined") {
+            document.cookie = `goplak_admin=1; path=/; max-age=31536000; SameSite=Lax`;
+          }
           setSuccessMsg("Login de Administrador realizado com sucesso! Redirecionando...");
           const destinoFinal = redirectTo && redirectTo !== "/login" ? redirectTo : "/admin";
           setTimeout(() => {
@@ -361,6 +366,8 @@ function LoginForm() {
         if (isAprovado) {
           if (aluno && typeof window !== "undefined") {
             const codigoMatch = aluno.whatsapp?.match(/GP-\d{4}/i)?.[0] || "";
+            document.cookie = `goplak_aluno_id=${encodeURIComponent(aluno.id)}; path=/; max-age=31536000; SameSite=Lax`;
+            document.cookie = `goplak_aluno_cod=${encodeURIComponent(codigoMatch)}; path=/; max-age=31536000; SameSite=Lax`;
             localStorage.setItem(
               "goplak_aluno_logado",
               JSON.stringify({
