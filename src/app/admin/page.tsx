@@ -2860,50 +2860,61 @@ export default function PainelDistribuidorAdmin() {
         partesExtras.push(`Serviço: ${s.descricao} ${valTxt} (${cobrancaTxt})`.trim());
       });
 
-      if (partesExtras.length > 0) {
+      if (partesExtras.length > 0 && nomeLimpo) {
         nomeEmpresaFinal = `${nomeLimpo} [${partesExtras.join(" | ")}]`;
+      } else if (partesExtras.length > 0 && !nomeLimpo) {
+        nomeEmpresaFinal = `[${partesExtras.join(" | ")}]`;
       }
 
       const agoraIso = new Date().toISOString();
       const alunoIdFinal = editAlunoId || placaEditandoAdmin.aluno_id || "403183b5-02f6-46a7-b448-7658c5087ec4";
 
+      // Determinação de status:
+      // Se não houver link nem loja (ou apenas alterou o aluno em estoque virgem), mantém ou define como "virgem"
+      let statusFinal: "virgem" | "ativa" = "virgem";
+      let activatedAtFinal: string | null = null;
+
+      if (linkFormatado) {
+        statusFinal = "ativa";
+        activatedAtFinal = placaEditandoAdmin.activated_at || agoraIso;
+      } else if (nomeLimpo && placaEditandoAdmin.status === "ativa") {
+        statusFinal = "ativa";
+        activatedAtFinal = placaEditandoAdmin.activated_at || agoraIso;
+      } else {
+        statusFinal = "virgem";
+        activatedAtFinal = null;
+      }
+
       const updatePayload: Record<string, any> = {
         aluno_id: alunoIdFinal,
         nome_empresa: nomeEmpresaFinal,
         link_google_review: linkFormatado,
-        link_destino: linkFormatado,
         whatsapp_feedback: whatsLimpo,
         valor_venda: valorNum,
+        status: statusFinal,
+        activated_at: activatedAtFinal,
       };
 
-      // Se a placa estava virgem e está sendo configurada com link, atualiza status para ativa
-      if (linkFormatado && placaEditandoAdmin.status === "virgem") {
-        updatePayload.status = "ativa";
-        updatePayload.activated_at = agoraIso;
-      }
-
-      // Tenta atualizar colunas estendidas caso existam
-      const payloadEstendido: Record<string, any> = {
-        ...updatePayload,
-        responsavel_nome: respLimpo,
-        whatsapp_contato: whatsLimpo,
-        servicos_adicionais: servicosValidos,
-        outras_vendas: servicosValidos.length > 0 ? servicosValidos : null,
-      };
-
-      const { error: errEstendido } = await supabase
+      const { error: errBase } = await supabase
         .from("placas")
-        .update(payloadEstendido)
-        .eq("id", placaEditandoAdmin.id);
+        .update(updatePayload)
+        .eq("id", placaEditandoAdmin.id!);
 
-      if (errEstendido) {
-        console.warn("Fallback para update sem colunas extras:", errEstendido.message);
-        const { error: errBase } = await supabase
-          .from("placas")
-          .update(updatePayload)
-          .eq("id", placaEditandoAdmin.id);
-
-        if (errBase) throw new Error(errBase.message);
+      if (errBase) {
+        // Fallback REST direto com chave anon se SDK tiver problema
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${encodeURIComponent(placaEditandoAdmin.id || "")}`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(updatePayload),
+        });
+        if (!res.ok) {
+          throw new Error(errBase.message);
+        }
       }
 
       // Atualiza estado local de placasCadastradas
@@ -7475,11 +7486,10 @@ export default function PainelDistribuidorAdmin() {
                 {/* Nome do Comércio / Estabelecimento */}
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
-                    Nome da Loja / Estabelecimento *
+                    Nome da Loja / Estabelecimento
                   </label>
                   <input
                     type="text"
-                    required
                     disabled={salvandoEdicaoPlaca}
                     value={editNomeLoja}
                     onChange={(e) => setEditNomeLoja(e.target.value)}
