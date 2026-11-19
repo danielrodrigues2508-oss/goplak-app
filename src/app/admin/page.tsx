@@ -2895,14 +2895,27 @@ export default function PainelDistribuidorAdmin() {
         activated_at: activatedAtFinal,
       };
 
-      const { error: errBase } = await supabase
-        .from("placas")
-        .update(updatePayload)
-        .eq("id", placaEditandoAdmin.id!);
+      let errBase: any = null;
+      if (placaEditandoAdmin.id) {
+        const { error } = await supabase
+          .from("placas")
+          .update(updatePayload)
+          .eq("id", placaEditandoAdmin.id);
+        errBase = error;
+      } else {
+        const { error } = await supabase
+          .from("placas")
+          .update(updatePayload)
+          .eq("codigo", placaEditandoAdmin.codigo);
+        errBase = error;
+      }
 
       if (errBase) {
         // Fallback REST direto com chave anon se SDK tiver problema
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?id=eq.${encodeURIComponent(placaEditandoAdmin.id || "")}`, {
+        const queryParam = placaEditandoAdmin.id
+          ? `id=eq.${encodeURIComponent(placaEditandoAdmin.id)}`
+          : `codigo=eq.${encodeURIComponent(placaEditandoAdmin.codigo)}`;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/placas?${queryParam}`, {
           method: "PATCH",
           headers: {
             apikey: SUPABASE_ANON_KEY,
@@ -2913,14 +2926,15 @@ export default function PainelDistribuidorAdmin() {
           body: JSON.stringify(updatePayload),
         });
         if (!res.ok) {
-          throw new Error(errBase.message);
+          throw new Error(errBase.message || "Erro ao salvar alterações no banco");
         }
       }
 
       // Atualiza estado local de placasCadastradas
       setPlacasCadastradas((prev) =>
         prev.map((p) =>
-          p.id === placaEditandoAdmin.id
+          (placaEditandoAdmin.id && p.id === placaEditandoAdmin.id) ||
+          p.codigo === placaEditandoAdmin.codigo
             ? {
                 ...p,
                 ...updatePayload,
@@ -7535,7 +7549,7 @@ export default function PainelDistribuidorAdmin() {
                     Link do Google Maps / Avaliação
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     disabled={salvandoEdicaoPlaca}
                     value={editLinkGoogle}
                     onChange={(e) => setEditLinkGoogle(e.target.value)}
