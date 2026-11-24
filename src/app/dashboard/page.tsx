@@ -48,7 +48,8 @@ import {
   Trash2,
   Bell,
   PlusCircle,
-  Search
+  Search,
+  Camera
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -250,6 +251,7 @@ export default function DashboardAluno() {
 
   // Modal 1: Ativar Novo Display em Campo (Disparado pelo Botão Flutuante +)
   const [modalAtivacaoAberto, setModalAtivacaoAberto] = useState(false);
+  const [codigoManualInput, setCodigoManualInput] = useState("");
   const [placaSelecionadaId, setPlacaSelecionadaId] = useState<string>("");
   const [formNomeEmpresa, setFormNomeEmpresa] = useState("");
   const [formLinkGoogle, setFormLinkGoogle] = useState("");
@@ -1775,6 +1777,20 @@ export default function DashboardAluno() {
     } finally {
       setExcluindoPlaca(false);
     }
+  };
+
+  const irParaPlaca = (raw: string) => {
+    const limpo = (raw || "").trim().toUpperCase();
+    if (!limpo) return;
+    let code = limpo;
+    if (/^\d+$/.test(code)) code = `GP-${code.padStart(4, "0")}`;
+    else if (/^GP\d+$/.test(code)) code = `GP-${code.slice(2)}`;
+    else if (/^GP-\d+$/.test(code)) {
+      const m = code.match(/^GP-(\d+)$/);
+      if (m) code = `GP-${m[1].padStart(4, "0")}`;
+    }
+    setModalAtivacaoAberto(false);
+    router.push(`/p/${code}`);
   };
 
   // 1. ATIVAR NOVO DISPLAY EM CAMPO (Atualiza placa virgem para ativa)
@@ -4095,7 +4111,10 @@ export default function DashboardAluno() {
       {/* BOTÃO FLUTUANTE PRINCIPAL (+): EXCLUSIVAMENTE PARA ATIVAR NOVO DISPLAY EM CAMPO */}
       {(isMasterAdmin || statusAluno === "ativo") && (
         <button
-          onClick={() => setModalAtivacaoAberto(true)}
+          onClick={() => {
+            setCodigoManualInput("");
+            setModalAtivacaoAberto(true);
+          }}
           className="fixed bottom-6 right-6 sm:right-auto sm:left-1/2 sm:translate-x-44 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black font-bold p-4 rounded-full shadow-2xl flex items-center justify-center gap-2 border-2 border-emerald-300/40 transition-all z-40 group cursor-pointer"
           aria-label="Ativar Novo Display em Campo"
           title="Ativar Novo Display em Campo"
@@ -4104,205 +4123,133 @@ export default function DashboardAluno() {
         </button>
       )}
 
-      {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO */}
+      {/* MODAL 1: ATIVAR NOVO DISPLAY EM CAMPO (INSTRUÇÃO OBRIGATÓRIA DE LEITURA DO QR CODE) */}
       {modalAtivacaoAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl p-4 shadow-2xl my-auto box-border max-h-[92vh] overflow-y-auto overflow-x-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl my-auto box-border max-h-[92vh] overflow-y-auto space-y-5 text-left">
             {/* Cabeçalho */}
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 shrink-0">
-                  <QrCode className="w-5 h-5" />
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shrink-0">
+                  <Camera className="w-6 h-6 text-emerald-400" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base font-bold text-white truncate">
-                    Ativar Display em Campo
+                  <h3 className="text-base sm:text-lg font-bold text-white truncate">
+                    Ativar Plaquinha Física
                   </h3>
-                  <p className="text-[11px] text-zinc-400 truncate">
-                    Vincule a placa virgem ao cliente
+                  <p className="text-xs text-zinc-400 truncate">
+                    Leitura obrigatória do QR Code em mãos
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setModalAtivacaoAberto(false)}
-                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 shrink-0 cursor-pointer"
+                className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 shrink-0 transition cursor-pointer"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Conteúdo */}
-            {placasVirgensDisponiveis.length === 0 ? (
-              <div className="text-center py-5 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
-                  <Package className="w-6 h-6" />
+            {/* Card Destaque de Instrução */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-zinc-900/60 to-zinc-900 border border-emerald-500/30 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                <QrCode className="w-4 h-4" />
+                <span>Instrução de Ativação</span>
+              </div>
+              <p className="text-sm sm:text-base font-semibold text-white leading-relaxed">
+                Para ativar uma plaquinha física, aponte a câmera do seu celular diretamente para o QR Code da placa que está em suas mãos e toque no link para vincular e cadastrar o cliente.
+              </p>
+            </div>
+
+            {/* Passo a Passo */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">
+                Como Funciona na Prática:
+              </h4>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
+                  1
                 </div>
-                <div>
-                  <h4 className="font-bold text-white text-sm sm:text-base">Sem displays virgens em estoque</h4>
-                  <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-                    Você não possui placas virgens disponíveis no momento. Solicite um novo lote de displays para continuar ativando.
-                  </p>
+                <div className="space-y-0.5 text-xs text-zinc-300">
+                  <span className="font-bold text-white block">Pegue a placa física</span>
+                  <span>A plaquinha física em suas mãos possui o QR Code único gravado nela.</span>
                 </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
+                  2
+                </div>
+                <div className="space-y-0.5 text-xs text-zinc-300">
+                  <span className="font-bold text-white block">Aponte a Câmera do Smartphone</span>
+                  <span>Abra a câmera normal do seu celular e aponte para o QR Code (ou aproxime via NFC). O link aparecerá na tela do celular.</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/60">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
+                  3
+                </div>
+                <div className="space-y-0.5 text-xs text-zinc-300">
+                  <span className="font-bold text-white block">Cadastre o Cliente</span>
+                  <span>A placa será auto-reivindicada para o seu cadastro e abrirá a tela para você cadastrar o nome do cliente e o link do Google Review!</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Aviso por que não escolher por lista */}
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90 leading-relaxed">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Atenção:</strong> Como as plaquinhas físicas não têm numeração impressa, a ativação via QR Code garante que o cliente seja vinculado exatamente à placa que está em suas mãos.
+              </span>
+            </div>
+
+            {/* Atalho caso saiba o código exato */}
+            <div className="pt-2 border-t border-zinc-800/80 space-y-2">
+              <label className="block text-xs font-medium text-zinc-400">
+                Ou digite o código da placa caso já o conheça (ex: GP-0060):
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ex: GP-0060"
+                  value={codigoManualInput}
+                  onChange={(e) => setCodigoManualInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      irParaPlaca(codigoManualInput);
+                    }
+                  }}
+                  className="flex-1 h-10 px-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-emerald-500 uppercase"
+                />
                 <button
                   type="button"
-                  onClick={() => {
-                    setModalAtivacaoAberto(false);
-                    setModalSolicitarAberto(true);
-                  }}
-                  className="bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  onClick={() => irParaPlaca(codigoManualInput)}
+                  disabled={!codigoManualInput.trim()}
+                  className="h-10 px-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition cursor-pointer"
                 >
-                  Solicitar Displays (+)
+                  <span>Abrir</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
-            ) : (
-              <form onSubmit={handleAtivarDisplay} className="space-y-3 w-full box-border">
-                {/* Linha Display (55%) + Valor (45%) */}
-                <div className="flex gap-2 w-full">
-                  <div className="w-[55%] min-w-0">
-                    <label className="block text-xs font-medium text-zinc-400 mb-1 truncate">
-                      Display ({placasVirgensDisponiveis.length} un) *
-                    </label>
-                    <select
-                      value={placaSelecionadaId}
-                      onChange={(e) => setPlacaSelecionadaId(e.target.value)}
-                      required
-                      className="w-full h-10 px-2.5 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500 box-border cursor-pointer truncate"
-                    >
-                      {placasVirgensDisponiveis.map((p) => (
-                        <option key={p.id} value={p.id} className="bg-zinc-900 text-white">
-                          {p.codigo}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            </div>
 
-                  <div className="w-[45%] shrink-0">
-                    <label className="block text-xs font-medium text-zinc-400 mb-1 truncate flex items-center gap-1">
-                      <DollarSign className="w-3 h-3 text-zinc-500" /> Valor (R$) *
-                    </label>
-                    <input
-                      type="number"
-                      step="5.00"
-                      required
-                      placeholder="80.00"
-                      value={formValorVenda}
-                      onChange={(e) => setFormValorVenda(e.target.value)}
-                      className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-emerald-400 font-bold text-sm focus:outline-none focus:border-emerald-500 box-border"
-                    />
-                  </div>
-                </div>
-
-                {/* Nome do Estabelecimento */}
-                <div className="w-full">
-                  <label className="block text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1">
-                    <Store className="w-3 h-3 text-zinc-500" /> Nome do Estabelecimento / Cliente *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Barbearia VIP, Padaria Central..."
-                    value={formNomeEmpresa}
-                    onChange={(e) => setFormNomeEmpresa(e.target.value)}
-                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 box-border"
-                    autoFocus
-                  />
-                </div>
-
-                {/* Link Google Review */}
-                <div className="w-full">
-                  <label className="block text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1">
-                    <Link2 className="w-3 h-3 text-zinc-500" /> Link de Avaliação Google (Google Review)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="Ex: https://g.page/r/... ou https://maps.app.goo.gl/..."
-                    value={formLinkGoogle}
-                    onChange={(e) => setFormLinkGoogle(e.target.value)}
-                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-zinc-200 text-xs font-mono focus:outline-none focus:border-emerald-500 box-border"
-                  />
-                  {/* Grid 2 colunas: Gerar Link Google & Gravar NFC Tools */}
-                  <div className="grid grid-cols-2 gap-2 mt-1.5 w-full box-border">
-                    <button
-                      type="button"
-                      onClick={() => window.open('https://share.google/YGTkj3nJeNNbyMYFJ', '_blank', 'noopener,noreferrer')}
-                      className="h-8.5 px-2 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 active:scale-[0.98] text-sky-400 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
-                      title="Gerar Link de Avaliação no Google"
-                    >
-                      <span className="truncate">🔍 Gerar Link Google</span>
-                      <ExternalLink className="w-2.5 h-2.5 text-sky-400/80 shrink-0" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCopiarLinkNfc(formLinkGoogle)}
-                      className="h-8.5 px-2 rounded-xl border border-violet-500/40 bg-violet-950/40 hover:bg-violet-900/40 active:scale-[0.98] text-violet-300 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer truncate"
-                      title="Copiar link para gravar na placa via NFC Tools"
-                    >
-                      <span className="truncate">📋 Copiar Link p/ NFC</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* WhatsApp da Gerência / Feedback */}
-                <div className="w-full">
-                  <label className="block text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-zinc-500" /> WhatsApp do Proprietário / Gerência
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: (11) 99999-8888"
-                    value={formatarWhatsapp(formWhatsappFeedback)}
-                    onChange={(e) => setFormWhatsappFeedback(e.target.value)}
-                    className="w-full h-10 px-3 bg-zinc-900/90 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 box-border"
-                  />
-                </div>
-
-                {/* Escudo Anti-Golpe Ativo */}
-                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 flex items-start gap-2.5 box-border">
-                  <input
-                    type="checkbox"
-                    id="escudoAtivoCheck"
-                    checked={formEscudoAtivo}
-                    onChange={(e) => setFormEscudoAtivo(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer accent-emerald-500 shrink-0"
-                  />
-                  <label htmlFor="escudoAtivoCheck" className="text-xs text-zinc-300 cursor-pointer select-none leading-snug">
-                    <span className="font-bold text-emerald-400 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 inline text-emerald-400 shrink-0" />
-                      Escudo de Reputação Ativo
-                    </span>
-                    <span className="text-[11px] text-zinc-400 block mt-0.5">
-                      Filtra notas 1 a 3 estrelas para WhatsApp privado e 4 a 5 para Google Oficial.
-                    </span>
-                  </label>
-                </div>
-
-                {/* Botões Cancelar e Ativar */}
-                <div className="grid grid-cols-2 gap-2 w-full pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setModalAtivacaoAberto(false)}
-                    className="w-full h-11 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 font-semibold rounded-xl text-sm box-border cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={ativandoDisplay}
-                    className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold rounded-xl text-sm box-border cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20"
-                  >
-                    {ativandoDisplay ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
-                        <span>Ativando...</span>
-                      </>
-                    ) : (
-                      <span>Ativar Display 🚀</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
+            {/* Botão Entendi */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setModalAtivacaoAberto(false)}
+                className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold rounded-xl text-sm transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Entendi, vou escanear com a câmera</span>
+                <Check className="w-4 h-4 stroke-[3]" />
+              </button>
+            </div>
           </div>
         </div>
       )}
