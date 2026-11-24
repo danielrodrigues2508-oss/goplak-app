@@ -279,18 +279,16 @@ export default function DisplayRedirectClient({
           placaData.status === "virgem" ||
           (!placaData.nome_empresa && !linkDestino);
 
-        const podeReivindicar =
-          !userIsAdmin &&
-          (isPlacaAdmin || (isVirgemSemUso && isPlacaAdmin));
-
         if (userIsAdmin) {
           setPlacaPertenceAoUsuario(true);
-        } else if (podeReivindicar) {
-          // Auto-reivindicação de placa virgem vinculada ao Admin ("GOPlak")
+        } else if (isDono) {
+          setPlacaPertenceAoUsuario(true);
+        } else if (isVirgemSemUso) {
+          // Auto-reivindicação imediata com troca 1-por-1 (nunca exibe "Acesso não autorizado" para placa virgem)
           setPlacaPertenceAoUsuario(true);
           if (currentAlunoId) {
             try {
-              await fetch("/api/placa-publica", {
+              const resAuto = await fetch("/api/placa-publica", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -299,14 +297,18 @@ export default function DisplayRedirectClient({
                   status: "virgem",
                 }),
               });
+              if (resAuto.ok) {
+                const j = await resAuto.json();
+                if (j?.placa) {
+                  placaData = { ...placaData, ...j.placa, aluno_id: currentAlunoId };
+                }
+              }
             } catch (errAutoClaim) {
               console.warn("Aviso ao auto-vincular placa virgem:", errAutoClaim);
             }
             placaData.aluno_id = currentAlunoId;
             setPlaca({ ...placaData, aluno_id: currentAlunoId });
           }
-        } else if (isDono) {
-          setPlacaPertenceAoUsuario(true);
         } else {
           setPlacaPertenceAoUsuario(false);
         }

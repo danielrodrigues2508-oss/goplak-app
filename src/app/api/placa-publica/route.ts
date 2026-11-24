@@ -165,6 +165,74 @@ export async function PATCH(request: Request) {
     }
 
     const supabase = getClient();
+    const ADMIN_ID = "403183b5-02f6-46a7-b448-7658c5087ec4";
+
+    // 1. Busca a placa alvo para verificar se é virgem e quem é o dono atual
+    let targetPlaca: any = null;
+    try {
+      let qBusca = supabase
+        .from("placas")
+        .select("id, codigo, aluno_id, status, nome_empresa, link_google_review");
+      if (id) {
+        qBusca = qBusca.eq("id", id);
+      } else {
+        qBusca = qBusca.ilike("codigo", String(codigo).trim().toUpperCase());
+      }
+      const { data: dTarget } = await qBusca.maybeSingle();
+      targetPlaca = dTarget;
+    } catch (_) {}
+
+    // 2. Troca automática 1-por-1:
+    // Se a placa alvo for VIRGEM e estiver sendo vinculada a um aluno diferente:
+    // Se o aluno já possuir placas virgens no estoque dele (ex: Bonni com 10),
+    // transfere a placa física escaneada para o aluno e devolve 1 placa virgem antiga do estoque dele para o Admin ("GOPlak"),
+    // mantendo o saldo total sempre exato (ex: 10 em estoque -> 1 nova física + 9 antigas).
+    if (targetPlaca && aluno_id && aluno_id !== ADMIN_ID && targetPlaca.aluno_id !== aluno_id) {
+      const isPlacaVirgem =
+        targetPlaca.status === "virgem" ||
+        (!targetPlaca.nome_empresa && !targetPlaca.link_google_review);
+
+      if (isPlacaVirgem) {
+        try {
+          const { data: placasDoAluno } = await supabase
+            .from("placas")
+            .select("id, codigo, status, nome_empresa, link_google_review, created_at")
+            .eq("aluno_id", aluno_id);
+
+          const virgensDoAluno = (placasDoAluno || []).filter(
+            (p: any) =>
+              p.id !== targetPlaca.id &&
+              (p.status === "virgem" || (!p.nome_empresa && !p.link_google_review)) &&
+              (!p.nome_empresa || p.nome_empresa.trim() === "") &&
+              (!p.link_google_review || p.link_google_review.trim() === "")
+          );
+
+          if (virgensDoAluno.length > 0) {
+            // Devolve 1 placa virgem antiga do aluno para o estoque virgem do Admin
+            const placaParaDevolver = virgensDoAluno[virgensDoAluno.length - 1];
+            await supabase
+              .from("placas")
+              .update({
+                aluno_id: ADMIN_ID,
+                status: "virgem",
+                nome_empresa: "",
+                link_google_review: "",
+                whatsapp_feedback: "",
+                valor_venda: 80,
+                activated_at: null,
+              })
+              .eq("id", placaParaDevolver.id);
+
+            console.log(
+              `[Auto-Troca 1-por-1] Placa ${placaParaDevolver.codigo} devolvida para Admin ao vincular ${targetPlaca.codigo} ao aluno ${aluno_id}`
+            );
+          }
+        } catch (errSwap) {
+          console.warn("Aviso ao realizar troca 1-por-1 de placa virgem:", errSwap);
+        }
+      }
+    }
+
     const updatePayload: Record<string, any> = {
       status: status || "ativa",
     };
