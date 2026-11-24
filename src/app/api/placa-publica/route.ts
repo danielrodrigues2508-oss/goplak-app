@@ -167,8 +167,12 @@ export async function PATCH(request: Request) {
     const supabase = getClient();
     const updatePayload: Record<string, any> = {
       status: status || "ativa",
-      activated_at: new Date().toISOString(),
     };
+    if (status === "ativa" || (!status && linkFormatado)) {
+      updatePayload.activated_at = new Date().toISOString();
+    } else if (status === "virgem") {
+      updatePayload.activated_at = null;
+    }
 
     if (nome_empresa !== undefined) updatePayload.nome_empresa = (nome_empresa || "").trim();
     if (linkFormatado) updatePayload.link_google_review = linkFormatado;

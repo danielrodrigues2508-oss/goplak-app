@@ -38,6 +38,8 @@ function formatarTelefone(valor: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+const ADMIN_ID = "403183b5-02f6-46a7-b448-7658c5087ec4";
+
 export default function DisplayRedirectClient({
   codigo,
   initialPlaca,
@@ -144,6 +146,21 @@ export default function DisplayRedirectClient({
             if (rawAluno) alunoLocal = JSON.parse(rawAluno);
           } catch (_) {}
 
+          // Fallback para cookie se não achou no localStorage
+          if (!alunoLocal && typeof document !== "undefined") {
+            try {
+              const matchId = document.cookie.match(/(?:^|;\s*)goplak_aluno_id=([^;]+)/);
+              const matchCod = document.cookie.match(/(?:^|;\s*)goplak_aluno_cod=([^;]+)/);
+              if (matchId && matchId[1]) {
+                alunoLocal = {
+                  id: decodeURIComponent(matchId[1]),
+                  codigo: matchCod ? decodeURIComponent(matchCod[1]) : "",
+                  nome: "Aluno Parceiro",
+                };
+              }
+            } catch (_) {}
+          }
+
           try {
             for (let i = 0; i < localStorage.length; i++) {
               const k = localStorage.key(i) || "";
@@ -169,10 +186,19 @@ export default function DisplayRedirectClient({
               }
             }
           } catch (_) {}
+
+          if (!userIsAdmin && typeof document !== "undefined") {
+            try {
+              if (document.cookie.includes("goplak_admin=1")) {
+                userIsAdmin = true;
+              }
+            } catch (_) {}
+          }
         }
 
         const isDono = Boolean(
-          (alunoLocal?.id && placaData.aluno_id === alunoLocal.id) ||
+          (alunoLocal?.id && (placaData.aluno_id === alunoLocal.id || placaData.aluno_id === alunoLocal.codigo)) ||
+          (alunoLocal?.codigo && placaData.aluno_id === alunoLocal.codigo) ||
           (authUser?.id && placaData.aluno_id === authUser.id)
         );
         const isProprietarioOuAdmin = userIsAdmin || isDono;
@@ -242,13 +268,20 @@ export default function DisplayRedirectClient({
 
         // Se estiver logado como aluno ativo ou Admin:
         const currentAlunoId = alunoLocal?.id || authUser?.id;
-        const ADMIN_ID = "403183b5-02f6-46a7-b448-7658c5087ec4";
         const isPlacaAdmin =
           !placaData.aluno_id ||
           placaData.aluno_id === ADMIN_ID ||
           placaData.aluno_id === "" ||
-          placaData.aluno_id === "admin";
-        const podeReivindicar = !userIsAdmin && isPlacaAdmin;
+          placaData.aluno_id === "admin" ||
+          placaData.aluno_id === "GOPlak";
+
+        const isVirgemSemUso =
+          placaData.status === "virgem" ||
+          (!placaData.nome_empresa && !linkDestino);
+
+        const podeReivindicar =
+          !userIsAdmin &&
+          (isPlacaAdmin || (isVirgemSemUso && isPlacaAdmin));
 
         if (userIsAdmin) {
           setPlacaPertenceAoUsuario(true);
@@ -360,7 +393,12 @@ export default function DisplayRedirectClient({
         nomeEmpresaFinal = `${nomeLimpo} [${partesExtras.join(" | ")}]`;
       }
 
-      const alunoIdFinal = usuario?.id && !isAdmin ? usuario.id : placa.aluno_id;
+      const alunoIdFinal =
+        usuario?.id && !isAdmin
+          ? usuario.id
+          : placa.aluno_id && placa.aluno_id !== ADMIN_ID
+          ? placa.aluno_id
+          : usuario?.id || placa.aluno_id;
 
       // 1. TENTA PRIMEIRO VIA API SERVER-SIDE (com Service Role Key, sem bloqueio de RLS)
       let salvou = false;
