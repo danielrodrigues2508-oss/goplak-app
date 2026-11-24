@@ -19,7 +19,32 @@ export async function POST(request: Request) {
       },
     });
 
-    // 1. Deletar da tabela public.alunos EXCLUSIVAMENTE pelo email
+    const adminMatrizId = "403183b5-02f6-46a7-b448-7658c5087ec4";
+
+    // 1. Antes de excluir, transferir todas as placas do aluno para o estoque da matriz GOPlak (impedir perda de placas)
+    if (userId) {
+      try {
+        await adminClient.from("placas").update({ aluno_id: adminMatrizId }).eq("aluno_id", userId);
+      } catch (errPlacas) {
+        console.warn("Aviso ao transferir placas via userId na API:", errPlacas);
+      }
+    }
+    if (email) {
+      try {
+        const { data: alunoDb } = await adminClient
+          .from("alunos")
+          .select("id")
+          .ilike("email", String(email).trim().toLowerCase())
+          .maybeSingle();
+        if (alunoDb?.id) {
+          await adminClient.from("placas").update({ aluno_id: adminMatrizId }).eq("aluno_id", alunoDb.id);
+        }
+      } catch (errPlacasEmail) {
+        console.warn("Aviso ao transferir placas via email na API:", errPlacasEmail);
+      }
+    }
+
+    // 2. Deletar da tabela public.alunos EXCLUSIVAMENTE pelo email
     if (email) {
       await adminClient.from("alunos").delete().ilike("email", String(email).trim().toLowerCase());
     } else if (userId) {

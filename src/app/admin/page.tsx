@@ -3369,10 +3369,39 @@ export default function PainelDistribuidorAdmin() {
         } catch (_) {}
       }
 
-      // 2. Atualizar estado local instantaneamente para feedback imediato
+      // 2. Garantir que as placas do aluno NUNCA sejam perdidas: transfere automaticamente para o estoque do Admin ("GOPlak")
+      const adminMatrizId = "403183b5-02f6-46a7-b448-7658c5087ec4";
+      try {
+        await supabase
+          .from("placas")
+          .update({ aluno_id: adminMatrizId })
+          .eq("aluno_id", alunoId);
+      } catch (errPlacas) {
+        console.warn("Aviso ao transferir placas do aluno para Admin:", errPlacas);
+      }
+
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/placas?aluno_id=eq.${encodeURIComponent(alunoId)}`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ aluno_id: adminMatrizId }),
+        });
+      } catch (_) {}
+
+      // Atualiza localmente as placas para o Admin
+      setPlacasCadastradas((prev) =>
+        prev.map((p) => (p.aluno_id === alunoId ? { ...p, aluno_id: adminMatrizId } : p))
+      );
+
+      // 3. Atualizar estado local instantaneamente para feedback imediato
       setAlunos((prev) => prev.filter((a) => a.id !== alunoId));
 
-      // 3. Deletar da tabela public.alunos EXCLUSIVAMENTE pelo email
+      // 4. Deletar da tabela public.alunos EXCLUSIVAMENTE pelo email
       const emailLimpo = (email || "").trim().toLowerCase();
       if (emailLimpo) {
         try {
@@ -3395,7 +3424,7 @@ export default function PainelDistribuidorAdmin() {
         } catch (_) {}
       }
 
-      // 4. Chamar API route para deletar do Supabase Auth
+      // 5. Chamar API route para deletar do Supabase Auth e garantir transferência no servidor
       try {
         await fetch("/api/admin-delete-user", {
           method: "POST",
@@ -3406,7 +3435,7 @@ export default function PainelDistribuidorAdmin() {
         console.warn("Aviso na chamada da rota de exclusão:", apiErr);
       }
 
-      alert(`Cadastro de ${nome || email} excluído com sucesso.`);
+      alert(`Cadastro de ${nome || email} excluído com sucesso. As placas foram transferidas para o estoque da matriz GOPlak.`);
     } catch (err: any) {
       console.error("Erro ao excluir aluno:", err);
       alert(`Erro ao excluir aluno: ${err.message || "Tente novamente."}`);
